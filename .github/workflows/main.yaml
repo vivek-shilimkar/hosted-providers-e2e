@@ -1,0 +1,87 @@
+# This workflow is a reusable one called by other workflows
+name: E2E Tests workflow
+on:
+  workflow_dispatch:
+  # Variables to set when calling this reusable workflow
+    inputs:
+      rancher_version:
+        description: Rancher version to deploy
+        required: true
+        type: string
+        default: 2.8-head
+      destroy_runner:
+        description: Destroy the auto-generated self-hosted runner
+        default: true
+        type: boolean
+      runner_template:
+        description: Runner template to use
+        default: hosted-providers-e2e-ci-runner-spot-x86-64-template-v1
+        type: string
+
+jobs:
+  create-runner:
+    runs-on: ubuntu-latest
+    outputs:
+      uuid: ${{ steps.generator.outputs.uuid }}
+      runner: ${{ steps.generator.outputs.runner }}
+    steps:
+      # actions/checkout MUST come before auth
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Generate UUID and Runner hostname
+        id: generator
+        run: |
+          UUID=$(uuidgen)
+          echo "uuid=${UUID}" >> ${GITHUB_OUTPUT}
+          echo "runner=hosted-providers-ci-${UUID}" >> ${GITHUB_OUTPUT}
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v1
+      - name: Create runner
+        run: |
+          gcloud compute instances create ${{ steps.generator.outputs.runner }} \
+            --zone ${{ vars.GCP_ZONE }} \
+            --source-instance-template ${{ inputs.runner_template }}
+      - name: Create PAT token secret
+        run: |
+          echo -n ${{ secrets.PAT_TOKEN }} \
+            | gcloud secrets create PAT_TOKEN_${{ steps.generator.outputs.uuid }} --data-file=-
+            
+  e2e-tests:
+    needs:  create-runner
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: (Remove this action later) Run something to ensure the runner is setup
+        run: |
+          echo "Hello from the runner; hostname $(hostname -A)"
+
+  delete-runner:
+    if: ${{ always() && needs.create-runner.result == 'success' && inputs.destroy_runner == true }}
+    needs:
+      - create-runner
+      - e2e-tests
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout MUST come before auth
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v1
+      - name: Delete PAT token secret
+        run: |
+          gcloud --quiet secrets delete PAT_TOKEN_${{ needs.create-runner.outputs.uuid }}
+      - name: Delete runner
+        run: |
+          gcloud --quiet compute instances delete ${{ needs.create-runner.outputs.runner }} \
+            --delete-disks all \
+            --zone ${{ vars.GCP_ZONE }}
+
