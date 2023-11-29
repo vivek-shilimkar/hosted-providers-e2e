@@ -45,8 +45,9 @@ var _ = Describe("P0Provisioning", func() {
 			Expect(err).To(BeNil())
 		})
 		AfterEach(func() {
-			// TODO: Delete Resource group also from AKS
 			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
+			Expect(err).To(BeNil())
+			err = helper.DeleteAKSClusteronAzure(clusterName)
 			Expect(err).To(BeNil())
 		})
 		It("should successfully provision the cluster", func() {

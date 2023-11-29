@@ -74,7 +74,6 @@ func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Cl
 	upgradedCluster.AKSConfig = cluster.AKSConfig
 	nodeConfig := AksHostNodeConfig()
 
-	// TODO: Get Count from config file or function parameter
 	for i := 1; i <= increaseBy; i++ {
 		for _, np := range nodeConfig {
 			newNodepool := management.AKSNodePool{
@@ -145,7 +144,7 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 	}
 
 	fmt.Println("Creating AKS cluster ...")
-	out, err = proc.RunW("az", "aks", "create", "--resource-group", clusterName, "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--node-count", nodes)
+	out, err = proc.RunW("az", "aks", "create", "--resource-group", clusterName, "--generate-ssh-keys", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--node-count", nodes)
 	if err != nil {
 		return errors.Wrap(err, "Failed to create cluster: "+out)
 	}

@@ -9,6 +9,23 @@ on:
         required: true
         type: string
         default: 2.8-head
+      run_provisioning_tests:
+          required: true
+          default: true
+          type: boolean
+      run_importing_tests:
+          required: true
+          default: true
+          type: boolean
+      run_support_matrix_tests:
+          required: true
+          default: true
+          type: boolean
+      keep_rancher_cluster:
+          type: boolean
+          description: "Keep the cluster afterwards?"
+          required: true
+          default: false
       destroy_runner:
         description: Destroy the auto-generated self-hosted runner
         default: true
@@ -17,7 +34,23 @@ on:
         description: Runner template to use
         default: hosted-providers-e2e-ci-runner-spot-x86-64-template-v1
         type: string
+      zone:
+        description: GCP zone to host the runner
+        default: us-west1-b
+        type: string
 
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  EKS_REGION: ${{ secrets.EKS_REGION }}
+  GCP_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+  AKS_CLIENT_ID: ${{ secrets.AKS_CLIENT_ID }}
+  AKS_CLIENT_SECRET: ${{ secrets.AKS_CLIENT_SECRET }}
+  AKS_SUBSCRIPTION_ID: ${{ secrets.AKS_SUBSCRIPTION_ID }}
+  AKS_TENANT_ID: ${{ secrets.AKS_TENANT_ID }}
+  GKE_PROJECT_ID: ${{ secrets.GKE_PROJECT_ID }}
+  RANCHER_PASSWORD: rancherpassword
+        
 jobs:
   create-runner:
     runs-on: ubuntu-latest
@@ -27,7 +60,7 @@ jobs:
     steps:
       # actions/checkout MUST come before auth
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Generate UUID and Runner hostname
         id: generator
         run: |
@@ -43,33 +76,174 @@ jobs:
       - name: Create runner
         run: |
           gcloud compute instances create ${{ steps.generator.outputs.runner }} \
-            --zone ${{ vars.GCP_ZONE }} \
+            --zone ${{ inputs.zone }} \
             --source-instance-template ${{ inputs.runner_template }}
       - name: Create PAT token secret
         run: |
           echo -n ${{ secrets.PAT_TOKEN }} \
             | gcloud secrets create PAT_TOKEN_${{ steps.generator.outputs.uuid }} --data-file=-
+
+  installation:
+    if: ${{ always() && needs.create-runner.result == 'success' }}
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    needs:
+      - create-runner
+    outputs:
+      PUBLIC_IP: ${{ steps.runner-ip.outputs.PUBLIC_IP }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
             
-  e2e-tests:
-    needs:  create-runner
+      - name: Get Runner IP
+        id: runner-ip
+        run: echo "PUBLIC_IP=$(curl -s ifconfig.co)" >> "$GITHUB_OUTPUT"
+            
+      - name: Install K3s / Helm / Rancher
+        env:
+          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+          HELM_VERSION: 3.13.1
+          K3S_VERSION: v1.26.10+k3s1
+          RANCHER_VERSION: ${{ inputs.rancher_version }}
+          RANCHER_HOSTNAME: ${{steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
+        run: |
+          make prepare-e2e-ci-rancher
+            
+      - name: Install Azure cli
+        run: |
+          sudo zypper install -y azure-cli
+          pip install azure-cli
+            
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: '{"clientId":"${{ env.AKS_CLIENT_ID }}","clientSecret":"${{ env.AKS_CLIENT_SECRET }}","subscriptionId":"${{ env.AKS_SUBSCRIPTION_ID }}","tenantId":"${{ env.AKS_TENANT_ID }}"}'
+            
+      - name: Authenticate to GCP
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ env.GCP_CREDENTIALS }}'
+              
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v1
+                    
+      - name: Install gcloud kubectl version
+        run: gcloud components install kubectl
+            
+      - name: Install EKSCTL
+        run: |
+          # Better to always use the latest eksctl binary to avoid API version issue
+          EKSCTL_GH=https://github.com/weaveworks/eksctl/releases/latest/download
+          curl --location ${EKSCTL_GH}/eksctl_$(uname -s)_amd64.tar.gz | tar xz -C .
+          chmod +x eksctl
+          sudo mv eksctl /usr/local/bin
+            
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4.0.0
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.EKS_REGION }}
+            
+  provisioning-tests:
+    if: ${{ always() && needs.create-runner.result == 'success' && github.event.inputs.run_provisioning_tests == 'true' }}
+    needs:
+      - create-runner
+      - installation
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: (Remove this action later) Run something to ensure the runner is setup
+        uses: actions/checkout@v4
+            
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+            
+      - name: Provisioning cluster tests
+        env:
+          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-prov.yaml
         run: |
-          echo "Hello from the runner; hostname $(hostname -A)"
+          make e2e-provisioning-tests
+            
+  importing-tests:
+    if: ${{ always() && needs.create-runner.result == 'success' && github.event.inputs.run_importing_tests == 'true' }}
+    needs:
+      - create-runner
+      - installation
+      - provisioning-tests
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+            
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+            
+      - name: Importing cluster tests
+        env:
+          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-imp.yaml
+        run: |
+          make e2e-import-tests
+            
+  support-matrix-tests:
+    if: ${{ always() && needs.create-runner.result == 'success' && github.event.inputs.run_support_matrix_tests == 'true' }}
+    needs:
+      - create-runner
+      - installation
+      - provisioning-tests
+      - importing-tests
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+            
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+            
+      - name: Support matrix tests
+        env:
+          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-prov.yaml
+        run: |
+          make e2e-support-matrix-tests
+            
+  delete-cluster:
+    if: ${{ always() && needs.create-runner.result == 'success' && github.event.inputs.keep_cluster != 'true' }}
+    needs:
+      - create-runner
+      - installation
+      - provisioning-tests
+      - importing-tests
+      - support-matrix-tests
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+            
+      - name: Delete k3s cluster
+        run: |
+          make clean-all
 
   delete-runner:
     if: ${{ always() && needs.create-runner.result == 'success' && inputs.destroy_runner == true }}
     needs:
       - create-runner
-      - e2e-tests
+      - installation
+      - provisioning-tests
+      - importing-tests
+      - support-matrix-tests
+      - delete-cluster
     runs-on: ubuntu-latest
     steps:
       # actions/checkout MUST come before auth
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
         with:
@@ -83,5 +257,4 @@ jobs:
         run: |
           gcloud --quiet compute instances delete ${{ needs.create-runner.outputs.runner }} \
             --delete-disks all \
-            --zone ${{ vars.GCP_ZONE }}
-
+            --zone ${{ inputs.zone }}
