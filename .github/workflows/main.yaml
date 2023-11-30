@@ -142,7 +142,7 @@ jobs:
           aws-region: ${{ env.EKS_REGION }}
             
   provisioning-tests:
-    if: ${{ !cancelled() && github.event.inputs.run_provisioning_tests == 'true' }}
+    if: ${{ github.event.inputs.run_provisioning_tests == 'true' }}
     needs: [create-runner, installation]
     runs-on: self-hosted
     steps:
@@ -162,7 +162,7 @@ jobs:
           make e2e-provisioning-tests
             
   importing-tests:
-    if: ${{ !cancelled() && github.event.inputs.run_importing_tests == 'true' }}
+    if: ${{ github.event.inputs.run_importing_tests == 'true' }}
     needs: [create-runner, installation]
     runs-on: self-hosted
     steps:
@@ -190,8 +190,8 @@ jobs:
           make e2e-import-tests
             
   support-matrix-provisioning-tests:
-    if: ${{ !cancelled() && github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
-    needs: [create-runner, installation, provisioning-tests, importing-tests]
+    if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
+    needs: [create-runner, installation]
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -210,8 +210,8 @@ jobs:
           make e2e-support-matrix-tests
 
   support-matrix-importing-tests:
-    if: ${{ !cancelled() && github.event.inputs.run_support_matrix_importing_tests == 'true' }}
-    needs: [create-runner, installation, provisioning-tests, importing-tests]
+    if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
+    needs: [create-runner, installation]
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -228,7 +228,7 @@ jobs:
 
   delete-cluster:
     if: ${{ !cancelled() && github.event.inputs.keep_cluster != 'true' }}
-    needs: [create-runner, installation]
+    needs: [provisioning-tests, importing-tests, support-matrix-provisioning-tests, support-matrix-importing-tests]
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -240,7 +240,7 @@ jobs:
 
   delete-runner:
     if: ${{ always() && inputs.destroy_runner == true }}
-    needs: [create-runner, installation]
+    needs: [provisioning-tests, importing-tests, support-matrix-provisioning-tests, support-matrix-importing-tests]
     runs-on: ubuntu-latest
     steps:
       # actions/checkout MUST come before auth
