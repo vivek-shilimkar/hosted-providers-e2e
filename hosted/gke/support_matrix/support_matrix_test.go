@@ -1,6 +1,8 @@
 package support_matrix_test
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/rancher/rancher/tests/framework/extensions/pipeline"
 	"github.com/rancher/rancher/tests/framework/extensions/provisioninginput"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
+	"github.com/rancher/rancher/tests/framework/pkg/config"
 	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
@@ -28,11 +31,16 @@ var _ = Describe("SupportMatrix", func() {
 			var (
 				clusterName string
 				cluster     *management.Cluster
+				project     = os.Getenv("GKE_PROJECT_ID")
 			)
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString("gkehostcluster")
 				pipeline.UpdateHostedKubernetesVField(provisioninginput.GoogleProviderName.String(), version)
 				var err error
+				gkeConfig := new(management.GKEClusterConfigSpec)
+				config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
+					gkeConfig.ProjectID = project
+				})
 				cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)

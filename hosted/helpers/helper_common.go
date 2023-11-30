@@ -1,8 +1,11 @@
 package helpers
 
 import (
-	. "github.com/onsi/gomega"
+	"fmt"
+	"os"
+	"time"
 
+	. "github.com/onsi/gomega"
 	"github.com/rancher/rancher/tests/framework/clients/rancher"
 	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
 	"github.com/rancher/rancher/tests/framework/extensions/cloudcredentials"
@@ -10,15 +13,22 @@ import (
 	"github.com/rancher/rancher/tests/framework/extensions/cloudcredentials/azure"
 	"github.com/rancher/rancher/tests/framework/extensions/cloudcredentials/google"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
+	"github.com/rancher/rancher/tests/framework/extensions/pipeline"
+	"github.com/rancher/rancher/tests/framework/pkg/config"
 	"github.com/rancher/rancher/tests/framework/pkg/session"
 	"github.com/rancher/rancher/tests/framework/pkg/wait"
 	"github.com/rancher/rancher/tests/v2prov/defaults"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 const (
 	Timeout = 30 * time.Minute
+)
+
+var (
+	rancherPassword = os.Getenv("RANCHER_PASSWORD")
+	rancherHostname = os.Getenv("RANCHER_HOSTNAME")
+	cloudCredential *cloudcredentials.CloudCredential
 )
 
 type Context struct {
@@ -28,20 +38,56 @@ type Context struct {
 }
 
 func CommonBeforeSuite(cloud string) Context {
-	testSession := session.NewSession()
-	var cloudCredential *cloudcredentials.CloudCredential
 
-	rancherClient, err := rancher.NewClient("", testSession)
+	rancherConfig := new(rancher.Config)
+	config.LoadConfig(rancher.ConfigurationFileKey, rancherConfig)
+
+	rancherConfig.Host = rancherHostname
+	config.UpdateConfig(rancher.ConfigurationFileKey, rancherConfig)
+
+	token, err := pipeline.CreateAdminToken(rancherPassword, rancherConfig)
+	Expect(err).To(BeNil())
+
+	rancherConfig.AdminToken = token
+	config.UpdateConfig(rancher.ConfigurationFileKey, rancherConfig)
+
+	testSession := session.NewSession()
+	rancherClient, err := rancher.NewClient(rancherConfig.AdminToken, testSession)
+	Expect(err).To(BeNil())
+
+	setting := new(management.Setting)
+	resp, err := rancherClient.Management.Setting.ByID("server-url")
+	Expect(err).To(BeNil())
+
+	setting.Source = "env"
+	setting.Value = fmt.Sprintf("https://%s", rancherHostname)
+	resp, err = rancherClient.Management.Setting.Update(resp, setting)
 	Expect(err).To(BeNil())
 
 	switch cloud {
 	case "aks":
+		credentialConfig := new(cloudcredentials.AzureCredentialConfig)
+		credentialConfig.ClientID = os.Getenv("AKS_CLIENT_ID")
+		credentialConfig.SubscriptionID = os.Getenv("AKS_SUBSCRIPTION_ID")
+		credentialConfig.ClientSecret = os.Getenv("AKS_CLIENT_SECRET")
+
+		config.UpdateConfig("azureCredentials", credentialConfig)
 		cloudCredential, err = azure.CreateAzureCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
 	case "eks":
+		credentialConfig := new(cloudcredentials.AmazonEC2CredentialConfig)
+		credentialConfig.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
+		credentialConfig.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+		credentialConfig.DefaultRegion = os.Getenv("EKS_REGION")
+
+		config.UpdateConfig("awsCredentials", credentialConfig)
 		cloudCredential, err = aws.CreateAWSCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
 	case "gke":
+		credentialConfig := new(cloudcredentials.GoogleCredentialConfig)
+		credentialConfig.AuthEncodedJSON = os.Getenv("GCP_CREDENTIALS")
+
+		config.UpdateConfig("googleCredentials", credentialConfig)
 		cloudCredential, err = google.CreateGoogleCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
 	}

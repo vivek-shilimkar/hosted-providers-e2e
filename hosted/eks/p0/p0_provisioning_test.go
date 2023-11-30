@@ -37,6 +37,7 @@ var _ = Describe("P0Provisioning", func() {
 			Expect(err).To(BeNil())
 		})
 		AfterEach(func() {
+			// TODO Check if EKS cluster deleted on AWS
 			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
 			Expect(err).To(BeNil())
 		})

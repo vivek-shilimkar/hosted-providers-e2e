@@ -48,6 +48,8 @@ var _ = Describe("SupportMatrix", func() {
 			AfterEach(func() {
 				err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
 				Expect(err).To(BeNil())
+				err = helper.DeleteAKSClusteronAzure(clusterName)
+				Expect(err).To(BeNil())
 			})
 
 			It("should successfully provision the cluster", func() {
