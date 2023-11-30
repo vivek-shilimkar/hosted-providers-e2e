@@ -93,7 +93,8 @@ jobs:
             | gcloud secrets create PAT_TOKEN_${{ steps.generator.outputs.uuid }} --data-file=-
 
   installation:
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    # runs-on: ${{ needs.create-runner.outputs.uuid }}
+    runs-on: self-hosted
     needs: create-runner
     outputs:
       PUBLIC_IP: ${{ steps.runner-ip.outputs.PUBLIC_IP }}
@@ -141,9 +142,9 @@ jobs:
           aws-region: ${{ env.EKS_REGION }}
             
   provisioning-tests:
-    if: ${{ github.event.inputs.run_provisioning_tests == 'true' }}
+    if: ${{ !cancelled() && github.event.inputs.run_provisioning_tests == 'true' }}
     needs: [create-runner, installation]
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -161,9 +162,9 @@ jobs:
           make e2e-provisioning-tests
             
   importing-tests:
-    if: ${{ github.event.inputs.run_importing_tests == 'true' }}
+    if: ${{ !cancelled() && github.event.inputs.run_importing_tests == 'true' }}
     needs: [create-runner, installation]
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -189,9 +190,9 @@ jobs:
           make e2e-import-tests
             
   support-matrix-provisioning-tests:
-    if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
-    needs: [create-runner, installation]
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    if: ${{ !cancelled() && github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
+    needs: [create-runner, installation, provisioning-tests, importing-tests]
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -209,9 +210,9 @@ jobs:
           make e2e-support-matrix-tests
 
   support-matrix-importing-tests:
-    if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
-    needs: [create-runner, installation]
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    if: ${{ !cancelled() && github.event.inputs.run_support_matrix_importing_tests == 'true' }}
+    needs: [create-runner, installation, provisioning-tests, importing-tests]
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -228,7 +229,7 @@ jobs:
   delete-cluster:
     if: ${{ !cancelled() && github.event.inputs.keep_cluster != 'true' }}
     needs: [create-runner, installation]
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
