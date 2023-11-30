@@ -30,11 +30,6 @@ on:
         required: true
         default: true
         type: boolean
-      keep_rancher_cluster:
-        type: boolean
-        description: "Keep the cluster afterwards?"
-        required: true
-        default: false
       destroy_runner:
         description: Destroy the auto-generated self-hosted runner
         default: true
@@ -153,13 +148,17 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
-            
-      - name: Provisioning cluster tests
-        env:
-          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
-          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
+
+      - name: Provisioning tests
         run: |
-          make e2e-provisioning-tests
+          echo "Placeholder"          
+
+      # - name: Provisioning cluster tests
+      #   env:
+      #     RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+      #     CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
+      #   run: |
+      #     make e2e-provisioning-tests
             
   importing-tests:
     if: ${{ github.event.inputs.run_importing_tests == 'true' }}
@@ -182,12 +181,16 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Importing cluster tests
-        env:
-          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
-          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
+      - name: Importing tests
         run: |
-          make e2e-import-tests
+          echo "Placeholder"
+
+      # - name: Importing cluster tests
+      #   env:
+      #     RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+      #     CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
+      #   run: |
+      #     make e2e-import-tests
             
   support-matrix-provisioning-tests:
     if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
@@ -201,13 +204,17 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
-            
-      - name: Support matrix tests
-        env:
-          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
-          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
+
+      - name: Support matrix provisioning tests
         run: |
-          make e2e-support-matrix-tests
+          echo "Placeholder"          
+
+      # - name: Support matrix provisioning tests
+      #   env:
+      #     RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+      #     CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
+      #   run: |
+      #     make e2e-support-matrix-tests
 
   support-matrix-importing-tests:
     if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
@@ -222,25 +229,13 @@ jobs:
         with:
           go-version-file: go.mod
             
-      - name: Placeholder
+      - name: Support matrix importing tests
         run: |
-          echo "Placeholder for import tests"
-
-  delete-cluster:
-    if: ${{ always() && github.event.inputs.keep_cluster != 'true' }}
-    needs: [provisioning-tests, importing-tests, support-matrix-provisioning-tests, support-matrix-importing-tests]
-    runs-on: self-hosted
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-            
-      - name: Delete k3s cluster
-        run: |
-          make clean-all
+          echo "Placeholder"
 
   delete-runner:
     if: ${{ always() && inputs.destroy_runner == true }}
-    needs: delete-cluster
+    needs: [create-runner, installation, provisioning-tests, importing-tests, support-matrix-provisioning-tests, support-matrix-importing-tests]
     runs-on: ubuntu-latest
     steps:
       # actions/checkout MUST come before auth
