@@ -143,7 +143,7 @@ jobs:
             
   provisioning-tests:
     if: ${{ github.event.inputs.run_provisioning_tests == 'true' }}
-    needs: [create-runner, installation]
+    needs: installation
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -163,7 +163,7 @@ jobs:
             
   importing-tests:
     if: ${{ github.event.inputs.run_importing_tests == 'true' }}
-    needs: [create-runner, installation]
+    needs: installation
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -191,7 +191,7 @@ jobs:
             
   support-matrix-provisioning-tests:
     if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
-    needs: [create-runner, installation]
+    needs: installation
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -211,7 +211,7 @@ jobs:
 
   support-matrix-importing-tests:
     if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
-    needs: [create-runner, installation]
+    needs: installation
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -227,7 +227,7 @@ jobs:
           echo "Placeholder for import tests"
 
   delete-cluster:
-    if: ${{ !cancelled() && github.event.inputs.keep_cluster != 'true' }}
+    if: ${{ always() && github.event.inputs.keep_cluster != 'true' }}
     needs: [provisioning-tests, importing-tests, support-matrix-provisioning-tests, support-matrix-importing-tests]
     runs-on: self-hosted
     steps:
@@ -240,7 +240,7 @@ jobs:
 
   delete-runner:
     if: ${{ always() && inputs.destroy_runner == true }}
-    needs: [provisioning-tests, importing-tests, support-matrix-provisioning-tests, support-matrix-importing-tests]
+    needs: delete-cluster
     runs-on: ubuntu-latest
     steps:
       # actions/checkout MUST come before auth
