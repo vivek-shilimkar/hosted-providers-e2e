@@ -42,7 +42,7 @@ var _ = Describe("P0Provisioning", func() {
 			Expect(err).To(BeNil())
 		})
 
-		FIt("should successfully provision the cluster", func() {
+		It("should successfully provision the cluster", func() {
 
 			By("checking cluster name is same", func() {
 				Expect(cluster.Name).To(BeEquivalentTo(clusterName))

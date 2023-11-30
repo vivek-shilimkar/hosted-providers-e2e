@@ -88,8 +88,7 @@ jobs:
             | gcloud secrets create PAT_TOKEN_${{ steps.generator.outputs.uuid }} --data-file=-
 
   installation:
-    # runs-on: ${{ needs.create-runner.outputs.uuid }}
-    runs-on: self-hosted
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
     needs: create-runner
     outputs:
       PUBLIC_IP: ${{ steps.runner-ip.outputs.PUBLIC_IP }}
@@ -139,7 +138,7 @@ jobs:
   provisioning-tests:
     if: ${{ github.event.inputs.run_provisioning_tests == 'true' }}
     needs: installation
-    runs-on: self-hosted
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -149,21 +148,17 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Provisioning tests
+      - name: Provisioning cluster tests
+        env:
+          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
         run: |
-          echo "Placeholder"          
-
-      # - name: Provisioning cluster tests
-      #   env:
-      #     RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
-      #     CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
-      #   run: |
-      #     make e2e-provisioning-tests
+          make e2e-provisioning-tests
             
   importing-tests:
     if: ${{ github.event.inputs.run_importing_tests == 'true' }}
     needs: installation
-    runs-on: self-hosted
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -181,21 +176,17 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Importing tests
+      - name: Importing cluster tests
+        env:
+          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
         run: |
-          echo "Placeholder"
-
-      # - name: Importing cluster tests
-      #   env:
-      #     RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
-      #     CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
-      #   run: |
-      #     make e2e-import-tests
+          make e2e-import-tests
             
   support-matrix-provisioning-tests:
     if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
     needs: installation
-    runs-on: self-hosted
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -206,20 +197,16 @@ jobs:
           go-version-file: go.mod
 
       - name: Support matrix provisioning tests
+        env:
+          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
         run: |
-          echo "Placeholder"          
-
-      # - name: Support matrix provisioning tests
-      #   env:
-      #     RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
-      #     CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
-      #   run: |
-      #     make e2e-support-matrix-tests
+          make e2e-support-matrix-tests
 
   support-matrix-importing-tests:
     if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
     needs: installation
-    runs-on: self-hosted
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
