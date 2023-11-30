@@ -51,7 +51,7 @@ var _ = Describe("P0Importing", func() {
 			// TODO: Force delete EKS cluster
 		})
 
-		It("should successfully import the cluster", func() {
+		FIt("should successfully import the cluster", func() {
 
 			By("checking cluster name is same", func() {
 				Expect(cluster.Name).To(BeEquivalentTo(clusterName))

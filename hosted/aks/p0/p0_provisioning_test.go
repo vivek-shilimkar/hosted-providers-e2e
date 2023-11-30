@@ -50,7 +50,7 @@ var _ = Describe("P0Provisioning", func() {
 			err = helper.DeleteAKSClusteronAzure(clusterName)
 			Expect(err).To(BeNil())
 		})
-		It("should successfully provision the cluster", func() {
+		FIt("should successfully provision the cluster", func() {
 
 			By("checking cluster name is same", func() {
 				Expect(cluster.Name).To(BeEquivalentTo(clusterName))

@@ -9,23 +9,32 @@ on:
         required: true
         type: string
         default: 2.8-head
+      k3s_version:
+        description: k3s version of local cluster
+        required: true
+        type: string
+        default: v1.26.10+k3s1
       run_provisioning_tests:
-          required: true
-          default: true
-          type: boolean
+        required: true
+        default: true
+        type: boolean
       run_importing_tests:
-          required: true
-          default: true
-          type: boolean
-      run_support_matrix_tests:
-          required: true
-          default: true
-          type: boolean
+        required: true
+        default: true
+        type: boolean
+      run_support_matrix_provisioning_tests:
+        required: true
+        default: true
+        type: boolean
+      run_support_matrix_importing_tests:
+        required: true
+        default: true
+        type: boolean
       keep_rancher_cluster:
-          type: boolean
-          description: "Keep the cluster afterwards?"
-          required: true
-          default: false
+        type: boolean
+        description: "Keep the cluster afterwards?"
+        required: true
+        default: false
       destroy_runner:
         description: Destroy the auto-generated self-hosted runner
         default: true
@@ -84,10 +93,8 @@ jobs:
             | gcloud secrets create PAT_TOKEN_${{ steps.generator.outputs.uuid }} --data-file=-
 
   installation:
-    if: ${{ always() && needs.create-runner.result == 'success' }}
     runs-on: ${{ needs.create-runner.outputs.uuid }}
-    needs:
-      - create-runner
+    needs: create-runner
     outputs:
       PUBLIC_IP: ${{ steps.runner-ip.outputs.PUBLIC_IP }}
     steps:
@@ -102,7 +109,7 @@ jobs:
         env:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
           HELM_VERSION: 3.13.1
-          K3S_VERSION: v1.26.10+k3s1
+          K3S_VERSION: ${{ inputs.k3s_version }}
           RANCHER_VERSION: ${{ inputs.rancher_version }}
           RANCHER_HOSTNAME: ${{steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
         run: |
@@ -117,18 +124,7 @@ jobs:
         uses: azure/login@v1
         with:
           creds: '{"clientId":"${{ env.AKS_CLIENT_ID }}","clientSecret":"${{ env.AKS_CLIENT_SECRET }}","subscriptionId":"${{ env.AKS_SUBSCRIPTION_ID }}","tenantId":"${{ env.AKS_TENANT_ID }}"}'
-            
-      - name: Authenticate to GCP
-        uses: 'google-github-actions/auth@v1'
-        with:
-          credentials_json: '${{ env.GCP_CREDENTIALS }}'
-              
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v1
-                    
-      - name: Install gcloud kubectl version
-        run: gcloud components install kubectl
-            
+
       - name: Install EKSCTL
         run: |
           # Better to always use the latest eksctl binary to avoid API version issue
@@ -145,10 +141,8 @@ jobs:
           aws-region: ${{ env.EKS_REGION }}
             
   provisioning-tests:
-    if: ${{ always() && needs.create-runner.result == 'success' && github.event.inputs.run_provisioning_tests == 'true' }}
-    needs:
-      - create-runner
-      - installation
+    if: ${{ github.event.inputs.run_provisioning_tests == 'true' }}
+    needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
@@ -162,16 +156,13 @@ jobs:
       - name: Provisioning cluster tests
         env:
           RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
-          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-prov.yaml
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
         run: |
           make e2e-provisioning-tests
             
   importing-tests:
-    if: ${{ always() && needs.create-runner.result == 'success' && github.event.inputs.run_importing_tests == 'true' }}
-    needs:
-      - create-runner
-      - installation
-      - provisioning-tests
+    if: ${{ github.event.inputs.run_importing_tests == 'true' }}
+    needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
@@ -181,21 +172,25 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
-            
+
+      - name: Authenticate to GCP
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ env.GCP_CREDENTIALS }}'
+                
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v1
+
       - name: Importing cluster tests
         env:
           RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
-          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-imp.yaml
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
         run: |
           make e2e-import-tests
             
-  support-matrix-tests:
-    if: ${{ always() && needs.create-runner.result == 'success' && github.event.inputs.run_support_matrix_tests == 'true' }}
-    needs:
-      - create-runner
-      - installation
-      - provisioning-tests
-      - importing-tests
+  support-matrix-provisioning-tests:
+    if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
+    needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
@@ -209,18 +204,30 @@ jobs:
       - name: Support matrix tests
         env:
           RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
-          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-prov.yaml
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
         run: |
           make e2e-support-matrix-tests
+
+  support-matrix-importing-tests:
+    if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
+    needs: [create-runner, installation]
+    runs-on: ${{ needs.create-runner.outputs.uuid }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
             
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: go.mod
+            
+      - name: Placeholder
+        run: |
+          echo "Placeholder for import tests"
+
   delete-cluster:
-    if: ${{ always() && needs.create-runner.result == 'success' && github.event.inputs.keep_cluster != 'true' }}
-    needs:
-      - create-runner
-      - installation
-      - provisioning-tests
-      - importing-tests
-      - support-matrix-tests
+    if: ${{ !cancelled() && github.event.inputs.keep_cluster != 'true' }}
+    needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
@@ -231,14 +238,8 @@ jobs:
           make clean-all
 
   delete-runner:
-    if: ${{ always() && needs.create-runner.result == 'success' && inputs.destroy_runner == true }}
-    needs:
-      - create-runner
-      - installation
-      - provisioning-tests
-      - importing-tests
-      - support-matrix-tests
-      - delete-cluster
+    if: ${{ always() && inputs.destroy_runner == true }}
+    needs: [create-runner, installation]
     runs-on: ubuntu-latest
     steps:
       # actions/checkout MUST come before auth

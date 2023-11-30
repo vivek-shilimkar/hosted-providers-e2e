@@ -53,7 +53,7 @@ var _ = Describe("P0Importing", func() {
 			err = helper.DeleteAKSClusteronAzure(clusterName)
 			Expect(err).To(BeNil())
 		})
-		It("should successfully import the cluster & add, delete, scale nodepool", func() {
+		FIt("should successfully import the cluster & add, delete, scale nodepool", func() {
 
 			By("checking cluster name is same", func() {
 				Expect(cluster.Name).To(BeEquivalentTo(clusterName))
