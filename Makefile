@@ -52,8 +52,11 @@ e2e-import-tests: deps
 e2e-provisioning-tests: deps
 	ginkgo ${STANDARD_TEST_OPTIONS} --focus "P0Provisioning" ./hosted
 
-e2e-support-matrix-tests: deps
-	ginkgo ${STANDARD_TEST_OPTIONS} --focus "SupportMatrix" ./hosted
+e2e-support-matrix-importing-tests: deps
+	ginkgo ${STANDARD_TEST_OPTIONS} --focus "SupportMatrixImporting" ./hosted
+
+e2e-support-matrix-provisioning-tests: deps
+	ginkgo ${STANDARD_TEST_OPTIONS} --focus "SupportMatrixProvisioning" ./hosted
 
 clean-k3s:
 	/usr/local/bin/k3s-uninstall.sh

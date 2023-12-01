@@ -137,7 +137,7 @@ jobs:
             
   provisioning-tests:
     if: ${{ github.event.inputs.run_provisioning_tests == 'true' }}
-    needs: installation
+    needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
@@ -157,7 +157,7 @@ jobs:
             
   importing-tests:
     if: ${{ github.event.inputs.run_importing_tests == 'true' }}
-    needs: installation
+    needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
@@ -185,7 +185,7 @@ jobs:
             
   support-matrix-provisioning-tests:
     if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
-    needs: installation
+    needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
@@ -201,11 +201,11 @@ jobs:
           RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
         run: |
-          make e2e-support-matrix-tests
+          make e2e-support-matrix-provisioning-tests
 
   support-matrix-importing-tests:
     if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
-    needs: installation
+    needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
       - name: Checkout
@@ -215,10 +215,22 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
-            
+
+      - name: Authenticate to GCP
+        uses: 'google-github-actions/auth@v1'
+        with:
+          credentials_json: '${{ env.GCP_CREDENTIALS }}'
+                  
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v1
+
       - name: Support matrix importing tests
+        env:
+          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
         run: |
-          echo "Placeholder"
+          make e2e-support-matrix-importing-tests
+
 
   delete-runner:
     if: ${{ always() && inputs.destroy_runner == true }}
