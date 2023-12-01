@@ -1,8 +1,6 @@
 package support_matrix_test
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -10,7 +8,7 @@ import (
 
 	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
-	"github.com/rancher/rancher/tests/framework/extensions/clusters/gke"
+	"github.com/rancher/rancher/tests/framework/extensions/clusters/aks"
 	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
 	"github.com/rancher/rancher/tests/framework/extensions/pipeline"
 	"github.com/rancher/rancher/tests/framework/extensions/provisioninginput"
@@ -18,38 +16,42 @@ import (
 	"github.com/rancher/rancher/tests/framework/pkg/config"
 	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
 
-	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
+	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
-var _ = Describe("SupportMatrix", func() {
+var _ = Describe("SupportMatrixProvisioning", func() {
 
 	for _, version := range availableVersionList {
 		version := version
 
-		When(fmt.Sprintf("a cluster is created with k8s version %s", version), func() {
+		When(fmt.Sprintf("a cluster is created with kubernetes version %s", version), func() {
 			var (
 				clusterName string
 				cluster     *management.Cluster
-				project     = os.Getenv("GKE_PROJECT_ID")
 			)
 			BeforeEach(func() {
-				clusterName = namegen.AppendRandomString("gkehostcluster")
-				pipeline.UpdateHostedKubernetesVField(provisioninginput.GoogleProviderName.String(), version)
+				clusterName = namegen.AppendRandomString("akshostcluster")
+				pipeline.UpdateHostedKubernetesVField(provisioninginput.AzureProviderName.String(), version)
 				var err error
-				gkeConfig := new(management.GKEClusterConfigSpec)
-				config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
-					gkeConfig.ProjectID = project
+				aksConfig := new(aks.ClusterConfig)
+				config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {
+					aksConfig.ResourceGroup = clusterName
+					dnsPrefix := clusterName + "-dns"
+					aksConfig.DNSPrefix = &dnsPrefix
 				})
-				cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = aks.CreateAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
-				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
+				err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
+				Expect(err).To(BeNil())
+				err = helper.DeleteAKSClusteronAzure(clusterName)
 				Expect(err).To(BeNil())
 			})
+
 			It("should successfully provision the cluster", func() {
 				By("checking cluster name is same", func() {
 					Expect(cluster.Name).To(BeEquivalentTo(clusterName))

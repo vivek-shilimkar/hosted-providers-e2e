@@ -1,6 +1,8 @@
 package support_matrix_test
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -8,19 +10,15 @@ import (
 
 	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
-	"github.com/rancher/rancher/tests/framework/extensions/clusters/aks"
 	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
-	"github.com/rancher/rancher/tests/framework/extensions/pipeline"
-	"github.com/rancher/rancher/tests/framework/extensions/provisioninginput"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
-	"github.com/rancher/rancher/tests/framework/pkg/config"
 	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
 
-	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
+	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
-var _ = Describe("SupportMatrix", func() {
+var _ = Describe("SupportMatrixImporting", func() {
 
 	for _, version := range availableVersionList {
 		version := version
@@ -28,31 +26,27 @@ var _ = Describe("SupportMatrix", func() {
 		When(fmt.Sprintf("a cluster is created with kubernetes version %s", version), func() {
 			var (
 				clusterName string
+				region      = os.Getenv("EKS_REGION")
 				cluster     *management.Cluster
 			)
 			BeforeEach(func() {
-				clusterName = namegen.AppendRandomString("akshostcluster")
-				pipeline.UpdateHostedKubernetesVField(provisioninginput.AzureProviderName.String(), version)
+				clusterName = namegen.AppendRandomString("ekshostcluster")
 				var err error
-				aksConfig := new(aks.ClusterConfig)
-				config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {
-					aksConfig.ResourceGroup = clusterName
-					dnsPrefix := clusterName + "-dns"
-					aksConfig.DNSPrefix = &dnsPrefix
-				})
-				cluster, err = aks.CreateAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				err = helper.CreateEKSClusterOnAWS(region, clusterName, version, "1")
+				Expect(err).To(BeNil())
+				cluster, err = helper.ImportEKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
-				err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
+				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
 				Expect(err).To(BeNil())
-				err = helper.DeleteAKSClusteronAzure(clusterName)
+				err = helper.DeleteEKSClusterOnAWS(region, clusterName)
 				Expect(err).To(BeNil())
 			})
 
-			It("should successfully provision the cluster", func() {
+			It("should successfully import the cluster", func() {
 				By("checking cluster name is same", func() {
 					Expect(cluster.Name).To(BeEquivalentTo(clusterName))
 				})
