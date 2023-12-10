@@ -51,7 +51,7 @@ eksClusterConfig:
   privateAccess: false
   publicAccess: true
   publicAccessSources: []
-  region: ca-central-1
+  region: us-east-2
   secretsEncryption: false
   securityGroups: []
   serviceRole: ""
@@ -73,7 +73,7 @@ gkeClusterConfig:
     servicesSecondaryRangeName: ""
     subnetworkName: ""
     useIpAliases: true
-  kubernetesVersion: 1.26.5-gke.2700
+  kubernetesVersion: 1.27.4-gke.900
   labels:
     owner: hosted-provider-ci
   locations: []
@@ -113,7 +113,7 @@ gkeClusterConfig:
       autoUpgrade: true
     maxPodsConstraint: 110
     name: default-pool
-    version: 1.26.5-gke.2700
+    version: 1.27.4-gke.900
   privateClusterConfig:
     enablePrivateEndpoint: false
     enablePrivateNodes: false

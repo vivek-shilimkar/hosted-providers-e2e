@@ -32,13 +32,13 @@ var _ = Describe("SupportMatrixImporting", func() {
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString("akshostcluster")
 				var err error
+				err = helper.CreateAKSClusterOnAzure(location, clusterName, version, "1")
+				Expect(err).To(BeNil())
 				aksConfig := new(helper.ImportClusterConfig)
 				config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {
 					aksConfig.ResourceGroup = clusterName
 					aksConfig.ResourceLocation = location
 				})
-				err = helper.CreateAKSClusterOnAzure(location, clusterName, version, "1")
-				Expect(err).To(BeNil())
 				cluster, err = helper.ImportAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)

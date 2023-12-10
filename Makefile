@@ -2,8 +2,7 @@
 ### USED BY CI ###
 ##################
 
-# TODO Run tests parallely to reduce suite running time
-STANDARD_TEST_OPTIONS= -v -r --timeout=4h --keep-going --randomize-all --randomize-suites 
+STANDARD_TEST_OPTIONS= -v -r --timeout=2h --keep-going --randomize-all --randomize-suites -poll-progress-interval=5m -procs=3
 
 install-k3s: ## Install K3s with default options
 	curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=${K3S_VERSION} sh -s - --write-kubeconfig-mode 644
