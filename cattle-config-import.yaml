@@ -39,7 +39,7 @@ eksClusterConfig:
     subnets: []
     tags: {}
     userData: ""
-  region: us-west-1
+  region: ca-central-1
 gkeClusterConfig:
   projectID: <project>
   zone: us-central1-c
@@ -63,7 +63,7 @@ gkeClusterConfig:
       autoRepair: true
       autoUpgrade: true
     maxPodsConstraint: 110
-    version: 1.26.5-gke.2700
+    version: 1.27.4-gke.900
 googleCredentials:
 rancher:
   cleanup: false

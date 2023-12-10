@@ -1,6 +1,8 @@
 package support_matrix_test
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -13,13 +15,14 @@ import (
 var (
 	availableVersionList []string
 	ctx                  helpers.Context
+	project              = os.Getenv("GKE_PROJECT_ID")
 )
 
 func TestSupportMatrix(t *testing.T) {
 	RegisterFailHandler(Fail)
 	ctx = helpers.CommonBeforeSuite("gke")
 	var err error
-	availableVersionList, err = helper.ListSingleVariantGKEAvailableVersions(ctx.RancherClient, "container-project-qa", ctx.CloudCred.ID, "", "us-central1")
+	availableVersionList, err = helper.ListSingleVariantGKEAvailableVersions(ctx.RancherClient, project, ctx.CloudCred.ID, "", "us-central1")
 	Expect(err).To(BeNil())
 	RunSpecs(t, "SupportMatrix Suite")
 }

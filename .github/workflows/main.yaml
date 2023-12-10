@@ -81,7 +81,11 @@ jobs:
         run: |
           gcloud compute instances create ${{ steps.generator.outputs.runner }} \
             --zone ${{ inputs.zone }} \
-            --source-instance-template ${{ inputs.runner_template }}
+            --source-instance-template ${{ inputs.runner_template }} &> /dev/null
+      - name: Allow traffic
+        run: |
+          gcloud compute instances add-tags ${{ steps.generator.outputs.runner }} \
+            --tags http-server,https-server --zone ${{ inputs.zone }}
       - name: Create PAT token secret
         run: |
           echo -n ${{ secrets.PAT_TOKEN }} \

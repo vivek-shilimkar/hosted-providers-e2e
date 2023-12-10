@@ -23,7 +23,7 @@ var _ = Describe("P0Importing", func() {
 		ctx         helpers.Context
 		zone        = "us-central1-c"
 		project     = os.Getenv("GKE_PROJECT_ID")
-		k8sVersion  = "1.26.5-gke.2700"
+		k8sVersion  = "1.27.4-gke.900"
 		increaseBy  = 1
 	)
 	var _ = BeforeEach(func() {
