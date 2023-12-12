@@ -69,8 +69,10 @@ jobs:
         id: generator
         run: |
           UUID=$(uuidgen)
-          echo "uuid=${UUID}" >> ${GITHUB_OUTPUT}
-          echo "runner=hosted-providers-ci-${UUID}" >> ${GITHUB_OUTPUT}
+          GH_REPO_FULL=${{ github.repository }}
+          GH_REPO=${GH_REPO_FULL#*/}
+          echo "uuid=${UUID//-}" >> ${GITHUB_OUTPUT}
+          echo "runner=${GH_REPO//\//-}-ci-${UUID//-}" >> ${GITHUB_OUTPUT}
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
         with:
@@ -86,10 +88,12 @@ jobs:
         run: |
           gcloud compute instances add-tags ${{ steps.generator.outputs.runner }} \
             --tags http-server,https-server --zone ${{ inputs.zone }}
-      - name: Create PAT token secret
+      - name: Create GCP secrets
         run: |
           echo -n ${{ secrets.PAT_TOKEN }} \
             | gcloud secrets create PAT_TOKEN_${{ steps.generator.outputs.uuid }} --data-file=-
+          echo -n ${{ github.repository }} \
+            | gcloud secrets create GH_REPO_${{ steps.generator.outputs.uuid }} --data-file=-
 
   installation:
     runs-on: ${{ needs.create-runner.outputs.uuid }}
