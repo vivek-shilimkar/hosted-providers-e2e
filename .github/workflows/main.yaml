@@ -36,7 +36,7 @@ on:
         type: boolean
       runner_template:
         description: Runner template to use
-        default: hosted-providers-e2e-ci-runner-spot-x86-64-template-v1
+        default: hosted-prov-e2e-ci-runner-spot-x86-64-template-n2-highmem-32-v1
         type: string
       zone:
         description: GCP zone to host the runner
