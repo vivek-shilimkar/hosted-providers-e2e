@@ -1,280 +1,176 @@
+# Tests description for aks/p0
 
+## `p0_importing_test.go`
 
+- **Describe:** P0Importing
+    - **It:** should successfully import the cluster & add, delete, scale nodepool
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
+      -  **By:** scaling up the nodepool
+      -  **By:** scaling down the nodepool
+      -  **By:** adding a nodepool/s
+      -  **By:** deleting the nodepool
+  - **Context:** Upgrading K8s version
+    - **It:** should be able to upgrade k8s version of the cluster
+      -  **By:** upgrading the ControlPlane
+      -  **By:** upgrading the NodePools
 
-## Hosted Provider Provisioning Configs
+## `p0_provisioning_test.go`
 
-For your config, you will need everything in the Prerequisites section on the previous readme along with and at least one [Cloud Credential](#cloud-credentials) and [Hosted Provider Config](#hosted-provider-configs). 
+- **Describe:** P0Provisioning
+    - **It:** should successfully provision the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
+  - **Context:** Upgrading K8s version
+    - **It:** should be able to upgrade k8s version of the cluster
+      -  **By:** upgrading the ControlPlane
+      -  **By:** upgrading the NodePools
+    - **It:** should be possible to add or delete the nodepools
+      -  **By:** adding a nodepool
+      -  **By:** deleting the nodepool
+    - **It:** should be possible to scale up/down the nodepool
+      -  **By:** scaling up the nodepool
+      -  **By:** scaling down the nodepool
 
-Your GO test_package should be set to `provisioning/hosted`.
-Your GO suite should be set to `-run ^TestHostedClusterProvisioningTestSuite$`.
-Please see below for more details for your config. 
+# Tests description for aks/support_matrix
 
-1. [Prerequisites](../README.md)
-2. [Cloud Credential](#cloud-credentials)
-3. [Hosted Provider Config](#hosted-provider-configs)
-4. [Back to general provisioning](../README.md)
+## `support_matrix_importing_test.go`
 
-Below are example configs needed for the different hosted providers including GKE, AKS, and EKS. In order to run these tests, the [cloud credentials](#cloud-credentials) are also needed. GKE (googleCredentials), AKS(azureCredentials), and EKS(awsCredentials)
+- **Describe:** SupportMatrixImporting
+    - **It:** should successfully import the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
 
-## Cloud Credentials
+## `support_matrix_provisioning_test.go`
 
-### AWS
-```json
-"awsCredentials": {
-   "secretKey": "",
-   "accessKey": "",
-   "defaultRegion": ""
-  },
-```
-### Azure
-```json
-"azureCredentials": {
-   "clientId": "",
-   "clientSecret": "",
-     "subscriptionId": "",
-     "environment": "AzurePublicCloud"
-  },
-```
-### Google
-```json
-"googleCredentials": {
-    "authEncodedJson": ""
-}
-```
+- **Describe:** SupportMatrixProvisioning
+    - **It:** should successfully provision the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
 
-## Hosted Provider Configs
+# Tests description for eks/p0
 
-### EKS Cluster Config
-```json
-"eksClusterConfig": {
-  "imported": false,
-  "kmsKey": "",
-  "kubernetesVersion": "1.21",
-  "loggingTypes": [],
-  "nodeGroups": [
-    {
-      "desiredSize": 2,
-      "diskSize": 20,
-      "ec2SshKey": "",
-      "gpu": false,
-      "imageId": "",
-      "instanceType": "t3.medium",
-      "labels": {},
-      "maxSize": 2,
-      "minSize": 2,
-      "nodegroupName": "",
-      "requestSpotInstances": false,
-      "resourceTags": {},
-      "subnets": [],
-      "tags": {}
+## `p0_importing_test.go`
 
-    }
-  ],
-  "privateAccess": true,
-  "publicAccess": true,
-  "publicAccessSources": [],
-  "region": "us-east-2",
-  "secretsEncryption": false,
-  "securityGroups": [""],
-  "serviceRole": "",
-  "subnets": ["", ""],
-  "tags": {}
-},
-```
-### AKS Cluster Config
-```json
-"aksClusterConfig": {
-  "dnsPrefix": "-dns",
-  "imported": false,
-  "kubernetesVersion": "1.24.6",
-  "linuxAdminUsername": "azureuser",
-  "loadBalancerSku": "Standard",
-  "networkPlugin": "kubenet",
-  "nodePools": [
-    {
-      "availabilityZones": ["1", "2", "3"],
-      "nodeCount": 1,
-      "enableAutoScaling": false,
-      "maxPods": 110,
-      "maxCount": 2,
-      "minCount": 1,
-      "mode": "System",
-      "name": "agentpool",
-      "osDiskSizeGB": 128,
-      "osDiskType": "Managed",
-      "osType": "Linux",
-      "vmSize": "Standard_DS2_v2"
-    }
-  ],
-  "privateCluster": false,
-  "resourceGroup": "",
-  "resourceLocation": "eastus",
-  "tags": {}
-}
-```
-### GKE Cluster Config
-Note that the following are required and should be updated:
-* kubernetesVersion
-* location
-* locations
-* zone
-* labels
-* nodePools->name
-* nodePools->labels
-* nodePools->config->imageType (currently set to COS_CONTAINERD for use with 1.23+)
+- **Describe:** P0Importing
+    - **It:** should successfully import the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
+  - **Context:** Upgrading K8s version
+    - **It:** should be able to upgrade k8s version of the cluster
+      -  **By:** upgrading the ControlPlane
+      -  **By:** upgrading the NodeGroups
+    - **It:** should be possible to add or delete the NodeGroups
+      -  **By:** adding a NodeGroup/s
+      -  **By:** deleting the NodeGroup
+    - **It:** should be possible to scale up/down the NodeGroup
+      -  **By:** scaling up the NodeGroup
+      -  **By:** scaling down the NodeGroup
 
-```json
-"gkeClusterConfig" : {
-  "clusterAddons": {
-    "horizontalPodAutoscaling": true, 
-    "httpLoadBalancing": true, 
-    "networkPolicyConfig": false
-  },
-  "horizontalPodAutoscaling": true,
-  "httpLoadBalancing": true,
-  "networkPolicyConfig": false,
-  "clusterIpv4Cidr": "",
-  "enableKubernetesAlpha": false,
-  "ipAllocationPolicy": {
-    "clusterIpv4Cidr": "",
-    "clusterIpv4CidrBlock": null,
-    "clusterSecondaryRangeName": null,
-    "createSubnetwork": false,
-    "nodeIpv4CidrBlock": null,
-    "servicesIpv4CidrBlock": null,
-    "servicesSecondaryRangeName": null,
-    "subnetworkName": null,
-    "useIpAliases": true
-  },
-  "kubernetesVersion": "1.21.9-gke.1002",
-  "labels": {"key": "value"},
-  "locations": ["us-central1-c"],
-  "location": "us-central1-c"
-  "loggingService": "logging.googleapis.com/kubernetes",
-  "maintenanceWindow": "",
-  "masterAuthorizedNetworks": {
-    "enabled": false
-  },
-  "monitoringService": "monitoring.googleapis.com/kubernetes",
-  "network": "default",
-  "networkPolicyEnabled": false,
-  "nodePools": [
-    {
-      "autoscaling": {
-        "enabled": false,
-        "maxNodeCount": null,
-        "minNodeCount": null
-      },
-      "config": {
-        "diskSizeGb": 100,
-        "diskType": "pd-standard",
-        "imageType": "COS_CONTAINERD",
-        "labels": {"key": "value"},
-        "localSsdCount": 0,
-        "machineType": "n1-standard-2",
-        "oauthScopes": [
-          "https://www.googleapis.com/auth/devstorage.read_only",
-          "https://www.googleapis.com/auth/logging.write",
-          "https://www.googleapis.com/auth/monitoring",
-          "https://www.googleapis.com/auth/servicecontrol",
-          "https://www.googleapis.com/auth/service.management.readonly",
-          "https://www.googleapis.com/auth/trace.append"
-        ],
-        "preemptible": false,
-        "tags": null,
-        "taints": null
-      },
-      "initialNodeCount": 3,
-      "isNew": true,
-      "management": {
-        "autoRepair": true, 
-        "autoUpgrade": true
-      },
-      "maxPodsConstraint": 110,
-      "name": ""
-    }
-  ],
-  "privateClusterConfig": {
-    "enablePrivateEndpoint": false, 
-    "enablePrivateNodes": false, 
-    "masterIpv4CidrBlock": null
-  },
-  "projectID": "",
-  "region": "",
-  "subnetwork": "default",
-  "zone": "us-central1-c"
-}
-```
+## `p0_provisioning_test.go`
 
-### Import Cluster Configs
+- **Describe:** P0Provisioning
+    - **It:** should successfully provision the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
+  - **Context:** Upgrading K8s version
+    - **It:** should be able to upgrade k8s version of the cluster
+      -  **By:** upgrading the ControlPlane
+      -  **By:** upgrading the NodeGroups
+    - **It:** should be possible to add or delete the NodeGroups
+      -  **By:** adding a NodeGroup
+      -  **By:** deleting the NodeGroup
+    - **It:** should be possible to scale up/down the NodeGroup
+      -  **By:** scaling up the NodeGroup
+      -  **By:** scaling down the NodeGroup
 
-```yaml
+# Tests description for eks/support_matrix
 
-aksClusterConfig:
-  imported: true
-  nodePools:
-  - availabilityZones:
-    - "1"
-    - "2"
-    - "3"
-    count: 1
-    enableAutoScaling: false
-    maxPods: 110
-    mode: System
-    name: agentpool
-    osDiskSizeGB: 128
-    osDiskType: Managed
-    osType: Linux
-    vmSize: Standard_DS2_v2
-  resourceGroup: <resource_group>
-  resourceLocation: eastus
+## `support_matrix_importing_test.go`
 
+- **Describe:** SupportMatrixImporting
+    - **It:** should successfully import the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
 
-eksClusterConfig:
-  imported: true
-  region: us-west-1
-  nodeGroups:
-  - desiredSize: 1
-    diskSize: 20
-    ec2SshKey: ""
-    gpu: false
-    imageId: ""
-    instanceType: t3.large
-    labels: {}
-    maxSize: 1
-    minSize: 1
-    nodeRole: ""
-    nodegroupName: test
-    requestSpotInstances: false
-    resourceTags: {}
-    spotInstanceTypes: []
-    subnets: []
-    tags: {}
-    userData: ""
+## `support_matrix_provisioning_test.go`
 
+- **Describe:** SupportMatrixProvisioning
+    - **It:** should successfully provision the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
 
-gkeClusterConfig:
-  projectID: <project>
-  zone: us-central1-c
-  imported: true
-  nodePools:
-  - autoscaling: {}
-    config:
-      diskSizeGb: 100
-      diskType: pd-standard
-      imageType: COS_CONTAINERD
-      machineType: n1-standard-2
-      oauthScopes:
-      - https://www.googleapis.com/auth/devstorage.read_only
-      - https://www.googleapis.com/auth/logging.write
-      - https://www.googleapis.com/auth/monitoring
-      - https://www.googleapis.com/auth/servicecontrol
-      - https://www.googleapis.com/auth/service.management.readonly
-      - https://www.googleapis.com/auth/trace.append
-    initialNodeCount: 1
-    management:
-      autoRepair: true
-      autoUpgrade: true
-    maxPodsConstraint: 110
-    version: 1.26.5-gke.2700
-```
+# Tests description for gke/p0
+
+## `p0_importing_test.go`
+
+- **Describe:** P0Importing
+    - **It:** should successfully import the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
+  - **Context:** Upgrading K8s version
+    - **It:** should be able to upgrade k8s version of the cluster
+      -  **By:** upgrading the Controlplane & NodePools
+    - **It:** should be possible to add or delete the nodepools
+      -  **By:** adding a nodepool
+      -  **By:** deleting the nodepool
+    - **It:** should be possible to scale up/down the nodepool
+      -  **By:** scaling up the nodepool
+      -  **By:** scaling down the nodepool
+
+## `p0_provisioning_test.go`
+
+- **Describe:** P0Provisioning
+    - **It:** should successfully provision the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
+  - **Context:** Upgrading K8s version
+    - **It:** should be able to upgrade k8s version of the cluster
+      -  **By:** upgrading the ControlPlane
+      -  **By:** upgrading the NodePools
+    - **It:** should be possible to add or delete the nodepools
+      -  **By:** adding a nodepool
+      -  **By:** deleting the nodepool
+    - **It:** should be possible to scale up/down the nodepool
+      -  **By:** scaling up the nodepool
+      -  **By:** scaling down the nodepool
+
+# Tests description for gke/support_matrix
+
+## `support_matrix_importing_test.go`
+
+- **Describe:** SupportMatrixImporting
+    - **It:** should successfully import the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
+
+## `support_matrix_provisioning_test.go`
+
+- **Describe:** SupportMatrixProvisioning
+    - **It:** should successfully provision the cluster
+      -  **By:** checking cluster name is same
+      -  **By:** checking service account token secret
+      -  **By:** checking all management nodes are ready
+      -  **By:** checking all pods are ready
