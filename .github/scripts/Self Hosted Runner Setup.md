@@ -1,4 +1,4 @@
-## Steps to setting up a runner
+## Steps to setting up a GCP hosted runner from scratch
 
 1. Create a disk using opensuse.
 ```shell
@@ -60,8 +60,8 @@ gcloud compute instances create hosted-providers-runner-setup \
 On a virtualization capable system you need to install KVM pattern and some packages and activate the needed services, and You can check that the virtualization stack is well configured:
 ```shell
 sudo zypper -n up -l && sudo zypper -n in -l docker jq make gcc ipxe-bootimgs && sudo zypper -n in -l -t pattern kvm_tools
-systemctl enable --now docker
-systemctl enable --now libvirtd
+sudo systemctl enable --now docker
+sudo systemctl enable --now libvirtd
 virt-host-validate
 ```
 
@@ -115,7 +115,7 @@ gcloud compute instance-templates create hosted-providers-e2e-ci-runner-spot-x86
 ## Secrets and Env Variables to export
 ### Secrets
 1. `GOOGLE_APPLICATION_CREDENTIALS` - Google service account credentials with the following permissions: Compute Admin, Compute Network Admin Compute Viewer, IAP-secured Tunnel User, Kubernetes Engine Admin, Secret Manager Admin, Service Account User
-2. `PAT_TOKEN` - GitHub Personal Access Token with complete permissions to actions, workflows, and pull requests.
+2. `SELF_HOSTED_RUNNER_PAT_TOKEN` - GitHub Personal Access Token with complete permissions to actions, workflows, and pull requests.
 
 ### Environment Variables:
 1. `GCP_ZONE` - Zone where the runner should be created.
