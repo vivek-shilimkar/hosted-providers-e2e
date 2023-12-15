@@ -83,7 +83,7 @@ func DeleteNodeGroup(cluster *management.Cluster, client *rancher.Client) (*mana
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.EKSConfig = cluster.EKSConfig
 
-	upgradedCluster.EKSConfig.NodeGroups = cluster.EKSConfig.NodeGroups[1:]
+	upgradedCluster.EKSConfig.NodeGroups = cluster.EKSConfig.NodeGroups[:1]
 
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
 	if err != nil {

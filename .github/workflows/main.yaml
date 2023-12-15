@@ -1,38 +1,35 @@
 # This workflow is a reusable one called by other workflows
-name: E2E Tests workflow
+name: (Template) E2E Tests workflow
 on:
-  workflow_dispatch:
+  workflow_call:
   # Variables to set when calling this reusable workflow
     inputs:
+      hosted_provider:
+        description: Provider to run tests(eks/aks/gke)
+        required: true
+        type: string
       rancher_version:
         description: Rancher version to deploy
         required: true
         type: string
-        default: 2.8-head
       k3s_version:
         description: k3s version of local cluster
         required: true
         type: string
-        default: v1.26.10+k3s1
-      run_provisioning_tests:
+      run_p0_provisioning_tests:
         required: true
-        default: true
         type: boolean
-      run_importing_tests:
+      run_p0_importing_tests:
         required: true
-        default: true
         type: boolean
       run_support_matrix_provisioning_tests:
         required: true
-        default: true
         type: boolean
       run_support_matrix_importing_tests:
         required: true
-        default: true
         type: boolean
       destroy_runner:
         description: Destroy the auto-generated self-hosted runner
-        default: true
         type: boolean
       runner_template:
         description: Runner template to use
@@ -53,6 +50,7 @@ env:
   AKS_SUBSCRIPTION_ID: ${{ secrets.AKS_SUBSCRIPTION_ID }}
   AKS_TENANT_ID: ${{ secrets.AKS_TENANT_ID }}
   GKE_PROJECT_ID: ${{ secrets.GKE_PROJECT_ID }}
+  PROVIDER: ${{ inputs.hosted_provider }}
   RANCHER_PASSWORD: rancherpassword
         
 jobs:
@@ -144,7 +142,7 @@ jobs:
           aws-region: ${{ env.EKS_REGION }}
             
   provisioning-tests:
-    if: ${{ github.event.inputs.run_provisioning_tests == 'true' }}
+    if: ${{ github.event.inputs.run_p0_provisioning_tests == 'true' }}
     needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
@@ -164,7 +162,7 @@ jobs:
           make e2e-provisioning-tests
             
   importing-tests:
-    if: ${{ github.event.inputs.run_importing_tests == 'true' }}
+    if: ${{ github.event.inputs.run_p0_importing_tests == 'true' }}
     needs: [create-runner, installation]
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     steps:
