@@ -29,6 +29,7 @@ var (
 	rancherPassword = os.Getenv("RANCHER_PASSWORD")
 	rancherHostname = os.Getenv("RANCHER_HOSTNAME")
 	cloudCredential *cloudcredentials.CloudCredential
+	rancherConfig   *rancher.Config
 )
 
 type Context struct {
@@ -37,19 +38,21 @@ type Context struct {
 	Session       *session.Session
 }
 
-func CommonBeforeSuite(cloud string) Context {
+func CommonBeforeSuite(cloud string) (Context, error) {
 
 	rancherConfig := new(rancher.Config)
-	config.LoadConfig(rancher.ConfigurationFileKey, rancherConfig)
+	Eventually(rancherConfig, "10s").ShouldNot(BeNil())
 
-	rancherConfig.Host = rancherHostname
-	config.UpdateConfig(rancher.ConfigurationFileKey, rancherConfig)
+	config.LoadAndUpdateConfig(rancher.ConfigurationFileKey, rancherConfig, func() {
+		rancherConfig.Host = rancherHostname
+	})
 
 	token, err := pipeline.CreateAdminToken(rancherPassword, rancherConfig)
 	Expect(err).To(BeNil())
 
-	rancherConfig.AdminToken = token
-	config.UpdateConfig(rancher.ConfigurationFileKey, rancherConfig)
+	config.LoadAndUpdateConfig(rancher.ConfigurationFileKey, rancherConfig, func() {
+		rancherConfig.AdminToken = token
+	})
 
 	testSession := session.NewSession()
 	rancherClient, err := rancher.NewClient(rancherConfig.AdminToken, testSession)
@@ -67,27 +70,27 @@ func CommonBeforeSuite(cloud string) Context {
 	switch cloud {
 	case "aks":
 		credentialConfig := new(cloudcredentials.AzureCredentialConfig)
-		credentialConfig.ClientID = os.Getenv("AKS_CLIENT_ID")
-		credentialConfig.SubscriptionID = os.Getenv("AKS_SUBSCRIPTION_ID")
-		credentialConfig.ClientSecret = os.Getenv("AKS_CLIENT_SECRET")
-
-		config.UpdateConfig("azureCredentials", credentialConfig)
+		config.LoadAndUpdateConfig("azureCredentials", credentialConfig, func() {
+			credentialConfig.ClientID = os.Getenv("AKS_CLIENT_ID")
+			credentialConfig.SubscriptionID = os.Getenv("AKS_SUBSCRIPTION_ID")
+			credentialConfig.ClientSecret = os.Getenv("AKS_CLIENT_SECRET")
+		})
 		cloudCredential, err = azure.CreateAzureCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
 	case "eks":
 		credentialConfig := new(cloudcredentials.AmazonEC2CredentialConfig)
-		credentialConfig.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
-		credentialConfig.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
-		credentialConfig.DefaultRegion = os.Getenv("EKS_REGION")
-
-		config.UpdateConfig("awsCredentials", credentialConfig)
+		config.LoadAndUpdateConfig("awsCredentials", credentialConfig, func() {
+			credentialConfig.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
+			credentialConfig.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+			credentialConfig.DefaultRegion = os.Getenv("EKS_REGION")
+		})
 		cloudCredential, err = aws.CreateAWSCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
 	case "gke":
 		credentialConfig := new(cloudcredentials.GoogleCredentialConfig)
-		credentialConfig.AuthEncodedJSON = os.Getenv("GCP_CREDENTIALS")
-
-		config.UpdateConfig("googleCredentials", credentialConfig)
+		config.LoadAndUpdateConfig("googleCredentials", credentialConfig, func() {
+			credentialConfig.AuthEncodedJSON = os.Getenv("GCP_CREDENTIALS")
+		})
 		cloudCredential, err = google.CreateGoogleCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
 	}
@@ -96,7 +99,7 @@ func CommonBeforeSuite(cloud string) Context {
 		CloudCred:     cloudCredential,
 		RancherClient: rancherClient,
 		Session:       testSession,
-	}
+	}, nil
 }
 
 // WaitUntilClusterIsReady waits until the cluster is in a Ready state,

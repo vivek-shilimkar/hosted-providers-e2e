@@ -17,9 +17,9 @@ var (
 
 func TestSupportMatrix(t *testing.T) {
 	RegisterFailHandler(Fail)
-	ctx = helpers.CommonBeforeSuite("eks")
-
 	var err error
+	ctx, err = helpers.CommonBeforeSuite("eks")
+	Expect(err).To(BeNil())
 	availableVersionList, err = kubernetesversions.ListEKSAllVersions(ctx.RancherClient)
 	Expect(err).To(BeNil())
 	Expect(availableVersionList).ToNot(BeEmpty())

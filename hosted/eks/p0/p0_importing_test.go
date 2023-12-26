@@ -1,8 +1,6 @@
 package p0_test
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -10,27 +8,15 @@ import (
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
 	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
-	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
 var _ = Describe("P0Importing", func() {
-	var (
-		clusterName string
-		ctx         helpers.Context
-		region      = os.Getenv("EKS_REGION")
-		k8sVersion  = "1.26"
-		increaseBy  = 1
-	)
-	var _ = BeforeEach(func() {
-		clusterName = namegen.AppendRandomString("ekshostcluster")
-		ctx = helpers.CommonBeforeSuite("eks")
-	})
+	var cluster *management.Cluster
 
 	When("a cluster is imported", func() {
-		var cluster *management.Cluster
 
 		BeforeEach(func() {
 			var err error
@@ -51,7 +37,7 @@ var _ = Describe("P0Importing", func() {
 			// TODO: Force delete EKS cluster
 		})
 
-		It("should successfully import the cluster", func() {
+		It("should successfully import the cluster & add, delete, scale nodepool", func() {
 
 			By("checking cluster name is same", func() {
 				Expect(cluster.Name).To(BeEquivalentTo(clusterName))
@@ -71,6 +57,49 @@ var _ = Describe("P0Importing", func() {
 			By("checking all pods are ready", func() {
 				podErrors := pods.StatusPods(ctx.RancherClient, cluster.ID)
 				Expect(podErrors).To(BeEmpty())
+			})
+
+			currentNodeGroupNumber := len(cluster.EKSConfig.NodeGroups)
+			initialNodeCount := *cluster.EKSConfig.NodeGroups[0].DesiredSize
+
+			By("scaling up the NodeGroup", func() {
+				var err error
+				cluster, err = helper.ScaleNodeGroup(cluster, ctx.RancherClient, initialNodeCount+1)
+				Expect(err).To(BeNil())
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				Expect(err).To(BeNil())
+				for i := range cluster.EKSConfig.NodeGroups {
+					Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", initialNodeCount+1))
+				}
+			})
+
+			By("scaling down the NodeGroup", func() {
+				var err error
+				cluster, err = helper.ScaleNodeGroup(cluster, ctx.RancherClient, initialNodeCount)
+				Expect(err).To(BeNil())
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				Expect(err).To(BeNil())
+				for i := range cluster.EKSConfig.NodeGroups {
+					Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", initialNodeCount))
+				}
+			})
+
+			By("adding a NodeGroup/s", func() {
+				var err error
+				cluster, err = helper.AddNodeGroup(cluster, increaseBy, ctx.RancherClient)
+				Expect(err).To(BeNil())
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				Expect(err).To(BeNil())
+				Expect(len(cluster.EKSConfig.NodeGroups)).To(BeNumerically("==", currentNodeGroupNumber+1))
+			})
+			By("deleting the NodeGroup", func() {
+				var err error
+				cluster, err = helper.DeleteNodeGroup(cluster, ctx.RancherClient)
+				Expect(err).To(BeNil())
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				Expect(err).To(BeNil())
+				Expect(len(cluster.EKSConfig.NodeGroups)).To(BeNumerically("==", currentNodeGroupNumber))
+
 			})
 
 		})
@@ -105,54 +134,6 @@ var _ = Describe("P0Importing", func() {
 					// 	Expect(ng.Version).To(BeEquivalentTo(upgradeToVersion))
 					// }
 				})
-			})
-		})
-
-		It("should be possible to add or delete the NodeGroups", func() {
-			currentNodeGroupNumber := len(cluster.EKSConfig.NodeGroups)
-
-			By("adding a NodeGroup/s", func() {
-				var err error
-				cluster, err = helper.AddNodeGroup(cluster, increaseBy, ctx.RancherClient)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				Expect(len(cluster.EKSConfig.NodeGroups)).To(BeNumerically("==", currentNodeGroupNumber+1))
-			})
-			By("deleting the NodeGroup", func() {
-				var err error
-				cluster, err = helper.DeleteNodeGroup(cluster, ctx.RancherClient)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				Expect(len(cluster.EKSConfig.NodeGroups)).To(BeNumerically("==", currentNodeGroupNumber))
-
-			})
-
-		})
-		It("should be possible to scale up/down the NodeGroup", func() {
-			initialNodeCount := *cluster.EKSConfig.NodeGroups[0].DesiredSize
-
-			By("scaling up the NodeGroup", func() {
-				var err error
-				cluster, err = helper.ScaleNodeGroup(cluster, ctx.RancherClient, initialNodeCount+1)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				for i := range cluster.EKSConfig.NodeGroups {
-					Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", initialNodeCount+1))
-				}
-			})
-
-			By("scaling down the NodeGroup", func() {
-				var err error
-				cluster, err = helper.ScaleNodeGroup(cluster, ctx.RancherClient, initialNodeCount)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				for i := range cluster.EKSConfig.NodeGroups {
-					Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", initialNodeCount))
-				}
 			})
 		})
 

@@ -2,7 +2,7 @@
 ### USED BY CI ###
 ##################
 
-STANDARD_TEST_OPTIONS= -v -r --timeout=2h --keep-going --randomize-all --randomize-suites -p
+STANDARD_TEST_OPTIONS= -v -r --timeout=2h --keep-going --randomize-all --randomize-suites
 
 install-k3s: ## Install K3s with default options
 	curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=${K3S_VERSION} sh -s - --write-kubeconfig-mode 644
@@ -46,11 +46,12 @@ deps:
 prepare-e2e-ci-rancher: install-k3s install-helm install-cert-manager install-rancher ## Tests
 
 e2e-import-tests: deps
-	ginkgo ${STANDARD_TEST_OPTIONS} --focus "P0Importing" ./hosted/${PROVIDER}/p0/
+	ginkgo ${STANDARD_TEST_OPTIONS} -p --focus "P0Importing" ./hosted/${PROVIDER}/p0/
 
 e2e-provisioning-tests: deps
-	ginkgo ${STANDARD_TEST_OPTIONS} --focus "P0Provisioning" ./hosted/${PROVIDER}/p0/
+	ginkgo ${STANDARD_TEST_OPTIONS} -p --focus "P0Provisioning" ./hosted/${PROVIDER}/p0/
 
+#TODO: Parallelize supportmatrix tests
 e2e-support-matrix-importing-tests: deps
 	ginkgo ${STANDARD_TEST_OPTIONS} --focus "SupportMatrixImporting" ./hosted/${PROVIDER}/support_matrix/
 

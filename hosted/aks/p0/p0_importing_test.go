@@ -10,24 +10,13 @@ import (
 	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
 	"github.com/rancher/rancher/tests/framework/pkg/config"
-	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
 var _ = Describe("P0Importing", func() {
-	var (
-		ctx         helpers.Context
-		clusterName string
-		location    = "eastus"
-		k8sVersion  = "1.26.6"
-		increaseBy  = 1
-	)
-	var _ = BeforeEach(func() {
-		clusterName = namegen.AppendRandomString("akshostcluster")
-		ctx = helpers.CommonBeforeSuite("aks")
-	})
+
 	When("a cluster is imported", func() {
 		var cluster *management.Cluster
 
@@ -38,8 +27,8 @@ var _ = Describe("P0Importing", func() {
 			aksConfig := new(helper.ImportClusterConfig)
 			config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {
 				aksConfig.ResourceGroup = clusterName
-				aksConfig.ResourceLocation = location
 			})
+
 			cluster, err = helper.ImportAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)

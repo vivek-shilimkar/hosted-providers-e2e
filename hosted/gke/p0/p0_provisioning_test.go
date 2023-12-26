@@ -1,8 +1,6 @@
 package p0_test
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -12,26 +10,15 @@ import (
 	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
 	"github.com/rancher/rancher/tests/framework/pkg/config"
-	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
 var _ = Describe("P0Provisioning", func() {
-	var (
-		clusterName string
-		project     = os.Getenv("GKE_PROJECT_ID")
-		ctx         helpers.Context
-		increaseBy  = 1
-	)
-	var _ = BeforeEach(func() {
-		clusterName = namegen.AppendRandomString("gkehostcluster")
-		ctx = helpers.CommonBeforeSuite("gke")
-	})
+	var cluster *management.Cluster
 
 	When("a cluster is created", func() {
-		var cluster *management.Cluster
 
 		BeforeEach(func() {
 			var err error
@@ -39,6 +26,7 @@ var _ = Describe("P0Provisioning", func() {
 			config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
 				gkeConfig.ProjectID = project
 			})
+
 			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
@@ -48,7 +36,7 @@ var _ = Describe("P0Provisioning", func() {
 			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
 			Expect(err).To(BeNil())
 		})
-		It("should successfully provision the cluster", func() {
+		It("should successfully provision the cluster & add, delete, scale nodepool", func() {
 
 			By("checking cluster name is same", func() {
 				Expect(cluster.Name).To(BeEquivalentTo(clusterName))
@@ -68,6 +56,49 @@ var _ = Describe("P0Provisioning", func() {
 			By("checking all pods are ready", func() {
 				podErrors := pods.StatusPods(ctx.RancherClient, cluster.ID)
 				Expect(podErrors).To(BeEmpty())
+			})
+
+			currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
+			initialNodeCount := *cluster.GKEConfig.NodePools[0].InitialNodeCount
+
+			By("scaling up the nodepool", func() {
+				var err error
+				cluster, err = helper.ScaleNodePool(cluster, ctx.RancherClient, initialNodeCount+1)
+				Expect(err).To(BeNil())
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				Expect(err).To(BeNil())
+				for i := range cluster.GKEConfig.NodePools {
+					Expect(*cluster.GKEConfig.NodePools[i].InitialNodeCount).To(BeNumerically("==", initialNodeCount+1))
+				}
+			})
+
+			By("scaling down the nodepool", func() {
+				var err error
+				cluster, err = helper.ScaleNodePool(cluster, ctx.RancherClient, initialNodeCount)
+				Expect(err).To(BeNil())
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				Expect(err).To(BeNil())
+				for i := range cluster.GKEConfig.NodePools {
+					Expect(*cluster.GKEConfig.NodePools[i].InitialNodeCount).To(BeNumerically("==", initialNodeCount))
+				}
+			})
+
+			By("adding a nodepool", func() {
+				var err error
+				cluster, err = helper.AddNodePool(cluster, increaseBy, ctx.RancherClient)
+				Expect(err).To(BeNil())
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				Expect(err).To(BeNil())
+				Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
+			})
+			By("deleting the nodepool", func() {
+				var err error
+				cluster, err = helper.DeleteNodePool(cluster, ctx.RancherClient)
+				Expect(err).To(BeNil())
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				Expect(err).To(BeNil())
+				Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber))
+
 			})
 
 		})
@@ -109,53 +140,5 @@ var _ = Describe("P0Provisioning", func() {
 			})
 		})
 
-		It("should be possible to add or delete the nodepools", func() {
-			currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
-
-			By("adding a nodepool", func() {
-				var err error
-				cluster, err = helper.AddNodePool(cluster, increaseBy, ctx.RancherClient)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
-			})
-			By("deleting the nodepool", func() {
-				var err error
-				cluster, err = helper.DeleteNodePool(cluster, ctx.RancherClient)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber))
-
-			})
-
-		})
-
-		It("should be possible to scale up/down the nodepool", func() {
-			initialNodeCount := *cluster.GKEConfig.NodePools[0].InitialNodeCount
-
-			By("scaling up the nodepool", func() {
-				var err error
-				cluster, err = helper.ScaleNodePool(cluster, ctx.RancherClient, initialNodeCount+1)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				for i := range cluster.GKEConfig.NodePools {
-					Expect(*cluster.GKEConfig.NodePools[i].InitialNodeCount).To(BeNumerically("==", initialNodeCount+1))
-				}
-			})
-
-			By("scaling down the nodepool", func() {
-				var err error
-				cluster, err = helper.ScaleNodePool(cluster, ctx.RancherClient, initialNodeCount)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				for i := range cluster.GKEConfig.NodePools {
-					Expect(*cluster.GKEConfig.NodePools[i].InitialNodeCount).To(BeNumerically("==", initialNodeCount))
-				}
-			})
-		})
 	})
 })
