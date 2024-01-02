@@ -93,7 +93,7 @@ jobs:
           echo -n ${{ github.repository }} \
             | gcloud secrets create GH_REPO_${{ steps.generator.outputs.uuid }} --data-file=-
 
-  installation:
+  installation-and-e2e-tests:
     runs-on: ${{ needs.create-runner.outputs.uuid }}
     needs: create-runner
     outputs:
@@ -115,7 +115,14 @@ jobs:
           RANCHER_HOSTNAME: ${{steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
         run: |
           make prepare-e2e-ci-rancher
-            
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v1
+
       - name: Install Azure cli
         run: |
           sudo zypper install -y azure-cli
@@ -140,107 +147,47 @@ jobs:
           aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.EKS_REGION }}
-            
-  provisioning-tests:
-    if: ${{ github.event.inputs.run_p0_provisioning_tests == 'true' }}
-    needs: [create-runner, installation]
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-            
+
       - name: Install Go
         uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
 
       - name: Provisioning cluster tests
+        if:  ${{ github.event.inputs.run_p0_provisioning_tests == 'true' }}
         env:
-          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
         run: |
           make e2e-provisioning-tests
-            
-  importing-tests:
-    if: ${{ github.event.inputs.run_p0_importing_tests == 'true' }}
-    needs: [create-runner, installation]
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-            
-      - name: Install Go
-        uses: actions/setup-go@v3
-        with:
-          go-version-file: go.mod
-
-      - name: Authenticate to GCP
-        uses: 'google-github-actions/auth@v1'
-        with:
-          credentials_json: '${{ env.GCP_CREDENTIALS }}'
-                
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v1
 
       - name: Importing cluster tests
+        if: ${{ github.event.inputs.run_p0_importing_tests == 'true' }}
         env:
-          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
         run: |
           make e2e-import-tests
-            
-  support-matrix-provisioning-tests:
-    if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
-    needs: [create-runner, installation]
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-            
-      - name: Install Go
-        uses: actions/setup-go@v3
-        with:
-          go-version-file: go.mod
 
       - name: Support matrix provisioning tests
+        if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
         env:
-          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
         run: |
           make e2e-support-matrix-provisioning-tests
 
-  support-matrix-importing-tests:
-    if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
-    needs: [create-runner, installation]
-    runs-on: ${{ needs.create-runner.outputs.uuid }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-            
-      - name: Install Go
-        uses: actions/setup-go@v3
-        with:
-          go-version-file: go.mod
-
-      - name: Authenticate to GCP
-        uses: 'google-github-actions/auth@v1'
-        with:
-          credentials_json: '${{ env.GCP_CREDENTIALS }}'
-                  
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v1
-
       - name: Support matrix importing tests
+        if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
         env:
-          RANCHER_HOSTNAME: ${{ needs.installation.outputs.PUBLIC_IP}}.sslip.io
+          RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
         run: |
           make e2e-support-matrix-importing-tests
 
-
   delete-runner:
     if: ${{ always() && inputs.destroy_runner == true }}
-    needs: [create-runner, installation, provisioning-tests, importing-tests, support-matrix-provisioning-tests, support-matrix-importing-tests]
+    needs: [create-runner, installation-and-e2e-tests]
     runs-on: ubuntu-latest
     steps:
       # actions/checkout MUST come before auth

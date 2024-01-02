@@ -34,6 +34,10 @@ on:
         description: Destroy the auto-generated self-hosted runner
         default: true
         type: boolean
+      runner_template:
+        description: Runner template to use
+        default: hosted-prov-e2e-ci-runner-spot-x86-64-template-n2-highmem-32-v2
+        type: string
 
 jobs:
   gke-e2e:
@@ -48,3 +52,4 @@ jobs:
       run_support_matrix_provisioning_tests: ${{ inputs.run_support_matrix_provisioning_tests == true }}
       run_support_matrix_importing_tests: ${{ inputs.run_support_matrix_importing_tests == true }}
       destroy_runner: ${{ inputs.destroy_runner == true }}
+      runner_template: ${{ inputs.runner_template }}
