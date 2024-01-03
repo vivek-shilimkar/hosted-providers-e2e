@@ -16,6 +16,10 @@ on:
         description: k3s version of local cluster
         required: true
         type: string
+      operator_nightly_chart:
+        description: Install hosted-provider nightly chart
+        required: true
+        type: boolean
       run_p0_provisioning_tests:
         required: true
         type: boolean
@@ -114,7 +118,11 @@ jobs:
           RANCHER_VERSION: ${{ inputs.rancher_version }}
           RANCHER_HOSTNAME: ${{steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
         run: |
-          make prepare-e2e-ci-rancher
+          if [ ${{ github.event.inputs.operator_nightly_chart }} == 'true' ]; then
+            make prepare-e2e-ci-rancher-hosted-nightly-chart
+          else
+            make prepare-e2e-ci-rancher
+          fi
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1

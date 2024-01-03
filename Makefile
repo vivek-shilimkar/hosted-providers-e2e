@@ -3,6 +3,7 @@
 ##################
 
 STANDARD_TEST_OPTIONS= -v -r --timeout=2h --keep-going --randomize-all --randomize-suites
+BUILD_DATE= $(shell date +'%Y%m%d')
 
 install-k3s: ## Install K3s with default options
 	curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=${K3S_VERSION} sh -s - --write-kubeconfig-mode 644
@@ -38,12 +39,31 @@ install-rancher: ## Install Rancher via Helm
 		--wait
 	kubectl rollout status deployment rancher -n cattle-system --timeout=300s
 
+install-rancher-hosted-nightly-chart: ## Install Rancher via Helm with hosted providers nightly chart
+	helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+	helm repo update
+	helm install rancher --devel rancher-latest/rancher --version ${RANCHER_VERSION} \
+		--namespace cattle-system \
+		--create-namespace \
+		--set global.cattle.psp.enabled=false \
+		--set hostname=${RANCHER_HOSTNAME} \
+		--set bootstrapPassword=rancherpassword \
+		--set replicas=1 \
+		--set rancherImageTag=v${RANCHER_VERSION} \
+		--set 'extraEnv[0].name=CATTLE_SKIP_HOSTED_CLUSTER_CHART_INSTALLATION' \
+		--set-string 'extraEnv[0].value=true' \
+		--wait
+	kubectl rollout status deployment rancher -n cattle-system --timeout=300s
+	helm install ${PROVIDER}-operator-crds  oci://ttl.sh/${PROVIDER}-operator/rancher-${PROVIDER}-operator-crd --version ${BUILD_DATE}
+	helm install ${PROVIDER}-operator oci://ttl.sh/${PROVIDER}-operator/rancher-${PROVIDER}-operator --version ${BUILD_DATE} --namespace cattle-system
+
 deps: 
 	go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 	go install -mod=mod github.com/onsi/gomega
 	go mod tidy
 
 prepare-e2e-ci-rancher: install-k3s install-helm install-cert-manager install-rancher ## Tests
+prepare-e2e-ci-rancher-hosted-nightly-chart: install-k3s install-helm install-cert-manager install-rancher-hosted-nightly-chart
 
 e2e-import-tests: deps
 	ginkgo ${STANDARD_TEST_OPTIONS} -p --focus "P0Importing" ./hosted/${PROVIDER}/p0/
