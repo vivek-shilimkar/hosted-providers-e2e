@@ -1,8 +1,6 @@
 package support_matrix_test
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -29,8 +27,6 @@ var _ = Describe("SupportMatrixImporting", func() {
 			var (
 				clusterName string
 				cluster     *management.Cluster
-				project     = os.Getenv("GKE_PROJECT_ID")
-				zone        = "us-central1-c"
 			)
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString("gkehostcluster")

@@ -21,8 +21,8 @@ aksClusterConfig:
     vmSize: Standard_DS2_v2
   privateCluster: false
   resourceGroup: ""
-  resourceLocation: eastus
-  tags: {}
+  resourceLocation: centralindia
+tags: {}
 awsCredentials:
 azureCredentials:
   environment: AzurePublicCloud
@@ -51,7 +51,7 @@ eksClusterConfig:
   privateAccess: false
   publicAccess: true
   publicAccessSources: []
-  region: us-east-2
+  region: ap-south-1
   secretsEncryption: false
   securityGroups: []
   serviceRole: ""
@@ -120,7 +120,7 @@ gkeClusterConfig:
     masterIpv4CidrBlock: ""
   region: ""
   subnetwork: default
-  zone: us-central1-c
+  zone: asia-south2-c
   projectID: <project>
 googleCredentials:
 rancher:

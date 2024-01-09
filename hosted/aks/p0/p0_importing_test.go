@@ -16,7 +16,9 @@ import (
 )
 
 var _ = Describe("P0Importing", func() {
-
+	var (
+		location = helpers.GetAKSLocation()
+	)
 	When("a cluster is imported", func() {
 		var cluster *management.Cluster
 

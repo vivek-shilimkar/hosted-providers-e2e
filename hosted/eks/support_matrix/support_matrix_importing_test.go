@@ -1,8 +1,6 @@
 package support_matrix_test
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -26,7 +24,6 @@ var _ = Describe("SupportMatrixImporting", func() {
 		When(fmt.Sprintf("a cluster is created with kubernetes version %s", version), func() {
 			var (
 				clusterName string
-				region      = os.Getenv("EKS_REGION")
 				cluster     *management.Cluster
 			)
 			BeforeEach(func() {

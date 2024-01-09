@@ -14,7 +14,10 @@ import (
 )
 
 var _ = Describe("P0Importing", func() {
-	var cluster *management.Cluster
+	var (
+		cluster *management.Cluster
+		region  = helpers.GetEKSRegion()
+	)
 
 	When("a cluster is imported", func() {
 

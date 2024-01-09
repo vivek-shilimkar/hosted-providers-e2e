@@ -42,7 +42,7 @@ on:
         type: boolean
       runner_template:
         description: Runner template to use
-        default: hosted-prov-e2e-ci-runner-spot-x86-64-template-n2-highmem-32-v2
+        default: hosted-prov-e2e-ci-runner-spot-n2-highmem-16-gl-template-v1
         type: string
 
 jobs:

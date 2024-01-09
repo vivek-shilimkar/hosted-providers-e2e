@@ -1,10 +1,9 @@
 package support_matrix_test
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"fmt"
 
 	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
@@ -26,7 +25,6 @@ var _ = Describe("SupportMatrixImporting", func() {
 		When(fmt.Sprintf("a cluster is created with kubernetes version %s", version), func() {
 			var (
 				clusterName string
-				location    = "eastus"
 				cluster     *management.Cluster
 			)
 			BeforeEach(func() {

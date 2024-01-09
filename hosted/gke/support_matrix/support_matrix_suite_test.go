@@ -16,6 +16,7 @@ var (
 	availableVersionList []string
 	ctx                  helpers.Context
 	project              = os.Getenv("GKE_PROJECT_ID")
+	zone                 = helpers.GetGKEZone()
 )
 
 func TestSupportMatrix(t *testing.T) {
@@ -23,7 +24,7 @@ func TestSupportMatrix(t *testing.T) {
 	var err error
 	ctx, err = helpers.CommonBeforeSuite("gke")
 	Expect(err).To(BeNil())
-	availableVersionList, err = helper.ListSingleVariantGKEAvailableVersions(ctx.RancherClient, project, ctx.CloudCred.ID, "", "us-central1")
+	availableVersionList, err = helper.ListSingleVariantGKEAvailableVersions(ctx.RancherClient, project, ctx.CloudCred.ID, zone, "")
 	Expect(err).To(BeNil())
 	RunSpecs(t, "SupportMatrix Suite")
 }

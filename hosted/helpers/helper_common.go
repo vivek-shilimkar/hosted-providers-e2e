@@ -77,15 +77,26 @@ func CommonBeforeSuite(cloud string) (Context, error) {
 		})
 		cloudCredential, err = azure.CreateAzureCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
+
+		azureClusterConfig := new(management.AKSClusterConfigSpec)
+		// provisioning test cases rely on config file to fetch the location information
+		// this is necessary so that there is a single source of truth for provisioning and import test cases
+		config.LoadAndUpdateConfig("azureClusterConfig", azureClusterConfig, func() {
+			azureClusterConfig.ResourceLocation = GetAKSLocation()
+		})
 	case "eks":
 		credentialConfig := new(cloudcredentials.AmazonEC2CredentialConfig)
 		config.LoadAndUpdateConfig("awsCredentials", credentialConfig, func() {
 			credentialConfig.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
 			credentialConfig.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
-			credentialConfig.DefaultRegion = os.Getenv("EKS_REGION")
+			credentialConfig.DefaultRegion = GetEKSRegion()
 		})
 		cloudCredential, err = aws.CreateAWSCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
+		eksClusterConfig := new(management.EKSClusterConfigSpec)
+		config.LoadAndUpdateConfig("eksClusterConfig", eksClusterConfig, func() {
+			eksClusterConfig.Region = GetEKSRegion()
+		})
 	case "gke":
 		credentialConfig := new(cloudcredentials.GoogleCredentialConfig)
 		config.LoadAndUpdateConfig("googleCredentials", credentialConfig, func() {
@@ -93,6 +104,11 @@ func CommonBeforeSuite(cloud string) (Context, error) {
 		})
 		cloudCredential, err = google.CreateGoogleCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
+		gkeClusterConfig := new(management.GKEClusterConfigSpec)
+		config.LoadAndUpdateConfig("gkeClusterConfig", gkeClusterConfig, func() {
+			gkeClusterConfig.Zone = GetGKEZone()
+			gkeClusterConfig.ProjectID = GetGKEProjectID()
+		})
 	}
 
 	return Context{
@@ -119,4 +135,59 @@ func WaitUntilClusterIsReady(cluster *management.Cluster, client *rancher.Client
 		return nil, err
 	}
 	return client.Management.Cluster.ByID(cluster.ID)
+}
+
+// GetGKEZone fetches the value of GKE zone;
+// it first obtains the value from env var GKE_ZONE, if the value is empty, it fetches the information from config file(cattle_config-import.yaml/cattle_config-provisioning.yaml)
+// if none of the sources can provide a value, it returns the default value
+func GetGKEZone() string {
+	zone := os.Getenv("GKE_ZONE")
+	if zone == "" {
+		gkeConfig := new(management.GKEClusterConfigSpec)
+		config.LoadConfig("gkeClusterConfig", gkeConfig)
+		if gkeConfig.Zone != "" {
+			zone = gkeConfig.Zone
+		}
+		if zone == "" {
+			zone = "asia-south2-c"
+		}
+	}
+	return zone
+}
+
+// GetAKSLocation fetches the value of AKS Region;
+// it first obtains the value from env var AKS_REGION, if the value is empty, it fetches the information from config file(cattle_config-import.yaml/cattle_config-provisioning.yaml)
+// if none of the sources can provide a value, it returns the default value
+func GetAKSLocation() string {
+	region := os.Getenv("AKS_REGION")
+	if region == "" {
+		aksClusterConfig := new(management.AKSClusterConfigSpec)
+		config.LoadConfig("aksClusterConfig", aksClusterConfig)
+		region = aksClusterConfig.ResourceLocation
+		if region == "" {
+			region = "centralindia"
+		}
+	}
+	return region
+}
+
+// GetEKSRegion fetches the value of EKS Region;
+// it first obtains the value from env var EKS_REGION, if the value is empty, it fetches the information from config file(cattle_config-import.yaml/cattle_config-provisioning.yaml)
+// if none of the sources can provide a value, it returns the default value
+func GetEKSRegion() string {
+	region := os.Getenv("EKS_REGION")
+	if region == "" {
+		eksClusterConfig := new(management.EKSClusterConfigSpec)
+		config.LoadConfig("eksClusterConfig", eksClusterConfig)
+		region = eksClusterConfig.Region
+		if region == "" {
+			region = "ap-south-1"
+		}
+	}
+	return region
+}
+
+// GetGKEProjectID returns the value of GKE project by fetching the value of env var GKE_PROJECT_ID
+func GetGKEProjectID() string {
+	return os.Getenv("GKE_PROJECT_ID")
 }

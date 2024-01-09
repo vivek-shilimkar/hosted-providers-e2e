@@ -1,7 +1,6 @@
 package p0_test
 
 import (
-	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -13,7 +12,6 @@ import (
 var (
 	ctx         helpers.Context
 	clusterName string
-	region      = os.Getenv("EKS_REGION")
 	k8sVersion  = "1.26"
 	increaseBy  = 1
 )

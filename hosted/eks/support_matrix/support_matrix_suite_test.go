@@ -13,6 +13,7 @@ import (
 var (
 	availableVersionList []string
 	ctx                  helpers.Context
+	region               = helpers.GetEKSRegion()
 )
 
 func TestSupportMatrix(t *testing.T) {

@@ -37,11 +37,7 @@ on:
         type: boolean
       runner_template:
         description: Runner template to use
-        default: hosted-prov-e2e-ci-runner-spot-x86-64-template-n2-highmem-32-v2
-        type: string
-      zone:
-        description: GCP zone to host the runner
-        default: us-west1-b
+        default: hosted-prov-e2e-ci-runner-spot-n2-highmem-16-gl-template-v1
         type: string
 
 env:
@@ -57,7 +53,7 @@ env:
   PROVIDER: ${{ inputs.hosted_provider }}
   RANCHER_PASSWORD: rancherpassword
   RANCHER_LOG_COLLECTOR: ${{ github.workspace }}/.github/scripts/collect-rancher-logs.sh
-        
+  GCP_RUNNER_ZONE: asia-south2-c
 jobs:
   create-runner:
     runs-on: ubuntu-latest
@@ -84,13 +80,14 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
       - name: Create runner
         run: |
+          REGION=$(echo ${{ env.GCP_RUNNER_ZONE }} | sed 's/-[abcdef]$//')
           gcloud compute instances create ${{ steps.generator.outputs.runner }} \
-            --zone ${{ inputs.zone }} \
-            --source-instance-template ${{ inputs.runner_template }} &> /dev/null
+            --zone ${{ env.GCP_RUNNER_ZONE }} \
+            --source-instance-template projects/${{ env.GKE_PROJECT_ID }}/regions/${REGION}/instanceTemplates/${{ inputs.runner_template }}
       - name: Allow traffic
         run: |
           gcloud compute instances add-tags ${{ steps.generator.outputs.runner }} \
-            --tags http-server,https-server --zone ${{ inputs.zone }}
+            --tags http-server,https-server --zone ${{ env.GCP_RUNNER_ZONE }}
       - name: Create GCP secrets
         run: |
           echo -n ${{ secrets.PAT_TOKEN }} \
@@ -229,4 +226,4 @@ jobs:
         run: |
           gcloud --quiet compute instances delete ${{ needs.create-runner.outputs.runner }} \
             --delete-disks all \
-            --zone ${{ inputs.zone }}
+            --zone ${{ env.GCP_RUNNER_ZONE }}

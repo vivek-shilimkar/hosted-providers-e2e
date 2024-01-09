@@ -8,26 +8,23 @@ import (
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
-	"github.com/rancher/rancher/tests/framework/extensions/clusters/gke"
 	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
-	"github.com/rancher/rancher/tests/framework/pkg/config"
 )
 
 var _ = Describe("P0Importing", func() {
+	var (
+		zone = helpers.GetGKEZone()
+	)
 
 	When("a cluster is created", func() {
 		var cluster *management.Cluster
 
 		BeforeEach(func() {
 			var err error
-			err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, k8sVersion)
+			err = helper.CreateGKEClusterOnGCloud(zone, clusterName, helpers.GetGKEProjectID(), k8sVersion)
 			Expect(err).To(BeNil())
 
-			gkeConfig := new(helper.ImportClusterConfig)
-			config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
-				gkeConfig.ProjectID = project
-			})
 			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
