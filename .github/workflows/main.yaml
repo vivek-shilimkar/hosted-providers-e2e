@@ -51,7 +51,7 @@ env:
   AKS_TENANT_ID: ${{ secrets.AKS_TENANT_ID }}
   GKE_PROJECT_ID: ${{ secrets.GKE_PROJECT_ID }}
   PROVIDER: ${{ inputs.hosted_provider }}
-  RANCHER_PASSWORD: rancherpassword
+  RANCHER_PASSWORD: ${{ secrets.RANCHER_PASSWORD }}
   RANCHER_LOG_COLLECTOR: ${{ github.workspace }}/.github/scripts/collect-rancher-logs.sh
   GCP_RUNNER_ZONE: asia-south2-c
 jobs:

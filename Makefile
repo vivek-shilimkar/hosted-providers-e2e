@@ -33,7 +33,7 @@ install-rancher: ## Install Rancher via Helm on the k8s cluster
 		--create-namespace \
 		--set global.cattle.psp.enabled=false \
 		--set hostname=${RANCHER_HOSTNAME} \
-		--set bootstrapPassword=rancherpassword \
+		--set bootstrapPassword=${RANCHER_PASSWORD} \
 		--set replicas=1 \
 		--set rancherImageTag=v${RANCHER_VERSION} \
 		--wait
@@ -47,7 +47,7 @@ install-rancher-hosted-nightly-chart: ## Install Rancher via Helm with hosted pr
 		--create-namespace \
 		--set global.cattle.psp.enabled=false \
 		--set hostname=${RANCHER_HOSTNAME} \
-		--set bootstrapPassword=rancherpassword \
+		--set bootstrapPassword=${RANCHER_PASSWORD} \
 		--set replicas=1 \
 		--set rancherImageTag=v${RANCHER_VERSION} \
 		--set 'extraEnv[0].name=CATTLE_SKIP_HOSTED_CLUSTER_CHART_INSTALLATION' \
