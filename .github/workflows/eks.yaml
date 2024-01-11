@@ -2,6 +2,8 @@
 name: EKS-E2E
 
 on:
+  schedule:
+    - cron: "0 4 * * *" # Run every day
   workflow_dispatch: # Allow running manually on demand
     inputs:
       rancher_version:
