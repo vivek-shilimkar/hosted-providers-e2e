@@ -81,7 +81,7 @@ func CommonBeforeSuite(cloud string) (Context, error) {
 		azureClusterConfig := new(management.AKSClusterConfigSpec)
 		// provisioning test cases rely on config file to fetch the location information
 		// this is necessary so that there is a single source of truth for provisioning and import test cases
-		config.LoadAndUpdateConfig("azureClusterConfig", azureClusterConfig, func() {
+		config.LoadAndUpdateConfig("aksClusterConfig", azureClusterConfig, func() {
 			azureClusterConfig.ResourceLocation = GetAKSLocation()
 		})
 	case "eks":
