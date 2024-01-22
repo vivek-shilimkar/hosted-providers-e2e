@@ -1,8 +1,6 @@
 package support_matrix_test
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -15,7 +13,7 @@ import (
 var (
 	availableVersionList []string
 	ctx                  helpers.Context
-	project              = os.Getenv("GKE_PROJECT_ID")
+	project              = helpers.GetGKEProjectID()
 	zone                 = helpers.GetGKEZone()
 )
 

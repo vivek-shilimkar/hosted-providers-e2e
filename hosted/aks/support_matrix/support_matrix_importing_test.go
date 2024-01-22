@@ -1,9 +1,10 @@
 package support_matrix_test
 
 import (
-	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"fmt"
 
 	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
@@ -36,6 +37,7 @@ var _ = Describe("SupportMatrixImporting", func() {
 				config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {
 					aksConfig.ResourceGroup = clusterName
 					aksConfig.ResourceLocation = location
+					aksConfig.Tags = helper.GetTags()
 				})
 				cluster, err = helper.ImportAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())

@@ -16,9 +16,7 @@ import (
 )
 
 var _ = Describe("P0Importing", func() {
-	var (
-		location = helpers.GetAKSLocation()
-	)
+
 	When("a cluster is imported", func() {
 		var cluster *management.Cluster
 
@@ -26,9 +24,12 @@ var _ = Describe("P0Importing", func() {
 			var err error
 			err = helper.CreateAKSClusterOnAzure(location, clusterName, k8sVersion, "1")
 			Expect(err).To(BeNil())
+
 			aksConfig := new(helper.ImportClusterConfig)
 			config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {
 				aksConfig.ResourceGroup = clusterName
+				aksConfig.ResourceLocation = location
+				aksConfig.Tags = helper.GetTags()
 			})
 
 			cluster, err = helper.ImportAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})

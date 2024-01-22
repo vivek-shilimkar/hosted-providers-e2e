@@ -10,8 +10,6 @@ import (
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters/gke"
 	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
-	"github.com/rancher/rancher/tests/framework/extensions/pipeline"
-	"github.com/rancher/rancher/tests/framework/extensions/provisioninginput"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
 	"github.com/rancher/rancher/tests/framework/pkg/config"
 	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
@@ -32,11 +30,14 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 			)
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString("gkehostcluster")
-				pipeline.UpdateHostedKubernetesVField(provisioninginput.GoogleProviderName.String(), version)
 				var err error
 				gkeConfig := new(management.GKEClusterConfigSpec)
 				config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
 					gkeConfig.ProjectID = project
+					gkeConfig.KubernetesVersion = &version
+					gkeConfig.Zone = zone
+					labels := helper.GetLabels()
+					gkeConfig.Labels = &labels
 				})
 				cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())

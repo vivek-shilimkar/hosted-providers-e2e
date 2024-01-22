@@ -2,6 +2,8 @@ package helper
 
 import (
 	"fmt"
+	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
+	"github.com/rancher/rancher/tests/framework/extensions/clusters/aks"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/rancher/rancher/tests/framework/clients/rancher"
@@ -14,6 +16,16 @@ import (
 	"github.com/epinio/epinio/acceptance/helpers/proc"
 	"github.com/pkg/errors"
 )
+
+func GetTags() map[string]string {
+	aksConfig := new(management.AKSClusterConfigSpec)
+	config.LoadConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig)
+	tags := helpers.GetCommonMetadataLabels()
+	for key, value := range aksConfig.Tags {
+		tags[key] = value
+	}
+	return tags
+}
 
 // UpgradeClusterKubernetesVersion upgrades the k8s version to the value defined by upgradeToVersion.
 func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersion *string, client *rancher.Client) (*management.Cluster, error) {
@@ -136,15 +148,21 @@ func ListAKSAvailableVersions(client *rancher.Client, clusterID string) (availab
 
 // Create Azure AKS cluster using AZ CLI
 func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string) error {
-
+	tags := GetTags()
+	formattedTags := convertMapToAKSString(tags)
 	fmt.Println("Creating AKS resource group ...")
-	out, err := proc.RunW("az", "group", "create", "--location", location, "--resource-group", clusterName)
+	rgargs := []string{"group", "create", "--location", location, "--resource-group", clusterName}
+	fmt.Printf("Running command: az %v\n", rgargs)
+
+	out, err := proc.RunW("az", rgargs...)
 	if err != nil {
 		return errors.Wrap(err, "Failed to create cluster: "+out)
 	}
 
 	fmt.Println("Creating AKS cluster ...")
-	out, err = proc.RunW("az", "aks", "create", "--resource-group", clusterName, "--generate-ssh-keys", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--node-count", nodes)
+	args := []string{"aks", "create", "--resource-group", clusterName, "--generate-ssh-keys", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--node-count", nodes, "--tags", formattedTags}
+	fmt.Printf("Running command: az %v\n", args)
+	out, err = proc.RunW("az", args...)
 	if err != nil {
 		return errors.Wrap(err, "Failed to create cluster: "+out)
 	}
@@ -154,11 +172,24 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 	return nil
 }
 
+// convertMapToAKSString converts the map of labels to a string format acceptable by azure CLI
+// acceptable format: `--tags "owner=hostedproviders" "testname=sometest"`
+func convertMapToAKSString(tags map[string]string) string {
+	var convertedString string
+	for key, value := range tags {
+		convertedString += fmt.Sprintf("\"%s=%s\" ", key, value)
+	}
+	return convertedString
+}
+
 // Complete cleanup steps for Azure AKS
 func DeleteAKSClusteronAzure(clusterName string) error {
 
 	fmt.Println("Deleting AKS resource group which will delete cluster too ...")
-	out, err := proc.RunW("az", "group", "delete", "--name", clusterName, "--yes")
+	args := []string{"group", "delete", "--name", clusterName, "--yes"}
+	fmt.Printf("Running command: az %v\n", args)
+
+	out, err := proc.RunW("az", args...)
 	if err != nil {
 		return errors.Wrap(err, "Failed to delete resource group: "+out)
 	}
@@ -211,6 +242,7 @@ func AksHostNodeConfig() []management.AKSNodePool {
 type ImportClusterConfig struct {
 	ResourceGroup    string                    `json:"resourceGroup" yaml:"resourceGroup"`
 	ResourceLocation string                    `json:"resourceLocation" yaml:"resourceLocation"`
+	Tags             map[string]string         `json:"tags,omitempty" yaml:"tags,omitempty"`
 	Imported         bool                      `json:"imported" yaml:"imported"`
 	NodePools        []*management.AKSNodePool `json:"nodePools" yaml:"nodePools"`
 }

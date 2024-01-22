@@ -2,7 +2,10 @@ package helpers
 
 import (
 	"fmt"
+	"github.com/onsi/ginkgo/v2"
 	"os"
+	"os/user"
+	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -77,13 +80,6 @@ func CommonBeforeSuite(cloud string) (Context, error) {
 		})
 		cloudCredential, err = azure.CreateAzureCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
-
-		azureClusterConfig := new(management.AKSClusterConfigSpec)
-		// provisioning test cases rely on config file to fetch the location information
-		// this is necessary so that there is a single source of truth for provisioning and import test cases
-		config.LoadAndUpdateConfig("aksClusterConfig", azureClusterConfig, func() {
-			azureClusterConfig.ResourceLocation = GetAKSLocation()
-		})
 	case "eks":
 		credentialConfig := new(cloudcredentials.AmazonEC2CredentialConfig)
 		config.LoadAndUpdateConfig("awsCredentials", credentialConfig, func() {
@@ -93,10 +89,6 @@ func CommonBeforeSuite(cloud string) (Context, error) {
 		})
 		cloudCredential, err = aws.CreateAWSCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
-		eksClusterConfig := new(management.EKSClusterConfigSpec)
-		config.LoadAndUpdateConfig("eksClusterConfig", eksClusterConfig, func() {
-			eksClusterConfig.Region = GetEKSRegion()
-		})
 	case "gke":
 		credentialConfig := new(cloudcredentials.GoogleCredentialConfig)
 		config.LoadAndUpdateConfig("googleCredentials", credentialConfig, func() {
@@ -104,11 +96,6 @@ func CommonBeforeSuite(cloud string) (Context, error) {
 		})
 		cloudCredential, err = google.CreateGoogleCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
-		gkeClusterConfig := new(management.GKEClusterConfigSpec)
-		config.LoadAndUpdateConfig("gkeClusterConfig", gkeClusterConfig, func() {
-			gkeClusterConfig.Zone = GetGKEZone()
-			gkeClusterConfig.ProjectID = GetGKEProjectID()
-		})
 	}
 
 	return Context{
@@ -190,4 +177,28 @@ func GetEKSRegion() string {
 // GetGKEProjectID returns the value of GKE project by fetching the value of env var GKE_PROJECT_ID
 func GetGKEProjectID() string {
 	return os.Getenv("GKE_PROJECT_ID")
+}
+
+// GetCommonMetadataLabels returns a list of common metadata labels/tabs
+func GetCommonMetadataLabels() map[string]string {
+	testuser, err := user.Current()
+	Expect(err).To(BeNil())
+
+	specReport := ginkgo.CurrentSpecReport()
+	// filename indicates the filename and line number of the test
+	// we only use this information instead of the ginkgo.CurrentSpecReport().FullText() because of the 63 character limit
+	var filename string
+	// Because of the way Support Matrix suites are designed, filename is not loaded at first, so we need to ensure it is non-empty before sanitizing it
+	if specReport.FileName() != "" {
+		// Sanitize the filename to fit the label requirements for all the hosted providers
+		filename = strings.Split(specReport.FileName(), "hosted/")[1] // abstract the relative path
+		filename = strings.TrimSuffix(filename, ".go")                // `.` is not allowed
+		filename = strings.ReplaceAll(filename, "/", "-")             // `/` is not allowed
+		filename = strings.ToLower(filename)                          // string must be in lowercase
+		filename = fmt.Sprintf("line%d_%s", specReport.LineNumber(), filename)
+	}
+	return map[string]string{
+		"owner":          "hosted-providers-qa-ci-" + testuser.Username,
+		"testfilenumber": filename,
+	}
 }

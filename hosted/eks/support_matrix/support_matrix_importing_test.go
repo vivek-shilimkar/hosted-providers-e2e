@@ -3,6 +3,8 @@ package support_matrix_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/rancher/tests/framework/extensions/clusters/eks"
+	"github.com/rancher/rancher/tests/framework/pkg/config"
 
 	"fmt"
 
@@ -31,6 +33,12 @@ var _ = Describe("SupportMatrixImporting", func() {
 				var err error
 				err = helper.CreateEKSClusterOnAWS(region, clusterName, version, "1")
 				Expect(err).To(BeNil())
+				eksConfig := new(helper.ImportClusterConfig)
+				config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
+					eksConfig.Region = region
+					tags := helper.GetTags()
+					eksConfig.Tags = &tags
+				})
 				cluster, err = helper.ImportEKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)

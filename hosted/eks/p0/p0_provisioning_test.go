@@ -3,6 +3,7 @@ package p0_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/rancher/tests/framework/pkg/config"
 
 	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
@@ -21,6 +22,11 @@ var _ = Describe("P0Provisioning", func() {
 
 		BeforeEach(func() {
 			var err error
+			eksConfig := new(eks.ClusterConfig)
+			config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
+				eksConfig.Region = region
+				eksConfig.Tags = helper.GetTags()
+			})
 			cluster, err = eks.CreateEKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)

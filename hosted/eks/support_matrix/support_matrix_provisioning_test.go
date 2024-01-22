@@ -3,6 +3,7 @@ package support_matrix_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/rancher/tests/framework/pkg/config"
 
 	"fmt"
 
@@ -10,8 +11,6 @@ import (
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters/eks"
 	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
-	"github.com/rancher/rancher/tests/framework/extensions/pipeline"
-	"github.com/rancher/rancher/tests/framework/extensions/provisioninginput"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
 	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
 
@@ -31,7 +30,12 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 			)
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString("ekshostcluster")
-				pipeline.UpdateHostedKubernetesVField(provisioninginput.AWSProviderName.String(), version)
+				eksConfig := new(eks.ClusterConfig)
+				config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
+					eksConfig.Region = region
+					eksConfig.KubernetesVersion = &version
+					eksConfig.Tags = helper.GetTags()
+				})
 				var err error
 				cluster, err = eks.CreateEKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())

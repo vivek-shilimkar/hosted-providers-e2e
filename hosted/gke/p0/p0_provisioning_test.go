@@ -4,13 +4,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
-	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters"
 	"github.com/rancher/rancher/tests/framework/extensions/clusters/gke"
 	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
 	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
+	"github.com/rancher/rancher/tests/framework/pkg/config"
+
+	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
+	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
 var _ = Describe("P0Provisioning", func() {
@@ -20,6 +22,14 @@ var _ = Describe("P0Provisioning", func() {
 
 		BeforeEach(func() {
 			var err error
+			gkeConfig := new(management.GKEClusterConfigSpec)
+			config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
+				gkeConfig.ProjectID = project
+				gkeConfig.Zone = zone
+				labels := helper.GetLabels()
+				gkeConfig.Labels = &labels
+			})
+
 			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)

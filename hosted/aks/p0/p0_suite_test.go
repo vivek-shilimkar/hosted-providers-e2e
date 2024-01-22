@@ -9,11 +9,15 @@ import (
 	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
 )
 
+const (
+	k8sVersion = "1.26.6"
+	increaseBy = 1
+)
+
 var (
 	ctx         helpers.Context
 	clusterName string
-	k8sVersion  = "1.26.6"
-	increaseBy  = 1
+	location    = helpers.GetAKSLocation()
 )
 
 func TestP0(t *testing.T) {
