@@ -116,7 +116,7 @@ jobs:
           RANCHER_VERSION: ${{ inputs.rancher_version }}
           RANCHER_HOSTNAME: ${{steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
         run: |
-          if [ ${{ github.event.inputs.operator_nightly_chart }} == 'true' ]; then
+          if [ ${{ inputs.operator_nightly_chart }} == true ]; then
             make prepare-e2e-ci-rancher-hosted-nightly-chart
           else
             make prepare-e2e-ci-rancher
@@ -160,7 +160,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Provisioning cluster tests
-        if:  ${{ github.event.inputs.run_p0_provisioning_tests == 'true' }}
+        if:  ${{ inputs.run_p0_provisioning_tests == true }}
         env:
           RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
@@ -168,7 +168,7 @@ jobs:
           make e2e-provisioning-tests
 
       - name: Importing cluster tests
-        if: ${{ github.event.inputs.run_p0_importing_tests == 'true' }}
+        if: ${{ inputs.run_p0_importing_tests == true }}
         env:
           RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
@@ -176,7 +176,7 @@ jobs:
           make e2e-import-tests
 
       - name: Support matrix provisioning tests
-        if: ${{ github.event.inputs.run_support_matrix_provisioning_tests == 'true' }}
+        if: ${{ inputs.run_support_matrix_provisioning_tests == true }}
         env:
           RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
@@ -184,7 +184,7 @@ jobs:
           make e2e-support-matrix-provisioning-tests
 
       - name: Support matrix importing tests
-        if: ${{ github.event.inputs.run_support_matrix_importing_tests == 'true' }}
+        if: ${{ inputs.run_support_matrix_importing_tests == true }}
         env:
           RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
