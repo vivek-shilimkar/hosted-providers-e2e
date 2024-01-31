@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	k8sVersion = "1.27.4-gke.900"
+	k8sVersion = "1.27.3-gke.100"
 	increaseBy = 1
 )
 

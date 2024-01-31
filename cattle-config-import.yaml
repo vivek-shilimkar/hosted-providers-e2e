@@ -63,7 +63,7 @@ gkeClusterConfig:
       autoRepair: true
       autoUpgrade: true
     maxPodsConstraint: 110
-    version: 1.27.4-gke.900
+    version: 1.27.3-gke.100
 googleCredentials:
 rancher:
   cleanup: false
