@@ -49,7 +49,7 @@ var _ = Describe("SupportMatrixImporting", func() {
 			AfterEach(func() {
 				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
 				Expect(err).To(BeNil())
-				err = helper.DeleteGKEClusterOnGCloud(zone, clusterName)
+				err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
 				Expect(err).To(BeNil())
 			})
 			It("should successfully import the cluster", func() {

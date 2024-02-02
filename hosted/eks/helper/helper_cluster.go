@@ -155,7 +155,7 @@ func CreateEKSClusterOnAWS(eks_region string, clusterName string, k8sVersion str
 func DeleteEKSClusterOnAWS(eks_region string, clusterName string) error {
 
 	fmt.Println("Deleting EKS cluster ...")
-	args := []string{"delete", "cluster", "--region=" + eks_region, "--name=" + clusterName}
+	args := []string{"delete", "cluster", "--region=" + eks_region, "--name=" + clusterName, "--disable-nodegroup-eviction"}
 	fmt.Printf("Running command: eksctl %v\n", args)
 	out, err := proc.RunW("eksctl", args...)
 	if err != nil {

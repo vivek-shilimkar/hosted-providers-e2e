@@ -41,7 +41,7 @@ var _ = Describe("P0Importing", func() {
 		AfterEach(func() {
 			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
 			Expect(err).To(BeNil())
-			err = helper.DeleteGKEClusterOnGCloud(zone, clusterName)
+			err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
 			Expect(err).To(BeNil())
 		})
 

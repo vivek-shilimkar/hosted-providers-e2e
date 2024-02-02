@@ -163,10 +163,10 @@ func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k
 }
 
 // Complete cleanup steps for Google GKE
-func DeleteGKEClusterOnGCloud(zone string, clusterName string) error {
+func DeleteGKEClusterOnGCloud(zone, project, clusterName string) error {
 
 	fmt.Println("Deleting GKE cluster ...")
-	args := []string{"container", "clusters", "delete", clusterName, "--zone", zone, "--quiet"}
+	args := []string{"container", "clusters", "delete", clusterName, "--zone", zone, "--quiet", "--project", project}
 	fmt.Printf("Running command: gcloud %v\n", args)
 	out, err := proc.RunW("gcloud", args...)
 	if err != nil {
