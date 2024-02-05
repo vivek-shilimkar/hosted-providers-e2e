@@ -3,17 +3,17 @@ package helper
 import (
 	"fmt"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
-	"github.com/rancher/rancher/tests/framework/extensions/clusters/gke"
+	"github.com/rancher/shepherd/extensions/clusters/gke"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/epinio/epinio/acceptance/helpers/proc"
 	"github.com/pkg/errors"
-	"github.com/rancher/rancher/tests/framework/clients/rancher"
-	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
-	"github.com/rancher/rancher/tests/framework/extensions/clusters/kubernetesversions"
-	"github.com/rancher/rancher/tests/framework/pkg/config"
-	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
+	"github.com/rancher/shepherd/clients/rancher"
+	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
+	"github.com/rancher/shepherd/extensions/clusters/kubernetesversions"
+	"github.com/rancher/shepherd/pkg/config"
+	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 	"k8s.io/utils/pointer"
 )
 

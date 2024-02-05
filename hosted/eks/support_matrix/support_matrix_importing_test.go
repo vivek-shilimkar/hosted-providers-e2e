@@ -3,16 +3,16 @@ package support_matrix_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/rancher/tests/framework/extensions/clusters/eks"
-	"github.com/rancher/rancher/tests/framework/pkg/config"
+	"github.com/rancher/shepherd/extensions/clusters/eks"
+	"github.com/rancher/shepherd/pkg/config"
 
 	"fmt"
 
-	management "github.com/rancher/rancher/tests/framework/clients/rancher/generated/management/v3"
-	"github.com/rancher/rancher/tests/framework/extensions/clusters"
-	nodestat "github.com/rancher/rancher/tests/framework/extensions/nodes"
-	"github.com/rancher/rancher/tests/framework/extensions/workloads/pods"
-	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
+	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
+	"github.com/rancher/shepherd/extensions/clusters"
+	nodestat "github.com/rancher/shepherd/extensions/nodes"
+	"github.com/rancher/shepherd/extensions/workloads/pods"
+	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"

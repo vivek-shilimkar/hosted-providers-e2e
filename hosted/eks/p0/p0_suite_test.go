@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
-	namegen "github.com/rancher/rancher/tests/framework/pkg/namegenerator"
+	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 )
 
 const (

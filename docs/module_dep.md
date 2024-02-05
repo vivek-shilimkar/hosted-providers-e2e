@@ -1,84 +1,84 @@
+This doc walks through general steps to update pkg dependencies of this project.
+
 0. Write the following to go.mod
 ```go
-module github.com/valaparthvi/rancher
+module github.com/rancher/hosted-providers-e2e
 
-go 1.19
+go 1.20
 
 require (
-	github.com/onsi/ginkgo/v2 latest
-	github.com/onsi/gomega latest
-	github.com/rancher/rancher 9129a7b0496c
-	github.com/stretchr/testify latest
-	k8s.io/api v0.27.5
-	k8s.io/apimachinery v0.27.5
+    github.com/onsi/ginkgo/v2 latest
+    github.com/onsi/gomega latest
+    github.com/epinio/epinio latest
+    github.com/rancher/shepherd fb9a4f1         // rancher/shepherd HEAD commit
+    github.com/stretchr/testify latest
+    k8s.io/api v0.27.9
+    k8s.io/apimachinery v0.27.9
 )
 
 replace (
-	k8s.io/api => k8s.io/api v0.27.5
-	k8s.io/client-go => github.com/rancher/client-go v1.27.4-rancher1
+    k8s.io/api => k8s.io/api v0.27.9
+    k8s.io/client-go => github.com/rancher/client-go v1.27.4-rancher1
 )
 ```
-1. `go mod download` - This will resolve all the versions and add appropriate entry to `go.sum`.
 
----Output of go.mod---
-```
-module github.com/valaparthvi/rancher
+1. `go mod tidy` - This will resolve all the versions and dependencies, and generate the `go.sum` file.
+2. `go mod vendor` - This will generate vendor files; these are ignored by .gitignore.
 
-go 1.19
 
-require (
-	github.com/onsi/ginkgo/v2 v2.12.1
-	github.com/onsi/gomega v1.27.10
-	github.com/rancher/rancher v0.0.0-20230921211342-9129a7b0496c
-	github.com/stretchr/testify v1.8.4
-	k8s.io/api v0.27.5
-	k8s.io/apimachinery v0.27.5
-)
+### Updating the dependecies
 
-replace (
-	k8s.io/api => k8s.io/api v0.27.4
-	k8s.io/client-go => github.com/rancher/client-go v1.27.4-rancher1
-)
-```
----------
+There are 4 different kind of packages we are concerned about:
+1. Non-kubernetes, non-Rancher pkg: `onsi/ginkgo`, `onsi/gomega`, etc.
+    - These pkgs can be updated as usual by either using `latest` or a specific version.
+2. Non-kubernetes, Rancher pkg: `rancher/shepherd.
+    - `rancher/shepherd` is always updated by using commit HEAD and then resolving using `go mod download`.
+    - `github.com/rancher/shepherd` has many branches, currently we are using the `main` branch.
+3. Kubernetes, non-Rancher pkg: k8s.io/api, k8s.io/apimachinery.
+    - Kubernetes related packages are bumped to support a newer k8s version and must always be in sync to avoid unnecessary conflicts.
+    - Ref: [k8s.io/api/tags](https://github.com/kubernetes/api/tags), [k8s.io/apimachinary/tags](https://github.com/kubernetes/apimachinery/tags)
+4. Kubernetes, Rancher pkg: rancher/client-go.
+    - `rancher/client-go` must always be in sync with Kubernetes related pkgs since it is always released in sync with the Kubernetes pkgs and tags are named aptly too, for a `k8s.io/api:v0.27.9`, there will be a `rancher/client-go:v1.27.4`.
+    - Ref: [rancher/client-go/tags](https://github.com/rancher/client-go/tags)This doc walks through general steps to update pkg dependencies of this project.
 
-(Optional) 2. `go mod tidy` - this will error out since we have not resolved `rancher/rancher/pkg/apis` and `rancher/rancher/pkg/client` dependencies.
-
-```shell
-$ go mod tidy
-github.com/rancher/rancher/pkg/apis/ui.cattle.io/v1: reading github.com/rancher/rancher/pkg/apis/go.mod at revision pkg/apis/v0.0.0: unknown revision pkg/apis/v0.0.0
-```
-
-```shell
-$ go list -m -json -mod=mod all #gosetup
-
-go: github.com/rancher/rancher/pkg/apis@v0.0.0: invalid version: unknown revision pkg/apis/v0.0.0
-go: github.com/rancher/rancher/pkg/client@v0.0.0: invalid version: unknown revision pkg/client/v0.0.0
-```
-
-3. `go mod edit -replace=github.com/rancher/rancher/pkg/apis=github.com/rancher/rancher/pkg/apis@v0.0.0-20230921211342-9129a7b0496c`
-4. `go mod edit -replace=github.com/rancher/rancher/pkg/client=github.com/rancher/rancher/pkg/client@v0.0.0-20230921211342-9129a7b0496c`
+0. Write the following to go.mod
 ```go
-module github.com/valaparthvi/rancher
+module github.com/rancher/hosted-providers-e2e
 
-go 1.19
+go 1.20
 
 require (
-	github.com/onsi/ginkgo/v2 v2.12.1
-	github.com/onsi/gomega v1.27.10
-	github.com/rancher/rancher v0.0.0-20230921211342-9129a7b0496c
-	github.com/stretchr/testify v1.8.4
-	k8s.io/api v0.27.5
-	k8s.io/apimachinery v0.27.5
+    github.com/onsi/ginkgo/v2 latest
+    github.com/onsi/gomega latest
+    github.com/epinio/epinio latest
+    github.com/rancher/shepherd 3690b7e         // shepherd main HEAD commit
+    github.com/stretchr/testify latest
+    k8s.io/api v0.27.9
+    k8s.io/apimachinery v0.27.9
 )
 
 replace (
-	k8s.io/api => k8s.io/api v0.27.4
-	k8s.io/client-go => github.com/rancher/client-go v1.27.4-rancher1
-	github.com/rancher/rancher/pkg/apis => github.com/rancher/rancher/pkg/apis v0.0.0-20230921211342-9129a7b0496c
-	github.com/rancher/rancher/pkg/client => github.com/rancher/rancher/pkg/client v0.0.0-20230921211342-9129a7b0496c
+    k8s.io/api => k8s.io/api v0.27.9
+    k8s.io/client-go => github.com/rancher/client-go v1.27.4-rancher1
 )
 ```
 
-5. `go mod tidy`
-6. `go mod vendor`
+1. `go mod tidy` - This will resolve all the versions and dependencies, and generate the `go.sum` file.
+2. `go mod vendor` - This will generate vendor files; these are ignored by .gitignore.
+
+
+### Updating the dependecies
+
+There are 4 different kind of packages we are concerned about:
+1. Non-kubernetes, non-Rancher pkg: `onsi/ginkgo`, `onsi/gomega`, etc.
+    - These pkgs can be updated as usual by either using `latest` or a specific version.
+2. Non-kubernetes, Rancher pkg: `rancher/shepherd.
+    - `rancher/shepherd` is always updated by using commit HEAD and then resolving using `go mod download`.
+    - `github.com/rancher/shepherd` has many branches, currently we are using the `main` branch.
+    - `rancher/shepherd` is the main automation framework we use. It relies on `rancher/rancher` to decide when to upgrade to a newer k8s pkg.
+3. Kubernetes, non-Rancher pkg: k8s.io/api, k8s.io/apimachinery.
+    - Kubernetes related packages are bumped to support a newer k8s version and must always be in sync to avoid unnecessary conflicts.
+    - Ref: [k8s.io/api/tags](https://github.com/kubernetes/api/tags), [k8s.io/apimachinary/tags](https://github.com/kubernetes/apimachinery/tags)
+4. Kubernetes, Rancher pkg: rancher/client-go.
+    - `rancher/client-go` must always be in sync with Kubernetes related pkgs since it is always released in sync with the Kubernetes pkgs and tags are named aptly too, for a `k8s.io/api:v0.27.9`, there will be a `rancher/client-go:v1.27.4-rancher1`.
+    - Ref: [rancher/client-go/tags](https://github.com/rancher/client-go/tags)

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
-	"github.com/rancher/rancher/tests/framework/extensions/clusters/kubernetesversions"
+	"github.com/rancher/shepherd/extensions/clusters/kubernetesversions"
 )
 
 var (
