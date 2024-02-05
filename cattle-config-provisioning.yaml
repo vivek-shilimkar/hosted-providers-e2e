@@ -74,8 +74,7 @@ gkeClusterConfig:
     subnetworkName: ""
     useIpAliases: true
   kubernetesVersion: 1.27.3-gke.100
-  labels:
-    owner: hosted-provider-ci
+  labels: {}
   locations: []
   loggingService: logging.googleapis.com/kubernetes
   maintenanceWindow: ""

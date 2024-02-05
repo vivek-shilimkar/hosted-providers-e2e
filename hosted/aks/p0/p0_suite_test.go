@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	k8sVersion = "1.26.6"
 	increaseBy = 1
 )
 
@@ -18,6 +17,7 @@ var (
 	ctx         helpers.Context
 	clusterName string
 	location    = helpers.GetAKSLocation()
+	k8sVersion  = helpers.GetK8sVersion("aks")
 )
 
 func TestP0(t *testing.T) {

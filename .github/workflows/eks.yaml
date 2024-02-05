@@ -45,7 +45,9 @@ on:
         description: Runner template to use
         default: hosted-prov-e2e-ci-runner-spot-n2-highmem-16-gl-template-v1
         type: string
-
+      downstream_k8s_version:
+        description: Downstream cluster K8s version to test
+        default: 1.26
 jobs:
   eks-e2e:
     uses: ./.github/workflows/main.yaml
@@ -61,3 +63,4 @@ jobs:
       run_support_matrix_importing_tests: ${{ inputs.run_support_matrix_importing_tests == true || (github.event_name == 'schedule' && false) }}
       destroy_runner: ${{ inputs.destroy_runner ==true || (github.event_name == 'schedule' && true) }}
       runner_template: ${{ inputs.runner_template || 'hosted-prov-e2e-ci-runner-spot-n2-highmem-16-gl-template-v1' }}
+      downstream_k8s_version: ${{ inputs.downstream_k8s_version || '1.26' }}

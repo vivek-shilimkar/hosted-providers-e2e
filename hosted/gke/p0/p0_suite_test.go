@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	k8sVersion = "1.27.3-gke.100"
 	increaseBy = 1
 )
 
@@ -19,6 +18,7 @@ var (
 	clusterName string
 	zone        = helpers.GetGKEZone()
 	project     = helpers.GetGKEProjectID()
+	k8sVersion  = helpers.GetK8sVersion("gke")
 )
 
 func TestP0(t *testing.T) {

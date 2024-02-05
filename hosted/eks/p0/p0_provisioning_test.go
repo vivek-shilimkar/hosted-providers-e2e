@@ -26,6 +26,7 @@ var _ = Describe("P0Provisioning", func() {
 			config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
 				eksConfig.Region = region
 				eksConfig.Tags = helper.GetTags()
+				eksConfig.KubernetesVersion = &k8sVersion
 			})
 			cluster, err = eks.CreateEKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())

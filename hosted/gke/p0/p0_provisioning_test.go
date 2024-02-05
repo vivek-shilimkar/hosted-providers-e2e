@@ -28,6 +28,10 @@ var _ = Describe("P0Provisioning", func() {
 				gkeConfig.Zone = zone
 				labels := helper.GetLabels()
 				gkeConfig.Labels = &labels
+				gkeConfig.KubernetesVersion = &k8sVersion
+				for _, np := range gkeConfig.NodePools {
+					np.Version = &k8sVersion
+				}
 			})
 
 			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})

@@ -3,6 +3,9 @@ package helpers
 import (
 	"fmt"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/rancher/rancher/tests/framework/extensions/clusters/aks"
+	"github.com/rancher/rancher/tests/framework/extensions/clusters/eks"
+	"github.com/rancher/rancher/tests/framework/extensions/clusters/gke"
 	"os"
 	"os/user"
 	"strings"
@@ -32,7 +35,6 @@ var (
 	rancherPassword = os.Getenv("RANCHER_PASSWORD")
 	rancherHostname = os.Getenv("RANCHER_HOSTNAME")
 	cloudCredential *cloudcredentials.CloudCredential
-	rancherConfig   *rancher.Config
 )
 
 type Context struct {
@@ -201,4 +203,39 @@ func GetCommonMetadataLabels() map[string]string {
 		"owner":          "hosted-providers-qa-ci-" + testuser.Username,
 		"testfilenumber": filename,
 	}
+}
+
+func GetK8sVersion(provider string) string {
+	k8sVersion := os.Getenv("DOWNSTREAM_KUBERNETES_VERSION")
+	if k8sVersion != "" {
+		return k8sVersion
+	}
+	switch provider {
+	case "gke":
+		gkeConfig := new(management.GKEClusterConfigSpec)
+		config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig)
+		if gkeConfig.KubernetesVersion != nil {
+			k8sVersion = *gkeConfig.KubernetesVersion
+		} else {
+			k8sVersion = "1.27.3-gke.100"
+		}
+	case "eks":
+		eksConfig := new(management.EKSClusterConfigSpec)
+		config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig)
+		if eksConfig.KubernetesVersion != nil {
+			k8sVersion = *eksConfig.KubernetesVersion
+		} else {
+			k8sVersion = "1.26"
+
+		}
+	case "aks":
+		aksConfig := new(management.AKSClusterConfigSpec)
+		config.LoadConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig)
+		if aksConfig.KubernetesVersion != nil {
+			k8sVersion = *aksConfig.KubernetesVersion
+		} else {
+			k8sVersion = "1.26.6"
+		}
+	}
+	return k8sVersion
 }

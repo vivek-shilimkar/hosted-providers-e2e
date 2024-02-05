@@ -14,6 +14,7 @@ Following are the common environment variables that need to be exported for runn
 2. RANCHER_PASSWORD - Admin Password for login. We currently only test with 'admin' user.
 3. CATTLE_TEST_CONFIG: Config file containing cluster and cloud credential information, for e.g. cattle-config-provisioning.yaml and cattle-config-import.yaml in the root directory.
 4. PROVIDER: Type of the hosted provider you want to test. Acceptable values - gke, eks, aks
+5. DOWNSTREAM_KUBERNETES_VERSION (optional): Downstream cluster Kubernetes version to test. If the env var is not provided, the value is obtained from the config, if even that is not available, it uses a provider specific default value.
 
 To run GKE:
 1. GCP_CREDENTIALS - a Service Account with a JSON private key and provide the JSON here. These IAM roles are required:
