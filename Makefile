@@ -28,7 +28,7 @@ install-cert-manager: ## Install cert-manager via Helm on the k8s cluster
 install-rancher: ## Install Rancher via Helm on the k8s cluster
 	helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
 	helm repo update
-	helm install rancher --devel rancher-latest/rancher --version ${RANCHER_VERSION} \
+	helm install rancher --devel rancher-latest/rancher \
 		--namespace cattle-system \
 		--create-namespace \
 		--set global.cattle.psp.enabled=false \
@@ -42,7 +42,7 @@ install-rancher: ## Install Rancher via Helm on the k8s cluster
 install-rancher-hosted-nightly-chart: ## Install Rancher via Helm with hosted providers nightly chart
 	helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
 	helm repo update
-	helm install rancher --devel rancher-latest/rancher --version ${RANCHER_VERSION} \
+	helm install rancher --devel rancher-latest/rancher \
 		--namespace cattle-system \
 		--create-namespace \
 		--set global.cattle.psp.enabled=false \

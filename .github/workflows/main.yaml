@@ -135,6 +135,7 @@ jobs:
 
       - name: Install Azure cli
         run: |
+          sudo zypper clean --all
           sudo zypper install -y azure-cli
           pip install azure-cli
             
@@ -172,7 +173,7 @@ jobs:
           make e2e-provisioning-tests
 
       - name: Importing cluster tests
-        if: ${{ inputs.run_p0_importing_tests == true }}
+        if: ${{ !cancelled() && inputs.run_p0_importing_tests == true }}
         env:
           RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
@@ -180,7 +181,7 @@ jobs:
           make e2e-import-tests
 
       - name: Support matrix provisioning tests
-        if: ${{ inputs.run_support_matrix_provisioning_tests == true }}
+        if: ${{ !cancelled() && inputs.run_support_matrix_provisioning_tests == true }}
         env:
           RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
@@ -188,7 +189,7 @@ jobs:
           make e2e-support-matrix-provisioning-tests
 
       - name: Support matrix importing tests
-        if: ${{ inputs.run_support_matrix_importing_tests == true }}
+        if: ${{ !cancelled() && inputs.run_support_matrix_importing_tests == true }}
         env:
           RANCHER_HOSTNAME: ${{ steps.runner-ip.outputs.PUBLIC_IP}}.sslip.io
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
