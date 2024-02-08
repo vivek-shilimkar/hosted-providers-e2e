@@ -1,5 +1,6 @@
 # This workflow calls the main workflow with custom variables
 name: GKE-E2E
+run-name: GKE ${{ inputs.downstream_k8s_version }} on Rancher v${{ inputs.rancher_version }} deployed on ${{ inputs.k3s_version}}
 
 on:
   schedule:
@@ -48,6 +49,7 @@ on:
       downstream_k8s_version:
         description: Downstream cluster K8s version to test
         default: 1.27.3-gke.100
+
 jobs:
   gke-e2e:
     uses: ./.github/workflows/main.yaml

@@ -2,9 +2,11 @@ package helper
 
 import (
 	"fmt"
-	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
+
 	"github.com/rancher/shepherd/extensions/clusters/gke"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
+
+	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/epinio/epinio/acceptance/helpers/proc"
@@ -65,7 +67,7 @@ func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Cl
 		for _, np := range nodeConfig {
 			newNodepool := management.GKENodePoolConfig{
 				InitialNodeCount:  np.InitialNodeCount,
-				Version:           np.Version,
+				Version:           cluster.GKEConfig.KubernetesVersion,
 				Config:            np.Config,
 				Autoscaling:       np.Autoscaling,
 				Management:        np.Management,
