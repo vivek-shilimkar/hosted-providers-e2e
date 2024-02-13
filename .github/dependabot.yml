@@ -13,3 +13,10 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "monthly"
+    ignore:
+    # Ignore k8s.io/* as its upgraded manually.
+    - dependency-name: "k8s.io/apimachinery"
+      update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    - dependency-name: "k8s.io/api"
+      update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    - dependency-name: "github.com/rancher/client-go"
