@@ -31,6 +31,7 @@ install-rancher: ## Install Rancher via Helm on the k8s cluster
 	helm install rancher --devel rancher-latest/rancher \
 		--namespace cattle-system \
 		--create-namespace \
+		--version ${RANCHER_VERSION} \
 		--set global.cattle.psp.enabled=false \
 		--set hostname=${RANCHER_HOSTNAME} \
 		--set bootstrapPassword=${RANCHER_PASSWORD} \
@@ -44,6 +45,7 @@ install-rancher-hosted-nightly-chart: ## Install Rancher via Helm with hosted pr
 	helm repo update
 	helm install rancher --devel rancher-latest/rancher \
 		--namespace cattle-system \
+		--version ${RANCHER_VERSION} \
 		--create-namespace \
 		--set global.cattle.psp.enabled=false \
 		--set hostname=${RANCHER_HOSTNAME} \
