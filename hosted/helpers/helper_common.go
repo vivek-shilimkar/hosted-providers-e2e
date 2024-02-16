@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/shepherd/extensions/clusters/aks"
 	"github.com/rancher/shepherd/extensions/clusters/eks"
 	"github.com/rancher/shepherd/extensions/clusters/gke"
+	"github.com/rancher/shepherd/extensions/pipeline"
 
 	. "github.com/onsi/gomega"
 	"github.com/rancher/shepherd/clients/rancher"
@@ -21,7 +22,6 @@ import (
 	"github.com/rancher/shepherd/extensions/cloudcredentials/google"
 	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/defaults"
-	"github.com/rancher/shepherd/extensions/pipeline"
 	"github.com/rancher/shepherd/pkg/config"
 	"github.com/rancher/shepherd/pkg/session"
 	"github.com/rancher/shepherd/pkg/wait"
