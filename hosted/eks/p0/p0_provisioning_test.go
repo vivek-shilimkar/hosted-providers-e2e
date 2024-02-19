@@ -15,6 +15,8 @@ limitations under the License.
 package p0_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/shepherd/pkg/config"
@@ -49,8 +51,12 @@ var _ = Describe("P0Provisioning", func() {
 		})
 		AfterEach(func() {
 			// TODO Check if EKS cluster deleted on AWS
-			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
-			Expect(err).To(BeNil())
+			if ctx.ClusterCleanup {
+				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
+				Expect(err).To(BeNil())
+			} else {
+				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+			}
 		})
 
 		It("should successfully provision the cluster & add, delete, scale nodepool", func() {

@@ -15,6 +15,8 @@ limitations under the License.
 package p0_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher/shepherd/extensions/clusters/eks"
@@ -54,11 +56,15 @@ var _ = Describe("P0Importing", func() {
 			cluster.EKSConfig = cluster.EKSStatus.UpstreamSpec
 		})
 		AfterEach(func() {
-			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
-			Expect(err).To(BeNil())
-			err = helper.DeleteEKSClusterOnAWS(region, clusterName)
-			Expect(err).To(BeNil())
-			// TODO: Force delete EKS cluster
+			if ctx.ClusterCleanup {
+				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
+				Expect(err).To(BeNil())
+				err = helper.DeleteEKSClusterOnAWS(region, clusterName)
+				Expect(err).To(BeNil())
+				// TODO: Force delete EKS cluster
+			} else {
+				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+			}
 		})
 
 		It("should successfully import the cluster & add, delete, scale nodepool", func() {

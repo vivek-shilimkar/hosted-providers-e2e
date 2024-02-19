@@ -15,6 +15,8 @@ limitations under the License.
 package p0_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -57,10 +59,14 @@ var _ = Describe("P0Importing", func() {
 			cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
 		})
 		AfterEach(func() {
-			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
-			Expect(err).To(BeNil())
-			err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
-			Expect(err).To(BeNil())
+			if ctx.ClusterCleanup {
+				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
+				Expect(err).To(BeNil())
+				err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
+				Expect(err).To(BeNil())
+			} else {
+				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+			}
 		})
 
 		It("should successfully import the cluster & add, delete, scale nodepool", func() {

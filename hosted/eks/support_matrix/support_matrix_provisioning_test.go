@@ -57,8 +57,12 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
-				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
-				Expect(err).To(BeNil())
+				if ctx.ClusterCleanup {
+					err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
+					Expect(err).To(BeNil())
+				} else {
+					fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+				}
 			})
 
 			It("should successfully provision the cluster", func() {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,17 +36,20 @@ const (
 var (
 	rancherPassword = os.Getenv("RANCHER_PASSWORD")
 	rancherHostname = os.Getenv("RANCHER_HOSTNAME")
+	clusterCleanup  = os.Getenv("DOWNSTREAM_CLUSTER_CLEANUP")
 	cloudCredential *cloudcredentials.CloudCredential
 )
 
 type Context struct {
-	CloudCred     *cloudcredentials.CloudCredential
-	RancherClient *rancher.Client
-	Session       *session.Session
+	CloudCred      *cloudcredentials.CloudCredential
+	RancherClient  *rancher.Client
+	Session        *session.Session
+	ClusterCleanup bool
 }
 
 func CommonBeforeSuite(cloud string) (Context, error) {
 
+	clusterCleanup, _ := strconv.ParseBool(clusterCleanup)
 	rancherConfig := new(rancher.Config)
 	Eventually(rancherConfig, "10s").ShouldNot(BeNil())
 
@@ -102,9 +106,10 @@ func CommonBeforeSuite(cloud string) (Context, error) {
 	}
 
 	return Context{
-		CloudCred:     cloudCredential,
-		RancherClient: rancherClient,
-		Session:       testSession,
+		CloudCred:      cloudCredential,
+		RancherClient:  rancherClient,
+		Session:        testSession,
+		ClusterCleanup: clusterCleanup,
 	}, nil
 }
 

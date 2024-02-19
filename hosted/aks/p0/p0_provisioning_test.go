@@ -15,6 +15,8 @@ limitations under the License.
 package p0_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -52,10 +54,14 @@ var _ = Describe("P0Provisioning", func() {
 			Expect(err).To(BeNil())
 		})
 		AfterEach(func() {
-			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
-			Expect(err).To(BeNil())
-			err = helper.DeleteAKSClusteronAzure(clusterName)
-			Expect(err).To(BeNil())
+			if ctx.ClusterCleanup {
+				err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
+				Expect(err).To(BeNil())
+				err = helper.DeleteAKSClusteronAzure(clusterName)
+				Expect(err).To(BeNil())
+			} else {
+				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+			}
 		})
 		It("should successfully provision the cluster & add, delete, scale nodepool", func() {
 
