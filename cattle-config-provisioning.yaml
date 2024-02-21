@@ -1,7 +1,7 @@
 aksClusterConfig:
   azureCredentialSecret: ""
   dnsPrefix: ""
-  kubernetesVersion: 1.26.6
+  kubernetesVersion: 1.26.10
   linuxAdminUsername: azureuser
   loadBalancerSku: Standard
   networkPlugin: kubenet
