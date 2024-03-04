@@ -68,10 +68,10 @@ prepare-e2e-ci-rancher-hosted-nightly-chart: install-k3s install-helm install-ce
 prepare-e2e-ci-rancher: install-k3s install-helm install-cert-manager install-rancher ## Setup Rancher on the local machine
 
 e2e-import-tests: deps	## Run the 'P0Importing' test suite for a given ${PROVIDER}
-	ginkgo ${STANDARD_TEST_OPTIONS} -p --focus "P0Importing" ./hosted/${PROVIDER}/p0/
+	ginkgo ${STANDARD_TEST_OPTIONS} --nodes 2 --focus "P0Importing" ./hosted/${PROVIDER}/p0/
 
 e2e-provisioning-tests: deps ## Run the 'P0Provisioning' test suite for a given ${PROVIDER}
-	ginkgo ${STANDARD_TEST_OPTIONS} -p --focus "P0Provisioning" ./hosted/${PROVIDER}/p0/
+	ginkgo ${STANDARD_TEST_OPTIONS} --nodes 2 --focus "P0Provisioning" ./hosted/${PROVIDER}/p0/
 
 #TODO: Parallelize supportmatrix tests
 e2e-support-matrix-importing-tests: deps ## Run the 'SupportMatrixImporting' test suite for a given ${PROVIDER}

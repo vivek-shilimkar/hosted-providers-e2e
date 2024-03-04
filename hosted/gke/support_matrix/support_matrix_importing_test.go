@@ -71,6 +71,9 @@ var _ = Describe("SupportMatrixImporting", func() {
 				}
 			})
 			It("should successfully import the cluster", func() {
+				// Report to Qase
+				testCaseID = 297
+
 				By("checking cluster name is same", func() {
 					Expect(cluster.Name).To(BeEquivalentTo(clusterName))
 				})

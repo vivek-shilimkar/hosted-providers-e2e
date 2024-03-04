@@ -67,6 +67,9 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 				}
 			})
 			It("should successfully provision the cluster", func() {
+				// Report to Qase
+				testCaseID = 296
+
 				By("checking cluster name is same", func() {
 					Expect(cluster.Name).To(BeEquivalentTo(clusterName))
 				})

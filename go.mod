@@ -8,12 +8,15 @@ require (
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
 	github.com/pkg/errors v0.9.1
+	github.com/rancher-sandbox/qase-ginkgo v1.0.1
 	github.com/rancher/shepherd v0.0.0-20240205165058-79095d1622f8
+	github.com/sirupsen/logrus v1.9.3
 	k8s.io/apimachinery v0.27.9
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 )
 
 require (
+	github.com/antihax/optional v1.0.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.322 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -36,7 +39,7 @@ require (
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
+	github.com/google/pprof v0.0.0-20230926050212-f7f687d19a98 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
@@ -65,9 +68,9 @@ require (
 	github.com/rancher/rke v1.5.0 // indirect
 	github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20210727200656-10b094e30007 // indirect
 	github.com/rancher/wrangler v1.1.1 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
+	go.qase.io/client v0.0.4 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
@@ -101,6 +104,7 @@ require (
 )
 
 replace (
+	go.qase.io/client => github.com/rancher/qase-go/client v0.0.0-20231114201952-65195ec001fa
 	k8s.io/api => k8s.io/api v0.27.5
 	k8s.io/client-go => github.com/rancher/client-go v1.27.4-rancher1
 )

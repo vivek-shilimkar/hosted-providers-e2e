@@ -64,6 +64,8 @@ var _ = Describe("P0Provisioning", func() {
 			}
 		})
 		It("should successfully provision the cluster & add, delete, scale nodepool", func() {
+			// Report to Qase
+			testCaseID = 7
 
 			By("checking cluster name is same", func() {
 				Expect(cluster.Name).To(BeEquivalentTo(clusterName))
@@ -140,6 +142,9 @@ var _ = Describe("P0Provisioning", func() {
 			})
 
 			It("should be able to upgrade k8s version of the cluster", func() {
+				// Report to Qase
+				testCaseID = 10
+
 				By("upgrading the ControlPlane", func() {
 					var err error
 					cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, ctx.RancherClient, false)

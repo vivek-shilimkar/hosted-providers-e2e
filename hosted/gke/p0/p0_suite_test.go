@@ -19,6 +19,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/rancher-sandbox/qase-ginkgo"
+
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
@@ -31,6 +33,7 @@ const (
 var (
 	ctx         helpers.Context
 	clusterName string
+	testCaseID  int64
 	zone        = helpers.GetGKEZone()
 	project     = helpers.GetGKEProjectID()
 	k8sVersion  = helpers.GetK8sVersion("gke")
@@ -46,4 +49,14 @@ var _ = BeforeEach(func() {
 	ctx, err = helpers.CommonBeforeSuite("gke")
 	Expect(err).To(BeNil())
 	clusterName = namegen.AppendRandomString("gkehostcluster")
+})
+
+var _ = ReportBeforeEach(func(report SpecReport) {
+	// Reset case ID
+	testCaseID = -1
+})
+
+var _ = ReportAfterEach(func(report SpecReport) {
+	// Add result in Qase if asked
+	Qase(testCaseID, report)
 })

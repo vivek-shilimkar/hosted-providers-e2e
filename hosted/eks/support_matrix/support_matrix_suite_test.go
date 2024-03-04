@@ -17,6 +17,7 @@ package support_matrix_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/rancher-sandbox/qase-ginkgo"
 
 	"testing"
 
@@ -27,6 +28,7 @@ import (
 
 var (
 	availableVersionList []string
+	testCaseID           int64
 	ctx                  helpers.Context
 	region               = helpers.GetEKSRegion()
 )
@@ -41,3 +43,13 @@ func TestSupportMatrix(t *testing.T) {
 	Expect(availableVersionList).ToNot(BeEmpty())
 	RunSpecs(t, "SupportMatrix Suite")
 }
+
+var _ = ReportBeforeEach(func(report SpecReport) {
+	// Reset case ID
+	testCaseID = -1
+})
+
+var _ = ReportAfterEach(func(report SpecReport) {
+	// Add result in Qase if asked
+	Qase(testCaseID, report)
+})

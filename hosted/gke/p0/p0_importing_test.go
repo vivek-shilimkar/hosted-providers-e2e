@@ -70,6 +70,8 @@ var _ = Describe("P0Importing", func() {
 		})
 
 		It("should successfully import the cluster & add, delete, scale nodepool", func() {
+			// Report to Qase
+			testCaseID = 8
 
 			By("checking cluster name is same", func() {
 				Expect(cluster.Name).To(BeEquivalentTo(clusterName))
@@ -145,6 +147,9 @@ var _ = Describe("P0Importing", func() {
 			})
 
 			It("should be able to upgrade k8s version of the cluster", func() {
+				// Report to Qase
+				testCaseID = 9
+
 				By("upgrading the Controlplane & NodePools", func() {
 					var err error
 					cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, ctx.RancherClient, true)
