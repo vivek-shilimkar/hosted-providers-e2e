@@ -119,6 +119,10 @@ var _ = Describe("P0Provisioning", func() {
 				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
 				Expect(err).To(BeNil())
 				Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
+				for _, np := range cluster.GKEConfig.NodePools {
+					// qase: HIGHLANDER-35
+					Expect(np.Version).To(BeEquivalentTo(cluster.GKEConfig.KubernetesVersion))
+				}
 			})
 			By("deleting the nodepool", func() {
 				var err error

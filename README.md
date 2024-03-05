@@ -15,8 +15,18 @@ Following are the common environment variables that need to be exported for runn
 3. CATTLE_TEST_CONFIG: Config file containing cluster and cloud credential information, for e.g. cattle-config-provisioning.yaml and cattle-config-import.yaml in the root directory.
 4. PROVIDER: Type of the hosted provider you want to test. Acceptable values - gke, eks, aks
 5. DOWNSTREAM_KUBERNETES_VERSION (optional): Downstream cluster Kubernetes version to test. If the env var is not provided, the value is obtained from the config, if even that is not available, it uses a provider specific default value.
+6. DOWNSTREAM_CLUSTER_CLEANUP (optional): If set to true, downstream cluster will be deleted. Default: false. 
 
-To run GKE:
+#### To run K8s Chart support test cases:
+1. KUBECONFIG: Upstream K8s' Kubeconfig file; usually it is k3s.yaml.
+2. RANCHER_UPGRADE_VERSION: Rancher version to test upgrade. This version can be in the following formats: 2.8.2, 2.8.2-rc3, devel/2.8-head
+3. K8S_UPGRADE_MINOR_VERSION: K8s version to test. This value does not have to be exact, just the X.Y version. For e.g. 1.28. The complete version value will be fetched during the test.
+4. RANCHER_VERSION: Base rancher version to begin with. Since chart support tests are basically upgrade scenarios, the base version should be a released version, if it is an unreleased version such as 2.8-head, the test will fail. This version can be in the following formats: 2.8.2, 2.8.2-rc3, devel/2.8-head
+5. RANCHER_CHANNEL (Optional): Acceptable values: latest (default), alpha, stable, prime
+
+Note: These are E2E tests, so rancher (version=`RANCHER_VERSION`) will be installed by the test.
+
+#### To run GKE:
 1. GCP_CREDENTIALS - a Service Account with a JSON private key and provide the JSON here. These IAM roles are required:
    - Compute Engine: Compute Viewer (roles/compute.viewer)
    - Project: Viewer (roles/viewer)
@@ -25,12 +35,12 @@ To run GKE:
 2. GKE_PROJECT_ID - Name of the Google Cloud Project
 3. GKE_ZONE - Zone in which GKE must be provisioned (default: 'asia-south2-c'). This environment variable takes precedence over the config file variable.
 
-To run EKS:
+#### To run EKS:
 1. AWS_ACCESS_KEY_ID - AWS Access Key
 2. AWS_SECRET_ACCESS_KEY - AWS Secret Key
 3. EKS_REGION - Region in which EKS must be provisioned (default: 'ap-south-1'). This environment variable takes precedence over the config file variable.
 
-To run AKS:
+#### To run AKS:
 1. AKS_CLIENT_ID - Azure Client ID [Check Microsoft Entra ID to create or fetch value from an existing one](https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal)
 2. AKS_CLIENT_SECRET - Azure Client Secret [Check Microsoft Entra ID to create or fetch value from an existing one](https://learn.microsoft.com/en-us/entra/identity-platform/howto-create-service-principal-portal)
 3. AKS_SUBSCRIPTION_ID - Azure Subscription ID (In this case it is similar to a Google Cloud Project, but the value is an ID). [Check Azure Subscriptions](https://learn.microsoft.com/en-us/microsoft-365/enterprise/subscriptions-licenses-accounts-and-tenants-for-microsoft-cloud-offerings?view=o365-worldwide#subscriptions)

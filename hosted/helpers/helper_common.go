@@ -1,14 +1,16 @@
 package helpers
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/user"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/blang/semver"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
 	"github.com/rancher/shepherd/extensions/clusters/aks"
 	"github.com/rancher/shepherd/extensions/clusters/eks"
 	"github.com/rancher/shepherd/extensions/clusters/gke"
@@ -29,35 +31,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const (
-	Timeout = 30 * time.Minute
-)
-
-var (
-	rancherPassword = os.Getenv("RANCHER_PASSWORD")
-	rancherHostname = os.Getenv("RANCHER_HOSTNAME")
-	clusterCleanup  = os.Getenv("DOWNSTREAM_CLUSTER_CLEANUP")
-	cloudCredential *cloudcredentials.CloudCredential
-)
-
-type Context struct {
-	CloudCred      *cloudcredentials.CloudCredential
-	RancherClient  *rancher.Client
-	Session        *session.Session
-	ClusterCleanup bool
-}
-
 func CommonBeforeSuite(cloud string) (Context, error) {
 
-	clusterCleanup, _ := strconv.ParseBool(clusterCleanup)
 	rancherConfig := new(rancher.Config)
 	Eventually(rancherConfig, "10s").ShouldNot(BeNil())
 
 	config.LoadAndUpdateConfig(rancher.ConfigurationFileKey, rancherConfig, func() {
-		rancherConfig.Host = rancherHostname
+		rancherConfig.Host = RancherHostname
 	})
 
-	token, err := pipeline.CreateAdminToken(rancherPassword, rancherConfig)
+	token, err := pipeline.CreateAdminToken(RancherPassword, rancherConfig)
 	Expect(err).To(BeNil())
 
 	config.LoadAndUpdateConfig(rancher.ConfigurationFileKey, rancherConfig, func() {
@@ -73,10 +56,11 @@ func CommonBeforeSuite(cloud string) (Context, error) {
 	Expect(err).To(BeNil())
 
 	setting.Source = "env"
-	setting.Value = fmt.Sprintf("https://%s", rancherHostname)
+	setting.Value = fmt.Sprintf("https://%s", RancherHostname)
 	resp, err = rancherClient.Management.Setting.Update(resp, setting)
 	Expect(err).To(BeNil())
 
+	var cloudCredential *cloudcredentials.CloudCredential
 	switch cloud {
 	case "aks":
 		credentialConfig := new(cloudcredentials.AzureCredentialConfig)
@@ -105,6 +89,7 @@ func CommonBeforeSuite(cloud string) (Context, error) {
 		Expect(err).To(BeNil())
 	}
 
+	clusterCleanup, _ := strconv.ParseBool(os.Getenv("DOWNSTREAM_CLUSTER_CLEANUP"))
 	return Context{
 		CloudCred:      cloudCredential,
 		RancherClient:  rancherClient,
@@ -197,14 +182,16 @@ func GetCommonMetadataLabels() map[string]string {
 	// we only use this information instead of the ginkgo.CurrentSpecReport().FullText() because of the 63 character limit
 	var filename string
 	// Because of the way Support Matrix suites are designed, filename is not loaded at first, so we need to ensure it is non-empty before sanitizing it
+	//E.g. line51_k8s_chart_support_provisioning_test
 	if specReport.FileName() != "" {
 		// Sanitize the filename to fit the label requirements for all the hosted providers
-		filename = strings.Split(specReport.FileName(), "hosted/")[1] // abstract the relative path
-		filename = strings.TrimSuffix(filename, ".go")                // `.` is not allowed
-		filename = strings.ReplaceAll(filename, "/", "-")             // `/` is not allowed
-		filename = strings.ToLower(filename)                          // string must be in lowercase
+		fileSplit := strings.Split(specReport.FileName(), "/") // abstract the filename
+		filename = fileSplit[len(fileSplit)-1]
+		filename = strings.TrimSuffix(filename, ".go") // `.` is not allowed
+		filename = strings.ToLower(filename)           // string must be in lowercase
 		filename = fmt.Sprintf("line%d_%s", specReport.LineNumber(), filename)
 	}
+
 	return map[string]string{
 		"owner":          "hosted-providers-qa-ci-" + testuser.Username,
 		"testfilenumber": filename,
@@ -244,4 +231,24 @@ func GetK8sVersion(provider string) string {
 		}
 	}
 	return k8sVersion
+}
+
+func ListOperatorChart() (operatorCharts []HelmChart) {
+	output, err := kubectl.RunHelmBinaryWithOutput("list", "--namespace", CattleSystemNS, "-o", "json", "--filter", fmt.Sprintf("%s-operator", Provider))
+	Expect(err).To(BeNil())
+	ginkgo.GinkgoLogr.Info(output)
+	err = json.Unmarshal([]byte(output), &operatorCharts)
+	Expect(err).To(BeNil())
+	for i := range operatorCharts {
+		operatorCharts[i].DerivedVersion = strings.TrimPrefix(operatorCharts[i].Chart, fmt.Sprintf("%s-", operatorCharts[i].Name))
+	}
+	return
+}
+
+func VersionCompare(latestVersion, oldVersion string) int {
+	latestVer, err := semver.ParseTolerant(latestVersion)
+	Expect(err).To(BeNil())
+	oldVer, err := semver.ParseTolerant(oldVersion)
+	Expect(err).To(BeNil())
+	return latestVer.Compare(oldVer)
 }

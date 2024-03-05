@@ -1,7 +1,11 @@
 package helper
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 
 	"github.com/rancher/shepherd/extensions/clusters/gke"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
@@ -151,6 +155,19 @@ func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k
 	labels := GetLabels()
 	labelsAsString := k8slabels.SelectorFromSet(labels).String()
 
+	// creating GKE using gcloud changes the kubeconfig to use GKE; this can be problematic for test cases that need to use local cluster;
+	// this workaround helps to keep the original kubeconfig
+	// TODO: move this to a common function once AKS and EKS is implemented
+	currentKubeconfig := os.Getenv("KUBECONFIG")
+	defer os.Setenv("KUBECONFIG", currentKubeconfig)
+
+	tmpKubeConfig, err := os.CreateTemp("", clusterName)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpKubeConfig.Name()) // clean up
+	os.Setenv("KUBECONFIG", tmpKubeConfig.Name())
+
 	fmt.Println("Creating GKE cluster ...")
 	args := []string{"container", "clusters", "create", clusterName, "--project", project, "--zone", zone, "--cluster-version", k8sVersion, "--labels", labelsAsString, "--network", "default", "--release-channel", "None", "--machine-type", "n2-standard-2", "--disk-size", "100", "--num-nodes", "1", "--no-enable-cloud-logging", "--no-enable-cloud-monitoring", "--no-enable-master-authorized-networks"}
 	fmt.Printf("Running command: gcloud %v\n", args)
@@ -226,4 +243,44 @@ type ImportClusterConfig struct {
 	Imported  bool                            `json:"imported" yaml:"imported"`
 	NodePools []*management.GKENodePoolConfig `json:"nodePools" yaml:"nodePools"`
 	Labels    *map[string]string              `json:"labels,omitempty" yaml:"labels,omitempty"`
+}
+
+// DefaultGKE returns the default GKE version used by Rancher
+func DefaultGKE(client *rancher.Client, projectID, cloudCredentialID, zone, region string) (defaultGKE string, err error) {
+	url := fmt.Sprintf("%s://%s/meta/gkeVersions", "https", client.RancherConfig.Host)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Authorization", "Bearer "+client.RancherConfig.AdminToken)
+
+	q := req.URL.Query()
+	q.Add("cloudCredentialId", cloudCredentialID)
+
+	if zone != "" {
+		q.Add("zone", zone)
+	} else if region != "" {
+		q.Add("region", region)
+	}
+
+	q.Add("projectId", projectID)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := client.Management.APIBaseClient.Ops.Client.Do(req)
+	if err != nil {
+		return
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	var mapResponse map[string]interface{}
+	if err = json.Unmarshal(bodyBytes, &mapResponse); err != nil {
+		return
+	}
+
+	defaultGKE = mapResponse["defaultClusterVersion"].(string)
+
+	return
 }

@@ -4,12 +4,14 @@ go 1.20
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/epinio/epinio v1.10.0
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.31.1
 	github.com/pkg/errors v0.9.1
+	github.com/rancher-sandbox/ele-testhelpers v0.0.0-20240226095724-c65cbe829176
 	github.com/rancher-sandbox/qase-ginkgo v1.0.1
-	github.com/rancher/shepherd v0.0.0-20240205165058-79095d1622f8
+	github.com/rancher/shepherd v0.0.0-20240301183025-4979762558e1
 	github.com/sirupsen/logrus v1.9.3
 	k8s.io/apimachinery v0.27.9
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
@@ -19,8 +21,8 @@ require (
 	github.com/antihax/optional v1.0.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.322 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/bramvdbogaerde/go-scp v1.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/creasty/defaults v1.5.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -73,6 +75,8 @@ require (
 	go.qase.io/client v0.0.4 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.24.0 // indirect
+	golang.org/x/crypto v0.16.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
@@ -95,6 +99,7 @@ require (
 	k8s.io/kube-aggregator v0.27.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20230530175149-33f04d5d6b58 // indirect
 	k8s.io/kubernetes v1.27.6 // indirect
+	libvirt.org/libvirt-go-xml v7.4.0+incompatible // indirect
 	sigs.k8s.io/cli-utils v0.27.0 // indirect
 	sigs.k8s.io/cluster-api v1.5.0 // indirect
 	sigs.k8s.io/controller-runtime v0.15.1 // indirect
