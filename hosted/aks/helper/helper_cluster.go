@@ -1,7 +1,12 @@
 package helper
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
 
 	"github.com/rancher/shepherd/extensions/clusters/aks"
 
@@ -17,6 +22,10 @@ import (
 
 	"github.com/epinio/epinio/acceptance/helpers/proc"
 	"github.com/pkg/errors"
+)
+
+var (
+	subscriptionID = os.Getenv("AKS_SUBSCRIPTION_ID")
 )
 
 func GetTags() map[string]string {
@@ -153,7 +162,7 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 	tags := GetTags()
 	formattedTags := convertMapToAKSString(tags)
 	fmt.Println("Creating AKS resource group ...")
-	rgargs := []string{"group", "create", "--location", location, "--resource-group", clusterName}
+	rgargs := []string{"group", "create", "--location", location, "--resource-group", clusterName, "--subscription", subscriptionID}
 	fmt.Printf("Running command: az %v\n", rgargs)
 
 	out, err := proc.RunW("az", rgargs...)
@@ -162,7 +171,7 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 	}
 
 	fmt.Println("Creating AKS cluster ...")
-	args := []string{"aks", "create", "--resource-group", clusterName, "--generate-ssh-keys", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--node-count", nodes, "--tags", formattedTags}
+	args := []string{"aks", "create", "--resource-group", clusterName, "--generate-ssh-keys", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--subscription", subscriptionID, "--node-count", nodes, "--tags", formattedTags}
 	fmt.Printf("Running command: az %v\n", args)
 	out, err = proc.RunW("az", args...)
 	if err != nil {
@@ -188,7 +197,7 @@ func convertMapToAKSString(tags map[string]string) string {
 func DeleteAKSClusteronAzure(clusterName string) error {
 
 	fmt.Println("Deleting AKS resource group which will delete cluster too ...")
-	args := []string{"group", "delete", "--name", clusterName, "--yes"}
+	args := []string{"group", "delete", "--name", clusterName, "--yes", "--subscription", subscriptionID}
 	fmt.Printf("Running command: az %v\n", args)
 
 	out, err := proc.RunW("az", args...)
@@ -247,4 +256,80 @@ type ImportClusterConfig struct {
 	Tags             map[string]string         `json:"tags,omitempty" yaml:"tags,omitempty"`
 	Imported         bool                      `json:"imported" yaml:"imported"`
 	NodePools        []*management.AKSNodePool `json:"nodePools" yaml:"nodePools"`
+}
+
+// DefaultAKS returns the default AKS version used by Rancher
+func DefaultAKS(client *rancher.Client, cloudCredentialID, region string) (defaultEKS string, err error) {
+	url := fmt.Sprintf("%s://%s/meta/aksVersions", "https", client.RancherConfig.Host)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Authorization", "Bearer "+client.RancherConfig.AdminToken)
+
+	q := req.URL.Query()
+	q.Add("cloudCredentialId", cloudCredentialID)
+	q.Add("region", region)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := client.Management.APIBaseClient.Ops.Client.Do(req)
+	if err != nil {
+		return
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	var versions []string
+	if err = json.Unmarshal(bodyBytes, &versions); err != nil {
+		return
+	}
+
+	var maxRange string
+	maxRange, err = getUIK8sDefaultVersionRange(client)
+	if err != nil {
+		return
+	}
+
+	// Iterate in the reverse order to get the highest version
+	// We obtain the value similar to UI; ref: https://github.com/rancher/ui/blob/master/lib/shared/addon/components/cluster-driver/driver-azureaks/component.js#L140
+	for i := len(versions) - 1; i >= 0; i-- {
+		if strings.Contains(versions[i], maxRange) {
+			defaultEKS = versions[i]
+			return
+		}
+	}
+
+	return
+}
+
+// getUIK8sDefaultVersionRange returns the default Maj.Min version supported by the UI
+func getUIK8sDefaultVersionRange(client *rancher.Client) (value string, err error) {
+	url := fmt.Sprintf("%s://%s/v3/settings/ui-k8s-default-version-range", "https", client.RancherConfig.Host)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return
+	}
+	req.Header.Add("Authorization", "Bearer "+client.RancherConfig.AdminToken)
+
+	resp, err := client.Management.APIBaseClient.Ops.Client.Do(req)
+	if err != nil {
+		return
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+
+	var mapResponse map[string]interface{}
+	if err = json.Unmarshal(bodyBytes, &mapResponse); err != nil {
+		return
+	}
+
+	value = mapResponse["value"].(string)
+	value = strings.TrimPrefix(value, "<=v")
+	value = strings.TrimSuffix(value, ".x")
+	return
+
 }

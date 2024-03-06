@@ -1,11 +1,7 @@
 package helpers
 
 import (
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -15,31 +11,6 @@ import (
 	rancherhelper "github.com/rancher-sandbox/ele-testhelpers/rancher"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
 )
-
-// GetRancherVersion returns the rancher version information as RancherVersionInfo
-// Sample Response from /rancherversion API endpoint:
-// 2.8-head {"Version":"6aae4eeee","GitCommit":"6aae4eeee","RancherPrime":"false"}
-// 2.8.2 {"Version":"v2.8.2","GitCommit":"2f7113dc3","RancherPrime":"false"}
-func GetRancherVersion() (versionInfo RancherVersionInfo) {
-	url := fmt.Sprintf("%s://%s/rancherversion", "https", RancherHostname)
-	httpClient := http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
-	response, err := httpClient.Get(url)
-	Expect(err).To(BeNil())
-	defer func() {
-		_ = response.Body.Close()
-	}()
-
-	var bodyBytes []byte
-	bodyBytes, err = io.ReadAll(response.Body)
-	Expect(err).To(BeNil())
-	err = json.Unmarshal(bodyBytes, &versionInfo)
-	Expect(err).To(BeNil())
-
-	if versionInfo.Version == versionInfo.GitCommit {
-		versionInfo.Devel = true
-	}
-	return
-}
 
 // DeployRancherManager deploys Rancher. If checkPods is true, it waits until all the necessary pods are running
 // fullVersion: devel/2.8, 2.8.2, 2.8.1-rc3

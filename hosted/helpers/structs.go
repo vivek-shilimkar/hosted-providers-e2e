@@ -25,8 +25,12 @@ var (
 			return "latest"
 		}
 	}()
-	Provider          = os.Getenv("PROVIDER")
-	ClusterNamePrefix = fmt.Sprintf("%shostcluster-hp", Provider)
+	Provider                = os.Getenv("PROVIDER")
+	ClusterNamePrefix       = fmt.Sprintf("%shostcluster-hp", Provider)
+	RancherVersion          = os.Getenv("RANCHER_VERSION")
+	RancherUpgradeVersion   = os.Getenv("RANCHER_UPGRADE_VERSION")
+	Kubeconfig              = os.Getenv("KUBECONFIG")
+	K8sUpgradedMinorVersion = os.Getenv("K8S_UPGRADE_MINOR_VERSION")
 )
 
 type HelmChart struct {

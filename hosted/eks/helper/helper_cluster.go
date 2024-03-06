@@ -2,8 +2,11 @@ package helper
 
 import (
 	"fmt"
-	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
+	"os"
+
 	"github.com/rancher/shepherd/extensions/clusters/eks"
+
+	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 
 	"github.com/epinio/epinio/acceptance/helpers/proc"
 	"github.com/pkg/errors"
@@ -211,4 +214,24 @@ type ImportClusterConfig struct {
 	Imported   bool                    `json:"imported" yaml:"imported"`
 	NodeGroups []*management.NodeGroup `json:"nodeGroups" yaml:"nodeGroups"`
 	Tags       *map[string]string      `json:"tags,omitempty" yaml:"tags,omitempty"`
+}
+
+// DefaultEKS returns a version less than the highest version or K8S_UPGRADE_MINOR_VERSION is it is set.
+// Note: It does not return the default version used by UI which is the highest supported version.
+func DefaultEKS(client *rancher.Client) (defaultEKS string, err error) {
+	var versions []string
+	versions, err = kubernetesversions.ListEKSAllVersions(client)
+	if err != nil {
+		return
+	}
+
+	if upgradeVersion := os.Getenv("K8S_UPGRADE_MINOR_VERSION"); upgradeVersion != "" {
+		for _, version := range versions {
+			if helpers.VersionCompare(upgradeVersion, version) > 0 {
+				return version, nil
+			}
+		}
+
+	}
+	return versions[1], nil
 }
