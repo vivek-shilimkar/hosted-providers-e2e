@@ -2,14 +2,15 @@ package k8s_chart_support_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
+	. "github.com/rancher-sandbox/qase-ginkgo"
 	"github.com/rancher/shepherd/clients/rancher"
 	"github.com/rancher/shepherd/clients/rancher/catalog"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
@@ -26,14 +27,10 @@ import (
 
 var (
 	ctx                     helpers.Context
-	clusterName             string
-	k8sVersion              string
+	clusterName, k8sVersion string
+	testCaseID              int64
 	zone                    = helpers.GetGKEZone()
 	project                 = helpers.GetGKEProjectID()
-	rancherVersion          = os.Getenv("RANCHER_VERSION")
-	rancherUpgradedVersion  = os.Getenv("RANCHER_UPGRADE_VERSION")
-	kubeconfig              = os.Getenv("KUBECONFIG")
-	k8sUpgradedMinorVersion = os.Getenv("K8S_UPGRADE_MINOR_VERSION")
 )
 
 func TestK8sChartSupport(t *testing.T) {
@@ -42,13 +39,13 @@ func TestK8sChartSupport(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	Expect(rancherVersion).ToNot(BeEmpty())
+	Expect(helpers.RancherVersion).ToNot(BeEmpty())
 	// For upgrade tests, the rancher version should not be an unreleased version (for e.g. 2.8-head)
-	Expect(rancherVersion).ToNot(ContainSubstring("head"))
+	Expect(helpers.RancherVersion).ToNot(ContainSubstring("head"))
 
-	Expect(rancherUpgradedVersion).ToNot(BeEmpty())
-	Expect(k8sUpgradedMinorVersion).ToNot(BeEmpty())
-	Expect(kubeconfig).ToNot(BeEmpty())
+	Expect(helpers.RancherUpgradeVersion).ToNot(BeEmpty())
+	Expect(helpers.K8sUpgradedMinorVersion).ToNot(BeEmpty())
+	Expect(helpers.Kubeconfig).ToNot(BeEmpty())
 
 	By("Adding the necessary chart repos", func() {
 		err := kubectl.RunHelmBinaryWithCustomErr("repo", "add", catalog.RancherChartRepo, "https://charts.rancher.io")
@@ -57,8 +54,8 @@ var _ = BeforeSuite(func() {
 		Expect(err).To(BeNil())
 	})
 
-	By(fmt.Sprintf("Installing Rancher Manager v%s", rancherVersion), func() {
-		helpers.DeployRancherManager(rancherVersion, true)
+	By(fmt.Sprintf("Installing Rancher Manager v%s", helpers.RancherVersion), func() {
+		helpers.DeployRancherManager(helpers.RancherVersion, true)
 	})
 
 })
@@ -77,8 +74,8 @@ var _ = BeforeEach(func() {
 
 var _ = AfterEach(func() {
 	// The test must restore the env to its original state, so we install rancher back to its original version and uninstall the operator charts
-	By(fmt.Sprintf("Installing Rancher back to its original version %s", rancherVersion), func() {
-		helpers.DeployRancherManager(rancherVersion, true)
+	By(fmt.Sprintf("Installing Rancher back to its original version %s", helpers.RancherVersion), func() {
+		helpers.DeployRancherManager(helpers.RancherVersion, true)
 	})
 
 	By("Uninstalling the existing operator charts", func() {
@@ -89,6 +86,16 @@ var _ = AfterEach(func() {
 			Expect(err).To(BeNil())
 		}
 	})
+})
+
+var _ = ReportBeforeEach(func(report SpecReport) {
+	// Reset case ID
+	testCaseID = -1
+})
+
+var _ = ReportAfterEach(func(report SpecReport) {
+	// Add result in Qase if asked
+	Qase(testCaseID, report)
 })
 
 // commonChartSupportUpgrade runs the common checks required for testing chart support

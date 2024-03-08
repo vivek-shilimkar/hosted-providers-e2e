@@ -43,7 +43,7 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 				cluster     *management.Cluster
 			)
 			BeforeEach(func() {
-				clusterName = namegen.AppendRandomString("ekshostcluster")
+				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				eksConfig := new(eks.ClusterConfig)
 				config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
 					eksConfig.Region = region

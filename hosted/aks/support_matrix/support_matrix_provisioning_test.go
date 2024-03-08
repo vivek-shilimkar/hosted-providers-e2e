@@ -43,7 +43,7 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 				cluster     *management.Cluster
 			)
 			BeforeEach(func() {
-				clusterName = namegen.AppendRandomString("akshostcluster")
+				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				var err error
 				aksConfig := new(aks.ClusterConfig)
 				config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {

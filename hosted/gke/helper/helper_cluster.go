@@ -284,3 +284,13 @@ func DefaultGKE(client *rancher.Client, projectID, cloudCredentialID, zone, regi
 
 	return
 }
+
+// GetK8sVersion returns the k8s version to be used by the test;
+// this value can either be envvar DOWNSTREAM_KUBERNETES_VERSION or the default UI value returned by DefaultGKE.
+func GetK8sVersion(client *rancher.Client, projectID, cloudCredentialID, zone, region string) (string, error) {
+	k8sVersion := os.Getenv("DOWNSTREAM_KUBERNETES_VERSION")
+	if k8sVersion != "" {
+		return k8sVersion, nil
+	}
+	return DefaultGKE(client, projectID, cloudCredentialID, zone, region)
+}

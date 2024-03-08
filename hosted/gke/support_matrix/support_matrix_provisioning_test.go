@@ -43,7 +43,7 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 				cluster     *management.Cluster
 			)
 			BeforeEach(func() {
-				clusterName = namegen.AppendRandomString("gkehostcluster")
+				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				var err error
 				gkeConfig := new(management.GKEClusterConfigSpec)
 				config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {

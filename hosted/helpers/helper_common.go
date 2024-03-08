@@ -11,9 +11,6 @@ import (
 	"github.com/blang/semver"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
-	"github.com/rancher/shepherd/extensions/clusters/aks"
-	"github.com/rancher/shepherd/extensions/clusters/eks"
-	"github.com/rancher/shepherd/extensions/clusters/gke"
 	"github.com/rancher/shepherd/extensions/pipeline"
 
 	. "github.com/onsi/gomega"
@@ -196,41 +193,6 @@ func GetCommonMetadataLabels() map[string]string {
 		"owner":          "hosted-providers-qa-ci-" + testuser.Username,
 		"testfilenumber": filename,
 	}
-}
-
-func GetK8sVersion(provider string) string {
-	k8sVersion := os.Getenv("DOWNSTREAM_KUBERNETES_VERSION")
-	if k8sVersion != "" {
-		return k8sVersion
-	}
-	switch provider {
-	case "gke":
-		gkeConfig := new(management.GKEClusterConfigSpec)
-		config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig)
-		if gkeConfig.KubernetesVersion != nil {
-			k8sVersion = *gkeConfig.KubernetesVersion
-		} else {
-			k8sVersion = "1.27.3-gke.100"
-		}
-	case "eks":
-		eksConfig := new(management.EKSClusterConfigSpec)
-		config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig)
-		if eksConfig.KubernetesVersion != nil {
-			k8sVersion = *eksConfig.KubernetesVersion
-		} else {
-			k8sVersion = "1.26"
-
-		}
-	case "aks":
-		aksConfig := new(management.AKSClusterConfigSpec)
-		config.LoadConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig)
-		if aksConfig.KubernetesVersion != nil {
-			k8sVersion = *aksConfig.KubernetesVersion
-		} else {
-			k8sVersion = "1.26.10"
-		}
-	}
-	return k8sVersion
 }
 
 func ListOperatorChart() (operatorCharts []HelmChart) {

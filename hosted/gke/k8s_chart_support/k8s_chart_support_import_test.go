@@ -51,9 +51,10 @@ var _ = Describe("K8sChartSupportImport", func() {
 		}
 	})
 
-	It(fmt.Sprintf("should successfully test k8s %s chart support on rancher %s", k8sUpgradedMinorVersion, rancherUpgradedVersion), func() {
-		commonChartSupportUpgrade(&ctx, cluster, clusterName, rancherUpgradedVersion, helpers.RancherHostname, k8sUpgradedMinorVersion)
+	It(fmt.Sprintf("should successfully test k8s %s chart support on rancher %s", helpers.K8sUpgradedMinorVersion, helpers.RancherUpgradeVersion), func() {
+		testCaseID = 314 // Report to Qase
+		commonChartSupportUpgrade(&ctx, cluster, clusterName, helpers.RancherUpgradeVersion, helpers.RancherHostname, helpers.K8sUpgradedMinorVersion)
 	})
-	//	TODO: Automate It(fmt.Sprintf("should successfully test k8s %s chart support importing on upgraded rancher %s", k8sUpgradedMinorVersion, rancherUpgradedVersion)
 
+	//	TODO: Automate It(fmt.Sprintf("should successfully test k8s %s chart support importing on upgraded rancher %s", k8sUpgradedMinorVersion, rancherUpgradedVersion), func(){ testCaseID = 315 // Report to Qase})
 })

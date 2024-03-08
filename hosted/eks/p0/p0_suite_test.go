@@ -23,6 +23,7 @@ import (
 
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
+	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
@@ -31,11 +32,10 @@ const (
 )
 
 var (
-	ctx         helpers.Context
-	clusterName string
-	testCaseID  int64
-	region      = helpers.GetEKSRegion()
-	k8sVersion  = helpers.GetK8sVersion("eks")
+	ctx                     helpers.Context
+	k8sVersion, clusterName string
+	testCaseID              int64
+	region                  = helpers.GetEKSRegion()
 )
 
 func TestP0(t *testing.T) {
@@ -45,9 +45,11 @@ func TestP0(t *testing.T) {
 
 var _ = BeforeEach(func() {
 	var err error
-	ctx, err = helpers.CommonBeforeSuite("eks")
+	ctx, err = helpers.CommonBeforeSuite(helpers.Provider)
 	Expect(err).To(BeNil())
-	clusterName = namegen.AppendRandomString("ekshostcluster")
+	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient)
+	Expect(err).To(BeNil())
 })
 
 var _ = ReportBeforeEach(func(report SpecReport) {

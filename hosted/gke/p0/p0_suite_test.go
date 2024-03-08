@@ -23,6 +23,7 @@ import (
 
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
+	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
@@ -31,12 +32,11 @@ const (
 )
 
 var (
-	ctx         helpers.Context
-	clusterName string
-	testCaseID  int64
-	zone        = helpers.GetGKEZone()
-	project     = helpers.GetGKEProjectID()
-	k8sVersion  = helpers.GetK8sVersion("gke")
+	ctx                     helpers.Context
+	clusterName, k8sVersion string
+	testCaseID              int64
+	zone                    = helpers.GetGKEZone()
+	project                 = helpers.GetGKEProjectID()
 )
 
 func TestP0(t *testing.T) {
@@ -46,9 +46,11 @@ func TestP0(t *testing.T) {
 
 var _ = BeforeEach(func() {
 	var err error
-	ctx, err = helpers.CommonBeforeSuite("gke")
+	ctx, err = helpers.CommonBeforeSuite(helpers.Provider)
 	Expect(err).To(BeNil())
-	clusterName = namegen.AppendRandomString("gkehostcluster")
+	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, project, ctx.CloudCred.ID, zone, "")
+	Expect(err).To(BeNil())
 })
 
 var _ = ReportBeforeEach(func(report SpecReport) {

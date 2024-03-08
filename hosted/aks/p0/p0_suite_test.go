@@ -22,6 +22,7 @@ import (
 	. "github.com/rancher-sandbox/qase-ginkgo"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
+	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
@@ -30,11 +31,10 @@ const (
 )
 
 var (
-	ctx         helpers.Context
-	clusterName string
-	testCaseID  int64
-	location    = helpers.GetAKSLocation()
-	k8sVersion  = helpers.GetK8sVersion("aks")
+	ctx                     helpers.Context
+	clusterName, k8sVersion string
+	testCaseID              int64
+	location                = helpers.GetAKSLocation()
 )
 
 func TestP0(t *testing.T) {
@@ -44,9 +44,11 @@ func TestP0(t *testing.T) {
 
 var _ = BeforeEach(func() {
 	var err error
-	ctx, err = helpers.CommonBeforeSuite("aks")
+	ctx, err = helpers.CommonBeforeSuite(helpers.Provider)
 	Expect(err).To(BeNil())
-	clusterName = namegen.AppendRandomString("akshostcluster")
+	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, ctx.CloudCred.ID, location)
+	Expect(err).To(BeNil())
 })
 
 var _ = ReportBeforeEach(func(report SpecReport) {

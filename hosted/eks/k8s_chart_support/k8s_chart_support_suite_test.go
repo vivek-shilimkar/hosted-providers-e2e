@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
+	. "github.com/rancher-sandbox/qase-ginkgo"
 	"github.com/rancher/shepherd/clients/rancher"
 	"github.com/rancher/shepherd/clients/rancher/catalog"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
@@ -24,10 +25,10 @@ import (
 )
 
 var (
-	ctx         helpers.Context
-	clusterName string
-	region      = helpers.GetEKSRegion()
-	k8sVersion  string
+	ctx                     helpers.Context
+	clusterName, k8sVersion string
+	region                  = helpers.GetEKSRegion()
+	testCaseID              int64
 )
 
 func TestK8sChartSupport(t *testing.T) {
@@ -85,6 +86,16 @@ var _ = AfterEach(func() {
 			Expect(err).To(BeNil())
 		}
 	})
+})
+
+var _ = ReportBeforeEach(func(report SpecReport) {
+	// Reset case ID
+	testCaseID = -1
+})
+
+var _ = ReportAfterEach(func(report SpecReport) {
+	// Add result in Qase if asked
+	Qase(testCaseID, report)
 })
 
 func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName, rancherUpgradedVersion, hostname, k8sUpgradedVersion string) {

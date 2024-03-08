@@ -36,7 +36,7 @@ var (
 func TestSupportMatrix(t *testing.T) {
 	RegisterFailHandler(Fail)
 	var err error
-	ctx, err = helpers.CommonBeforeSuite("gke")
+	ctx, err = helpers.CommonBeforeSuite(helpers.Provider)
 	Expect(err).To(BeNil())
 	availableVersionList, err = helper.ListSingleVariantGKEAvailableVersions(ctx.RancherClient, project, ctx.CloudCred.ID, zone, "")
 	Expect(err).To(BeNil())

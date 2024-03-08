@@ -38,8 +38,9 @@ var _ = Describe("K8sChartSupportProvisioning", func() {
 		}
 	})
 	It(fmt.Sprintf("should successfully test k8s %s chart support on rancher %s", helpers.K8sUpgradedMinorVersion, helpers.RancherUpgradeVersion), func() {
+		testCaseID = 316
 		commonchecks(&ctx, cluster, clusterName, helpers.RancherUpgradeVersion, helpers.RancherHostname, helpers.K8sUpgradedMinorVersion)
 	})
-	//	TODO: Automate It(fmt.Sprintf("should successfully test k8s %s chart support provisioning on upgraded rancher %s", k8sUpgradedMinorVersion, rancherUpgradedVersion)
+	//	TODO: Automate It(fmt.Sprintf("should successfully test k8s %s chart support provisioning on upgraded rancher %s", k8sUpgradedMinorVersion, rancherUpgradedVersion), func(){ testCaseID = 317})
 
 })
