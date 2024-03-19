@@ -1,6 +1,6 @@
 # This workflow calls the main workflow with custom variables
 name: AKS-E2E
-run-name: AKS ${{ inputs.downstream_k8s_version || '1.26.10' }} on Rancher v${{ inputs.rancher_version || '2.8-head' }} deployed on ${{ inputs.k3s_version || 'v1.27.9+k3s1' }}
+run-name: AKS ${{ inputs.downstream_k8s_version }} on Rancher v${{ inputs.rancher_version || '2.8-head' }} deployed on ${{ inputs.k3s_version || 'v1.27.9+k3s1' }}
 
 on:
   schedule:
@@ -36,7 +36,6 @@ on:
         type: boolean
       downstream_k8s_version:
         description: Downstream cluster K8s version to test
-        default: 1.26.10
       rancher_installed:
         description: Rancher details if already installed
         default: 'hostname/password'
@@ -62,6 +61,6 @@ jobs:
       run_support_matrix_importing_tests: ${{ contains(inputs.tests_to_run, 'support_matrix_importing') || (github.event_name == 'schedule' && false) }}
       destroy_runner: ${{ inputs.destroy_runner == true || (github.event_name == 'schedule' && true) }}
       runner_template: ${{ inputs.runner_template || 'hosted-prov-e2e-ci-runner-spot-n2-highmem-16-gl-template-v1' }}
-      downstream_k8s_version: ${{ inputs.downstream_k8s_version || '1.26.10' }}
+      downstream_k8s_version: ${{ inputs.downstream_k8s_version }}
       rancher_installed: ${{ inputs.rancher_installed || 'hostname/password' }}
       downstream_cluster_cleanup: ${{ inputs.downstream_cluster_cleanup == true || (github.event_name == 'schedule' && true) }}
