@@ -3,6 +3,7 @@ package helper
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/rancher/shepherd/extensions/clusters/eks"
 
@@ -23,6 +24,10 @@ func GetTags() map[string]string {
 	eksConfig := new(management.EKSClusterConfigSpec)
 	config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig)
 	providerTags := helpers.GetCommonMetadataLabels()
+	if clusterCleanup, _ := strconv.ParseBool(os.Getenv("DOWNSTREAM_CLUSTER_CLEANUP")); clusterCleanup == false {
+		providerTags["janitor-ignore"] = "true"
+	}
+
 	if eksConfig.Tags != nil {
 		for key, value := range *eksConfig.Tags {
 			providerTags[key] = value

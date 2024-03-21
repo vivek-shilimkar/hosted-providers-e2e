@@ -3,6 +3,8 @@ package helpers
 import (
 	"fmt"
 	"os"
+	"os/user"
+	"strconv"
 	"time"
 
 	"github.com/rancher/shepherd/clients/rancher"
@@ -25,8 +27,16 @@ var (
 			return "latest"
 		}
 	}()
-	Provider                = os.Getenv("PROVIDER")
-	ClusterNamePrefix       = fmt.Sprintf("%shostcluster-hp", Provider)
+	Provider          = os.Getenv("PROVIDER")
+	testuser, _       = user.Current()
+	clusterCleanup, _ = strconv.ParseBool(os.Getenv("DOWNSTREAM_CLUSTER_CLEANUP"))
+	ClusterNamePrefix = func() string {
+		if clusterCleanup {
+			return fmt.Sprintf("%s-hp-ci", Provider)
+		} else {
+			return fmt.Sprintf("%s-%s-hp-ci", Provider, testuser.Username)
+		}
+	}()
 	RancherVersion          = os.Getenv("RANCHER_VERSION")
 	RancherUpgradeVersion   = os.Getenv("RANCHER_UPGRADE_VERSION")
 	Kubeconfig              = os.Getenv("KUBECONFIG")
