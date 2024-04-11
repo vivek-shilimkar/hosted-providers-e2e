@@ -27,7 +27,6 @@ jobs:
   aws-janitor:
     name: aws-janitor
     runs-on: ubuntu-latest
-    if: ${{ false }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -36,7 +35,7 @@ jobs:
         uses: rancher-sandbox/aws-janitor@v0.1.0
         with:
           regions: ${{ secrets.EKS_REGION }}
-          commit: false
+          commit: true
           ignore-tag: janitor-ignore
 
   gcp-janitor:
