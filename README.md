@@ -14,15 +14,17 @@ Following are the common environment variables that need to be exported for runn
 2. RANCHER_PASSWORD - Admin Password for login. We currently only test with 'admin' user.
 3. CATTLE_TEST_CONFIG: Config file containing cluster and cloud credential information, for e.g. cattle-config-provisioning.yaml and cattle-config-import.yaml in the root directory.
 4. PROVIDER: Type of the hosted provider you want to test. Acceptable values - gke, eks, aks
-5. DOWNSTREAM_KUBERNETES_VERSION (optional): Downstream cluster Kubernetes version to test. If the env var is not provided, it uses a provider specific default value.
+5. DOWNSTREAM_K8S_MINOR_VERSION (optional): Downstream cluster Kubernetes version to test. If the env var is not provided, it uses a provider specific default value.
 6. DOWNSTREAM_CLUSTER_CLEANUP (optional): If set to true, downstream cluster will be deleted. Default: false. 
 
 #### To run K8s Chart support test cases:
 1. KUBECONFIG: Upstream K8s' Kubeconfig file; usually it is k3s.yaml.
-2. RANCHER_UPGRADE_VERSION: Rancher version to test upgrade. This version can be in the following formats: 2.8.2, 2.8.2-rc3, devel/2.8-head
-3. K8S_UPGRADE_MINOR_VERSION: K8s version to test. This value does not have to be exact, just the X.Y version. For e.g. 1.28. The complete version value will be fetched during the test.
-4. RANCHER_VERSION: Base rancher version to begin with. Since chart support tests are basically upgrade scenarios, the base version should be a released version, if it is an unreleased version such as 2.8-head, the test will fail. This version can be in the following formats: 2.8.2, 2.8.2-rc3, devel/2.8-head
-5. RANCHER_CHANNEL (Optional): Acceptable values: latest (default), alpha, stable, prime
+
+##### Upgrade Scenarios
+1. RANCHER_UPGRADE_VERSION: Rancher version to test upgrade. This version can be in the following formats: 2.8.2, 2.8.2-rc3, devel/2.8
+2. K8S_UPGRADE_MINOR_VERSION: K8s version to test. This value does not have to be exact, just the X.Y version. For e.g. 1.28. The complete version value will be fetched during the test.
+3. RANCHER_VERSION: Base rancher version to begin with. Since chart support tests are basically upgrade scenarios, the base version should be a released version, if it is an unreleased version such as 2.8-head, the test will fail. This version can be in the following formats: 2.8.2, 2.8.2-rc3
+4. RANCHER_CHANNEL (Optional): Acceptable values: latest (default), alpha, stable, prime
 
 Note: These are E2E tests, so rancher (version=`RANCHER_VERSION`) will be installed by the test.
 
@@ -53,6 +55,10 @@ Note: These are E2E tests, so rancher (version=`RANCHER_VERSION`) will be instal
 2. `make e2e-import-tests` - Covers the _P0Importing_ test suite for a given `${PROVIDER}`
 3. `make e2e-support-matrix-importing-tests` - Covers the _SupportMatrixImporting_ test suite for a given `${PROVIDER}`
 4. `make e2e-support-matrix-provisioning-tests` - Covers the _SupportMatrixProvisioning_ test suite for a given `${PROVIDER}`
+5. `make e2e-k8s-chart-support-provisioning-tests` - Focuses on _K8sChartSupportProvisioning_ for a given `${PROVIDER}`
+6. `make e2e-k8s-chart-support-importing-tests` - Focuses on _K8sChartSupportImport_ for a given `${PROVIDER}`
+7. `make e2e-k8s-chart-support-importing-tests-upgrade` - Focuses on _K8sChartSupportUpgradeImport_ for a given `${PROVIDER}`
+8. `make e2e-k8s-chart-support-provisioning-tests-upgrade` - Focuses on _K8sChartSupportUpgradeProvisioning_ for a given `${PROVIDER}`
 
 Run `make help` to know about other targets.
 

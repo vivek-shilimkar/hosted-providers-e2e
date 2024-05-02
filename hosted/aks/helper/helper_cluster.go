@@ -73,6 +73,8 @@ func DeleteAKSHostCluster(cluster *management.Cluster, client *rancher.Client) e
 	return client.Management.Cluster.Delete(cluster)
 }
 
+// ListSingleVariantAKSAvailableVersions returns a list of single variants of minor versions
+// For e.g 1.27.5, 1.26.6, 1.25.8
 func ListSingleVariantAKSAvailableVersions(client *rancher.Client, cloudCredentialID, region string) (availableVersions []string, err error) {
 	availableVersions, err = kubernetesversions.ListAKSAllVersions(client, cloudCredentialID, region)
 	if err != nil {
@@ -88,6 +90,21 @@ func ListSingleVariantAKSAvailableVersions(client *rancher.Client, cloudCredenti
 		}
 	}
 	return singleVersionList, nil
+}
+
+// GetK8sVersionVariantAKS returns a variant of a given minor K8s version
+func GetK8sVersionVariantAKS(minorVersion string, client *rancher.Client, cloudCredentialID, region string) (version string, err error) {
+	versions, err := ListSingleVariantAKSAvailableVersions(client, cloudCredentialID, region)
+	if err != nil {
+		return "", err
+	}
+
+	for _, version := range versions {
+		if strings.Contains(version, minorVersion) {
+			return version, nil
+		}
+	}
+	return "", fmt.Errorf("version %s not found", minorVersion)
 }
 
 // AddNodePool adds a nodepool to the list
@@ -258,8 +275,8 @@ type ImportClusterConfig struct {
 	NodePools        []*management.AKSNodePool `json:"nodePools" yaml:"nodePools"`
 }
 
-// DefaultAKS returns the default AKS version used by Rancher
-func DefaultAKS(client *rancher.Client, cloudCredentialID, region string) (defaultEKS string, err error) {
+// defaultAKS returns the default AKS version used by Rancher
+func defaultAKS(client *rancher.Client, cloudCredentialID, region string) (defaultAKS string, err error) {
 	url := fmt.Sprintf("%s://%s/meta/aksVersions", "https", client.RancherConfig.Host)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -286,17 +303,13 @@ func DefaultAKS(client *rancher.Client, cloudCredentialID, region string) (defau
 		return
 	}
 
-	var maxRange string
-	maxRange, err = getUIK8sDefaultVersionRange(client)
-	if err != nil {
-		return
-	}
+	maxValue := helpers.HighestK8sVersionSupportedByUI(client)
 
 	// Iterate in the reverse order to get the highest version
 	// We obtain the value similar to UI; ref: https://github.com/rancher/ui/blob/master/lib/shared/addon/components/cluster-driver/driver-azureaks/component.js#L140
 	for i := len(versions) - 1; i >= 0; i-- {
-		if strings.Contains(versions[i], maxRange) {
-			defaultEKS = versions[i]
+		if strings.Contains(versions[i], maxValue) {
+			defaultAKS = versions[i]
 			return
 		}
 	}
@@ -304,42 +317,11 @@ func DefaultAKS(client *rancher.Client, cloudCredentialID, region string) (defau
 	return
 }
 
-// getUIK8sDefaultVersionRange returns the default Maj.Min version supported by the UI
-func getUIK8sDefaultVersionRange(client *rancher.Client) (value string, err error) {
-	url := fmt.Sprintf("%s://%s/v3/settings/ui-k8s-default-version-range", "https", client.RancherConfig.Host)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return
-	}
-	req.Header.Add("Authorization", "Bearer "+client.RancherConfig.AdminToken)
-
-	resp, err := client.Management.APIBaseClient.Ops.Client.Do(req)
-	if err != nil {
-		return
-	}
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	var mapResponse map[string]interface{}
-	if err = json.Unmarshal(bodyBytes, &mapResponse); err != nil {
-		return
-	}
-
-	value = mapResponse["value"].(string)
-	value = strings.TrimPrefix(value, "<=v")
-	value = strings.TrimSuffix(value, ".x")
-	return
-
-}
-
 // GetK8sVersion returns the k8s version to be used by the test;
-// this value can either be envvar DOWNSTREAM_KUBERNETES_VERSION or the default UI value returned by DefaultAKS.
+// this value can either be envvar DOWNSTREAM_K8S_MINOR_VERSION or the default UI value returned by DefaultAKS.
 func GetK8sVersion(client *rancher.Client, cloudCredentialID, region string) (string, error) {
-	k8sVersion := os.Getenv("DOWNSTREAM_KUBERNETES_VERSION")
-	if k8sVersion != "" {
-		return k8sVersion, nil
+	if k8sMinorVersion := helpers.DownstreamK8sMinorVersion; k8sMinorVersion != "" {
+		return GetK8sVersionVariantAKS(k8sMinorVersion, client, cloudCredentialID, region)
 	}
-	return DefaultAKS(client, cloudCredentialID, region)
+	return defaultAKS(client, cloudCredentialID, region)
 }

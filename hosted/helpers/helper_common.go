@@ -1,16 +1,13 @@
 package helpers
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/user"
 	"strconv"
 	"strings"
 
-	"github.com/blang/semver"
 	"github.com/onsi/ginkgo/v2"
-	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
 	"github.com/rancher/shepherd/extensions/pipeline"
 
 	. "github.com/onsi/gomega"
@@ -195,22 +192,21 @@ func GetCommonMetadataLabels() map[string]string {
 	}
 }
 
-func ListOperatorChart() (operatorCharts []HelmChart) {
-	output, err := kubectl.RunHelmBinaryWithOutput("list", "--namespace", CattleSystemNS, "-o", "json", "--filter", fmt.Sprintf("%s-operator", Provider))
+func SetTempKubeConfig(clusterName string) {
+	tmpKubeConfig, err := os.CreateTemp("", clusterName)
 	Expect(err).To(BeNil())
-	ginkgo.GinkgoLogr.Info(output)
-	err = json.Unmarshal([]byte(output), &operatorCharts)
-	Expect(err).To(BeNil())
-	for i := range operatorCharts {
-		operatorCharts[i].DerivedVersion = strings.TrimPrefix(operatorCharts[i].Chart, fmt.Sprintf("%s-", operatorCharts[i].Name))
-	}
-	return
+	_ = os.Setenv(DownstreamKubeconfig(clusterName), tmpKubeConfig.Name())
+	_ = os.Setenv("KUBECONFIG", tmpKubeConfig.Name())
 }
 
-func VersionCompare(latestVersion, oldVersion string) int {
-	latestVer, err := semver.ParseTolerant(latestVersion)
+// HighestK8sVersionSupportedByUI returns the highest k8s version supported by UI
+// TODO(pvala): Use this by default when fetching a list of k8s version for all the downstream providers.
+func HighestK8sVersionSupportedByUI(client *rancher.Client) (value string) {
+	uiValue, err := client.Management.Setting.ByID("ui-k8s-default-version-range")
 	Expect(err).To(BeNil())
-	oldVer, err := semver.ParseTolerant(oldVersion)
-	Expect(err).To(BeNil())
-	return latestVer.Compare(oldVer)
+	value = uiValue.Value
+	Expect(value).ToNot(BeEmpty())
+	value = strings.TrimPrefix(value, "<=v")
+	value = strings.TrimSuffix(value, ".x")
+	return value
 }

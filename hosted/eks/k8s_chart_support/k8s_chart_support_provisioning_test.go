@@ -37,10 +37,10 @@ var _ = Describe("K8sChartSupportProvisioning", func() {
 			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
 		}
 	})
-	It(fmt.Sprintf("should successfully test k8s %s chart support on rancher %s", helpers.K8sUpgradedMinorVersion, helpers.RancherUpgradeVersion), func() {
-		testCaseID = 316
-		commonchecks(&ctx, cluster, clusterName, helpers.RancherUpgradeVersion, helpers.RancherHostname, helpers.K8sUpgradedMinorVersion)
+
+	It("should successfully test k8s chart support provisioning", func() {
+		testCaseID = 317
+		commonchecks(&ctx, cluster)
 	})
-	//	TODO: Automate It(fmt.Sprintf("should successfully test k8s %s chart support provisioning on upgraded rancher %s", k8sUpgradedMinorVersion, rancherUpgradedVersion), func(){ testCaseID = 317})
 
 })

@@ -1,4 +1,4 @@
-package k8s_chart_support_test
+package k8s_chart_support_upgrade_test
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
-var _ = Describe("K8sChartSupportImport", func() {
+var _ = Describe("K8sChartSupportUpgradeImport", func() {
 	var cluster *management.Cluster
 	BeforeEach(func() {
 		var err error
@@ -31,7 +31,7 @@ var _ = Describe("K8sChartSupportImport", func() {
 		Expect(err).To(BeNil())
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
 		Expect(err).To(BeNil())
-		// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
+		//Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
 		cluster.EKSConfig = cluster.EKSStatus.UpstreamSpec
 
 	})
@@ -41,13 +41,15 @@ var _ = Describe("K8sChartSupportImport", func() {
 			Expect(err).To(BeNil())
 			err = helper.DeleteEKSClusterOnAWS(region, clusterName)
 			Expect(err).To(BeNil())
+			// TODO: Force delete EKS cluster
 		} else {
 			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
 		}
 	})
+	It("should successfully test k8s chart support import in an upgrade scenario", func() {
+		GinkgoLogr.Info(fmt.Sprintf("Testing K8s %s chart support for import on Rancher upgraded from %s to %s", helpers.K8sUpgradedMinorVersion, helpers.RancherVersion, helpers.RancherUpgradeVersion))
+		testCaseID = 318 // Report to Qase
 
-	It("should successfully test k8s chart support import", func() {
-		testCaseID = 319 // Report to Qase
-		commonchecks(&ctx, cluster)
+		commonchecks(&ctx, cluster, clusterName, helpers.RancherUpgradeVersion, helpers.RancherHostname, helpers.K8sUpgradedMinorVersion)
 	})
 })

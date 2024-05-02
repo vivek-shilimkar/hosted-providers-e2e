@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/rancher/shepherd/extensions/clusters/gke"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
@@ -149,6 +150,21 @@ func ListSingleVariantGKEAvailableVersions(client *rancher.Client, projectID, cl
 	return singleVersionList, nil
 }
 
+// GetK8sVersionVariantGKE returns a variant of a given minor K8s version
+func GetK8sVersionVariantGKE(minorVersion string, client *rancher.Client, projectID, cloudCrendetialID, zone, region string) (string, error) {
+	versions, err := ListSingleVariantGKEAvailableVersions(client, projectID, cloudCrendetialID, zone, region)
+	if err != nil {
+		return "", err
+	}
+
+	for _, version := range versions {
+		if strings.Contains(version, minorVersion) {
+			return version, nil
+		}
+	}
+	return "", fmt.Errorf("version %s not found", minorVersion)
+}
+
 // Create Google GKE cluster using gcloud CLI
 func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k8sVersion string) error {
 
@@ -161,12 +177,7 @@ func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k
 	currentKubeconfig := os.Getenv("KUBECONFIG")
 	defer os.Setenv("KUBECONFIG", currentKubeconfig)
 
-	tmpKubeConfig, err := os.CreateTemp("", clusterName)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmpKubeConfig.Name()) // clean up
-	os.Setenv("KUBECONFIG", tmpKubeConfig.Name())
+	helpers.SetTempKubeConfig(clusterName)
 
 	fmt.Println("Creating GKE cluster ...")
 	args := []string{"container", "clusters", "create", clusterName, "--project", project, "--zone", zone, "--cluster-version", k8sVersion, "--labels", labelsAsString, "--network", "default", "--release-channel", "None", "--machine-type", "n2-standard-2", "--disk-size", "100", "--num-nodes", "1", "--no-enable-cloud-logging", "--no-enable-cloud-monitoring", "--no-enable-master-authorized-networks"}
@@ -183,6 +194,13 @@ func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k
 
 // Complete cleanup steps for Google GKE
 func DeleteGKEClusterOnGCloud(zone, project, clusterName string) error {
+	currentKubeconfig := os.Getenv("KUBECONFIG")
+	downstreamKubeconfig := os.Getenv(helpers.DownstreamKubeconfig(clusterName))
+	defer func() {
+		_ = os.Setenv("KUBECONFIG", currentKubeconfig)
+		_ = os.Remove(downstreamKubeconfig) // clean up
+	}()
+	_ = os.Setenv("KUBECONFIG", downstreamKubeconfig)
 
 	fmt.Println("Deleting GKE cluster ...")
 	args := []string{"container", "clusters", "delete", clusterName, "--zone", zone, "--quiet", "--project", project}
@@ -245,8 +263,8 @@ type ImportClusterConfig struct {
 	Labels    *map[string]string              `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
-// DefaultGKE returns the default GKE version used by Rancher
-func DefaultGKE(client *rancher.Client, projectID, cloudCredentialID, zone, region string) (defaultGKE string, err error) {
+// defaultGKE returns the default GKE version used by Rancher
+func defaultGKE(client *rancher.Client, projectID, cloudCredentialID, zone, region string) (defaultGKE string, err error) {
 	url := fmt.Sprintf("%s://%s/meta/gkeVersions", "https", client.RancherConfig.Host)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -286,11 +304,10 @@ func DefaultGKE(client *rancher.Client, projectID, cloudCredentialID, zone, regi
 }
 
 // GetK8sVersion returns the k8s version to be used by the test;
-// this value can either be envvar DOWNSTREAM_KUBERNETES_VERSION or the default UI value returned by DefaultGKE.
+// this value can either be envvar DOWNSTREAM_K8S_MINOR_VERSION or the default UI value returned by DefaultGKE.
 func GetK8sVersion(client *rancher.Client, projectID, cloudCredentialID, zone, region string) (string, error) {
-	k8sVersion := os.Getenv("DOWNSTREAM_KUBERNETES_VERSION")
-	if k8sVersion != "" {
-		return k8sVersion, nil
+	if k8sMinorVersion := helpers.DownstreamK8sMinorVersion; k8sMinorVersion != "" {
+		return GetK8sVersionVariantGKE(k8sMinorVersion, client, projectID, cloudCredentialID, zone, region)
 	}
-	return DefaultGKE(client, projectID, cloudCredentialID, zone, region)
+	return defaultGKE(client, projectID, cloudCredentialID, zone, region)
 }
