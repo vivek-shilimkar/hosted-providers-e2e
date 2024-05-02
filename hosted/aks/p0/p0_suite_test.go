@@ -44,8 +44,7 @@ func TestP0(t *testing.T) {
 
 var _ = BeforeEach(func() {
 	var err error
-	ctx, err = helpers.CommonBeforeSuite(helpers.Provider)
-	Expect(err).To(BeNil())
+	ctx = helpers.CommonBeforeSuite(helpers.Provider)
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, ctx.CloudCred.ID, location)
 	Expect(err).To(BeNil())
