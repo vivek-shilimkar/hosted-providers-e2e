@@ -29,6 +29,12 @@ on:
       run_p0_importing_tests:
         required: true
         type: boolean
+      run_p1_provisioning_tests:
+        required: true
+        type: boolean
+      run_p1_importing_tests:
+        required: true
+        type: boolean
       run_support_matrix_provisioning_tests:
         required: true
         type: boolean
@@ -229,6 +235,26 @@ jobs:
           QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
         run: |
           make e2e-import-tests
+
+      - name: Provisioning cluster P1 tests
+        if:  ${{ inputs.run_p1_provisioning_tests == true }}
+        env:
+          RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
+          RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
+          QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
+        run: |
+          make e2e-p1-provisioning-tests
+
+      - name: Importing cluster P1 tests
+        if: ${{ !cancelled() && inputs.run_p1_importing_tests == true }}
+        env:
+          RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
+          RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
+          QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
+        run: |
+          make e2e-p1-import-tests
 
       - name: Support matrix provisioning tests
         if: ${{ !cancelled() && inputs.run_support_matrix_provisioning_tests == true }}

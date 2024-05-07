@@ -121,6 +121,40 @@ func ScaleNodePool(cluster *management.Cluster, client *rancher.Client, nodeCoun
 	return cluster, nil
 }
 
+// UpdateMonitoringAndLoggingService updates the monitoring and loggingService of a GKE cluster
+func UpdateMonitoringAndLoggingService(cluster *management.Cluster, client *rancher.Client, monitoringService, loggingService string) (*management.Cluster, error) {
+	upgradedCluster := new(management.Cluster)
+	upgradedCluster.Name = cluster.Name
+	upgradedCluster.GKEConfig = cluster.GKEConfig
+
+	upgradedCluster.GKEConfig.LoggingService = &loggingService
+	upgradedCluster.GKEConfig.MonitoringService = &monitoringService
+
+	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	if err != nil {
+		return nil, err
+	}
+	return cluster, nil
+}
+
+// UpdateAutoScaling updates the management.GKENodePoolAutoscaling for all the node pools of a GKE cluster
+// TODO: Facilitate passing minCount and maxCount values when autoscaling is enabled.
+func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enabled bool) (*management.Cluster, error) {
+	upgradedCluster := new(management.Cluster)
+	upgradedCluster.Name = cluster.Name
+	upgradedCluster.GKEConfig = cluster.GKEConfig
+	for i := range upgradedCluster.GKEConfig.NodePools {
+		upgradedCluster.GKEConfig.NodePools[i].Autoscaling = &management.GKENodePoolAutoscaling{
+			Enabled: enabled,
+		}
+	}
+	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	if err != nil {
+		return nil, err
+	}
+	return cluster, nil
+}
+
 // ListGKEAvailableVersions is a function to list and return only available GKE versions for a specific cluster.
 func ListGKEAvailableVersions(client *rancher.Client, clusterID string) (availableVersions []string, err error) {
 	// kubernetesversions.ListGKEAvailableVersions expects cluster.Version.GitVersion to be available, which it is not sometimes, so we fetch the cluster again to ensure it has all the available data
@@ -166,7 +200,7 @@ func GetK8sVersionVariantGKE(minorVersion string, client *rancher.Client, projec
 }
 
 // Create Google GKE cluster using gcloud CLI
-func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k8sVersion string) error {
+func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k8sVersion string, extraArgs ...string) error {
 
 	labels := GetLabels()
 	labelsAsString := k8slabels.SelectorFromSet(labels).String()
@@ -180,7 +214,8 @@ func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k
 	helpers.SetTempKubeConfig(clusterName)
 
 	fmt.Println("Creating GKE cluster ...")
-	args := []string{"container", "clusters", "create", clusterName, "--project", project, "--zone", zone, "--cluster-version", k8sVersion, "--labels", labelsAsString, "--network", "default", "--release-channel", "None", "--machine-type", "n2-standard-2", "--disk-size", "100", "--num-nodes", "1", "--no-enable-cloud-logging", "--no-enable-cloud-monitoring", "--no-enable-master-authorized-networks"}
+	args := []string{"container", "clusters", "create", clusterName, "--project", project, "--zone", zone, "--cluster-version", k8sVersion, "--labels", labelsAsString, "--network", "default", "--release-channel", "None", "--machine-type", "n2-standard-2", "--disk-size", "100", "--num-nodes", "1", "--no-enable-master-authorized-networks"}
+	args = append(args, extraArgs...)
 	fmt.Printf("Running command: gcloud %v\n", args)
 	out, err := proc.RunW("gcloud", args...)
 	if err != nil {

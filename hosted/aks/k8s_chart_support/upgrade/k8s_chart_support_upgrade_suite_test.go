@@ -56,7 +56,7 @@ var _ = BeforeSuite(func() {
 
 var _ = BeforeEach(func() {
 	var err error
-	ctx, err = helpers.CommonBeforeSuite(helpers.Provider)
+	ctx = helpers.CommonBeforeSuite(helpers.Provider)
 	Expect(err).To(BeNil())
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 

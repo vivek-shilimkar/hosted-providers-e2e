@@ -41,7 +41,7 @@ on:
         default: 'hostname/password'
         type: string
       tests_to_run:
-        description: Tests to run (p0_provisioning/p0_importing/support_matrix_provisioning/support_matrix_importing/k8s_chart_support_provisioning/k8s_chart_support_importing)
+        description: Tests to run (p0_provisioning/p0_importing/p1_provisioning/p1_importing/support_matrix_provisioning/support_matrix_importing/k8s_chart_support_provisioning/k8s_chart_support_importing)
         type: string
         required: true
         default: p0_provisioning/p0_importing
@@ -57,6 +57,8 @@ jobs:
       operator_nightly_chart: ${{ inputs.operator_nightly_chart == true || (github.event_name == 'schedule' && true) }}
       run_p0_provisioning_tests: ${{ contains(inputs.tests_to_run, 'p0_provisioning') || (github.event_name == 'schedule' && true) }}
       run_p0_importing_tests: ${{ contains(inputs.tests_to_run, 'p0_importing') || (github.event_name == 'schedule' && true) }}
+      run_p1_provisioning_tests: ${{ contains(inputs.tests_to_run, 'p1_provisioning') || (github.event_name == 'schedule' && false) }}
+      run_p1_importing_tests: ${{ contains(inputs.tests_to_run, 'p1_importing') || (github.event_name == 'schedule' && false) }}
       run_support_matrix_provisioning_tests: ${{ contains(inputs.tests_to_run, 'support_matrix_provisioning') || (github.event_name == 'schedule' && false) }}
       run_support_matrix_importing_tests: ${{ contains(inputs.tests_to_run, 'support_matrix_importing') || (github.event_name == 'schedule' && false) }}
       run_k8s_chart_support_provisioning_tests: ${{ contains(inputs.tests_to_run, 'k8s_chart_support_provisioning') || (github.event_name == 'schedule' && false) }}
