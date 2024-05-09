@@ -303,7 +303,7 @@ func defaultAKS(client *rancher.Client, cloudCredentialID, region string) (defau
 		return
 	}
 
-	maxValue := helpers.HighestK8sVersionSupportedByUI(client)
+	maxValue := helpers.HighestK8sMinorVersionSupportedByUI(client)
 
 	// Iterate in the reverse order to get the highest version
 	// We obtain the value similar to UI; ref: https://github.com/rancher/ui/blob/master/lib/shared/addon/components/cluster-driver/driver-azureaks/component.js#L140

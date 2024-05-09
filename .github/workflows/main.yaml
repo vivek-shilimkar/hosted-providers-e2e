@@ -30,10 +30,10 @@ on:
         required: true
         type: boolean
       run_p1_provisioning_tests:
-        required: true
+        required: false
         type: boolean
       run_p1_importing_tests:
-        required: true
+        required: false
         type: boolean
       run_support_matrix_provisioning_tests:
         required: true

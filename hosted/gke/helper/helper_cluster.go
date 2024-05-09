@@ -156,13 +156,17 @@ func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enab
 }
 
 // ListGKEAvailableVersions is a function to list and return only available GKE versions for a specific cluster.
-func ListGKEAvailableVersions(client *rancher.Client, clusterID string) (availableVersions []string, err error) {
+func ListGKEAvailableVersions(client *rancher.Client, clusterID string) ([]string, error) {
 	// kubernetesversions.ListGKEAvailableVersions expects cluster.Version.GitVersion to be available, which it is not sometimes, so we fetch the cluster again to ensure it has all the available data
 	cluster, err := client.Management.Cluster.ByID(clusterID)
 	if err != nil {
 		return nil, err
 	}
-	return kubernetesversions.ListGKEAvailableVersions(client, cluster)
+	availableVersions, err := kubernetesversions.ListGKEAvailableVersions(client, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return helpers.FilterUIUnsupportedVersions(availableVersions, client), nil
 }
 
 // ListSingleVariantGKEAvailableVersions returns a list of single variants of minor versions
@@ -181,7 +185,7 @@ func ListSingleVariantGKEAvailableVersions(client *rancher.Client, projectID, cl
 			oldMinor = currentMinor
 		}
 	}
-	return singleVersionList, nil
+	return helpers.FilterUIUnsupportedVersions(singleVersionList, client), nil
 }
 
 // GetK8sVersionVariantGKE returns a variant of a given minor K8s version
@@ -207,7 +211,6 @@ func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k
 
 	// creating GKE using gcloud changes the kubeconfig to use GKE; this can be problematic for test cases that need to use local cluster;
 	// this workaround helps to keep the original kubeconfig
-	// TODO: move this to a common function once AKS and EKS is implemented
 	currentKubeconfig := os.Getenv("KUBECONFIG")
 	defer os.Setenv("KUBECONFIG", currentKubeconfig)
 
@@ -339,10 +342,28 @@ func defaultGKE(client *rancher.Client, projectID, cloudCredentialID, zone, regi
 }
 
 // GetK8sVersion returns the k8s version to be used by the test;
-// this value can either be envvar DOWNSTREAM_K8S_MINOR_VERSION or the default UI value returned by DefaultGKE.
-func GetK8sVersion(client *rancher.Client, projectID, cloudCredentialID, zone, region string) (string, error) {
+// this value can either be a variant of envvar DOWNSTREAM_K8S_MINOR_VERSION or the default UI value returned by DefaultGKE
+// or the second-highest minor k8s version if forUpgrade is true; which it is in case of k8s upgrade tests.
+func GetK8sVersion(client *rancher.Client, projectID, cloudCredentialID, zone, region string, forUpgrade bool) (string, error) {
 	if k8sMinorVersion := helpers.DownstreamK8sMinorVersion; k8sMinorVersion != "" {
 		return GetK8sVersionVariantGKE(k8sMinorVersion, client, projectID, cloudCredentialID, zone, region)
 	}
-	return defaultGKE(client, projectID, cloudCredentialID, zone, region)
+
+	if !forUpgrade {
+		return defaultGKE(client, projectID, cloudCredentialID, zone, region)
+	}
+
+	allVariants, err := ListSingleVariantGKEAvailableVersions(client, projectID, cloudCredentialID, zone, region)
+	if err != nil {
+		return "", err
+	}
+
+	maxValue := helpers.HighestK8sMinorVersionSupportedByUI(client)
+	for _, v := range allVariants {
+		if comparator := helpers.VersionCompare(v, maxValue); comparator == -1 {
+			return v, nil
+		}
+	}
+
+	return "", nil
 }

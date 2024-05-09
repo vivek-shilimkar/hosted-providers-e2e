@@ -21,10 +21,7 @@ import (
 	"fmt"
 
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/clusters/gke"
-	nodestat "github.com/rancher/shepherd/extensions/nodes"
-	"github.com/rancher/shepherd/extensions/workloads/pods"
 	"github.com/rancher/shepherd/pkg/config"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
@@ -70,25 +67,7 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 				// Report to Qase
 				testCaseID = 296
 
-				By("checking cluster name is same", func() {
-					Expect(cluster.Name).To(BeEquivalentTo(clusterName))
-				})
-
-				By("checking service account token secret", func() {
-					success, err := clusters.CheckServiceAccountTokenSecret(ctx.RancherClient, clusterName)
-					Expect(err).To(BeNil())
-					Expect(success).To(BeTrue())
-				})
-
-				By("checking all management nodes are ready", func() {
-					err := nodestat.AllManagementNodeReady(ctx.RancherClient, cluster.ID, helpers.Timeout)
-					Expect(err).To(BeNil())
-				})
-
-				By("checking all pods are ready", func() {
-					podErrors := pods.StatusPods(ctx.RancherClient, cluster.ID)
-					Expect(podErrors).To(BeEmpty())
-				})
+				helpers.ClusterIsReadyChecks(cluster, ctx.RancherClient, clusterName)
 			})
 		})
 	}

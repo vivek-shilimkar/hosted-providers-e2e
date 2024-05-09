@@ -57,7 +57,8 @@ var _ = BeforeEach(func() {
 	Expect(err).To(BeNil())
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 
-	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, project, ctx.CloudCred.ID, zone, "")
+	// For k8s chart support upgrade we want to begin with the default k8s version; we will upgrade rancher and then upgrade k8s to the default available there.
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, project, ctx.CloudCred.ID, zone, "", false)
 	Expect(err).To(BeNil())
 	GinkgoLogr.Info(fmt.Sprintf("Using GKE version %s", k8sVersion))
 
@@ -86,25 +87,7 @@ var _ = ReportAfterEach(func(report SpecReport) {
 
 // commonChartSupportUpgrade runs the common checks required for testing chart support
 func commonChartSupportUpgrade(ctx *helpers.Context, cluster *management.Cluster, clusterName, rancherUpgradedVersion, hostname, k8sUpgradedVersion string) {
-	By("checking cluster name is same", func() {
-		Expect(cluster.Name).To(BeEquivalentTo(clusterName))
-	})
-
-	By("checking service account token secret", func() {
-		success, err := clusters.CheckServiceAccountTokenSecret(ctx.RancherClient, clusterName)
-		Expect(err).To(BeNil())
-		Expect(success).To(BeTrue())
-	})
-
-	By("checking all management nodes are ready", func() {
-		err := nodestat.AllManagementNodeReady(ctx.RancherClient, cluster.ID, helpers.Timeout)
-		Expect(err).To(BeNil())
-	})
-
-	By("checking all pods are ready", func() {
-		podErrors := pods.StatusPods(ctx.RancherClient, cluster.ID)
-		Expect(podErrors).To(BeEmpty())
-	})
+	helpers.ClusterIsReadyChecks(cluster, ctx.RancherClient, clusterName)
 
 	var originalChartVersion string
 	By("checking the chart version", func() {
@@ -179,7 +162,7 @@ func commonChartSupportUpgrade(ctx *helpers.Context, cluster *management.Cluster
 	By(fmt.Sprintf("fetching a list of available k8s versions and ensuring v%s is present in the list and upgrading the cluster to it", k8sUpgradedVersion), func() {
 		versions, err := helper.ListGKEAvailableVersions(ctx.RancherClient, cluster.ID)
 		Expect(err).To(BeNil())
-		highestSupportedVersionByUI := helpers.HighestK8sVersionSupportedByUI(ctx.RancherClient)
+		highestSupportedVersionByUI := helpers.HighestK8sMinorVersionSupportedByUI(ctx.RancherClient)
 		var latestVersion string
 		for _, v := range versions {
 			if strings.Contains(v, highestSupportedVersionByUI) {
