@@ -65,7 +65,7 @@ var _ = Describe("P0Provisioning", func() {
 		})
 		It("should successfully provision the cluster & add, delete, scale nodepool", func() {
 			// Report to Qase
-			testCaseID = 216
+			testCaseID = 173
 
 			By("checking cluster name is same", func() {
 				Expect(cluster.Name).To(BeEquivalentTo(clusterName))
@@ -142,7 +142,7 @@ var _ = Describe("P0Provisioning", func() {
 
 			It("should be able to upgrade k8s version of the cluster", func() {
 				// Report to Qase
-				testCaseID = 218
+				testCaseID = 175
 
 				By("upgrading the ControlPlane", func() {
 					var err error

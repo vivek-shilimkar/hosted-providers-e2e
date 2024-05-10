@@ -52,7 +52,7 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("should fail to provision a cluster when creating cluster with invalid name", func() {
-			testCaseID = 291
+			testCaseID = 36
 			var err error
 			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, "@!invalid-gke-name-@#", ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).ToNot(BeNil())
@@ -60,7 +60,7 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("should fail to provision a cluster with invalid nodepool name", func() {
-			testCaseID = 292
+			testCaseID = 37
 			gkeConfig := new(management.GKEClusterConfigSpec)
 			config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
 				for _, np := range gkeConfig.NodePools {
@@ -86,7 +86,7 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("should fail to provision a cluster with no nodepools", func() {
-			testCaseID = 31
+			testCaseID = 27
 			gkeConfig := new(management.GKEClusterConfigSpec)
 			config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
 				gkeConfig.NodePools = nil
@@ -129,7 +129,7 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("should be able to update mutable parameter loggingService and monitoringService", func() {
-			testCaseID = 59
+			testCaseID = 28
 			By("disabling the services", func() {
 				updateLoggingAndMonitoringServiceCheck(ctx, cluster, "none", "none")
 			})
@@ -139,7 +139,7 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("should be able to update autoscaling", func() {
-			testCaseID = 61
+			testCaseID = 29
 			By("enabling autoscaling", func() {
 				updateAutoScaling(ctx, cluster, true)
 			})

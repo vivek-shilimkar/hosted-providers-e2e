@@ -64,14 +64,14 @@ var _ = Describe("P1Importing", func() {
 		})
 
 		It("should fail to reimport an imported cluster", func() {
-			testCaseID = 53
+			testCaseID = 49
 			_, err := helper.ImportGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("cluster already exists for GKE cluster [%s] in zone [%s]", clusterName, zone)))
 		})
 
 		It("should be able to update mutable parameter", func() {
-			testCaseID = 59
+			testCaseID = 52
 			By("disabling the services", func() {
 				updateLoggingAndMonitoringServiceCheck(ctx, cluster, "none", "none")
 			})
@@ -81,7 +81,7 @@ var _ = Describe("P1Importing", func() {
 		})
 
 		It("should be able to update autoscaling", func() {
-			testCaseID = 61
+			testCaseID = 53
 			By("enabling autoscaling", func() {
 				updateAutoScaling(ctx, cluster, true)
 			})
@@ -91,7 +91,7 @@ var _ = Describe("P1Importing", func() {
 		})
 
 		It("should be able to reimport a deleted cluster", func() {
-			testCaseID = 85
+			testCaseID = 57
 			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
 			Expect(err).To(BeNil())
 			clusterID := cluster.ID

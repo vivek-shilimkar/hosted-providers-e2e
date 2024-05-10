@@ -74,7 +74,7 @@ env:
   PROVIDER: ${{ inputs.hosted_provider }}
   RANCHER_PASSWORD: ${{ secrets.RANCHER_PASSWORD }}
   QASE_API_TOKEN: ${{ secrets.QASE_API_TOKEN }}
-  QASE_PROJECT_CODE: HIGHLANDER
+  QASE_PROJECT_CODE: HP
   QASE_REPORT: 1
   QASE_RUN_COMPLETE: 1
   RANCHER_LOG_COLLECTOR: ${{ github.workspace }}/.github/scripts/collect-rancher-logs.sh

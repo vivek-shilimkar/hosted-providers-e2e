@@ -69,7 +69,7 @@ var _ = Describe("SupportMatrixImporting", func() {
 			})
 			It("should successfully import the cluster", func() {
 				// Report to Qase
-				testCaseID = 297
+				testCaseID = 13
 				helpers.ClusterIsReadyChecks(cluster, ctx.RancherClient, clusterName)
 			})
 		})

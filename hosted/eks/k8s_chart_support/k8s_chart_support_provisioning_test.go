@@ -39,7 +39,7 @@ var _ = Describe("K8sChartSupportProvisioning", func() {
 	})
 
 	It("should successfully test k8s chart support provisioning", func() {
-		testCaseID = 317
+		testCaseID = 166
 		commonchecks(&ctx, cluster)
 	})
 
