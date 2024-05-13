@@ -37,7 +37,10 @@ func TestK8sChartSupportUpgrade(t *testing.T) {
 	RunSpecs(t, "K8sChartSupportUpgrade Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = SynchronizedBeforeSuite(func() []byte {
+	helpers.CommonSynchronizedBeforeSuite()
+	return nil
+}, func() {
 	Expect(helpers.K8sUpgradedMinorVersion).ToNot(BeEmpty())
 	Expect(helpers.Kubeconfig).ToNot(BeEmpty())
 
@@ -49,19 +52,17 @@ var _ = BeforeSuite(func() {
 		helpers.DeployRancherManager(helpers.RancherVersion, true)
 	})
 
+	ctx = helpers.CommonBeforeSuite()
 })
 
 var _ = BeforeEach(func() {
 	var err error
-	ctx = helpers.CommonBeforeSuite(helpers.Provider)
-	Expect(err).To(BeNil())
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 
 	// For k8s chart support upgrade we want to begin with the default k8s version; we will upgrade rancher and then upgrade k8s to the default available there.
 	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, project, ctx.CloudCred.ID, zone, "", false)
 	Expect(err).To(BeNil())
 	GinkgoLogr.Info(fmt.Sprintf("Using GKE version %s", k8sVersion))
-
 })
 
 var _ = AfterEach(func() {

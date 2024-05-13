@@ -29,18 +29,21 @@ func TestK8sChartSupport(t *testing.T) {
 	RunSpecs(t, "K8sChartSupport Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = SynchronizedBeforeSuite(func() []byte {
+	helpers.CommonSynchronizedBeforeSuite()
+	return nil
+}, func() {
 	Expect(helpers.Kubeconfig).ToNot(BeEmpty())
 
 	By("Adding the necessary chart repos", func() {
 		helpers.AddRancherCharts()
 	})
 
+	ctx = helpers.CommonBeforeSuite()
 })
 
 var _ = BeforeEach(func() {
 	var err error
-	ctx = helpers.CommonBeforeSuite(helpers.Provider)
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, ctx.CloudCred.ID, location)
 	Expect(err).To(BeNil())

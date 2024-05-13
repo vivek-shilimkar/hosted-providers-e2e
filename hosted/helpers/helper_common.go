@@ -27,7 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CommonBeforeSuite(cloud string) Context {
+func CommonSynchronizedBeforeSuite() {
+	ginkgo.GinkgoLogr.Info("Using Common SynchronizedBeforeSuite ...")
 
 	rancherConfig := new(rancher.Config)
 
@@ -43,6 +44,37 @@ func CommonBeforeSuite(cloud string) Context {
 
 	config.UpdateConfig(rancher.ConfigurationFileKey, rancherConfig)
 
+	switch Provider {
+	case "aks":
+		credentialConfig := new(cloudcredentials.AzureCredentialConfig)
+		config.LoadAndUpdateConfig("azureCredentials", credentialConfig, func() {
+			credentialConfig.ClientID = os.Getenv("AKS_CLIENT_ID")
+			credentialConfig.SubscriptionID = os.Getenv("AKS_SUBSCRIPTION_ID")
+			credentialConfig.ClientSecret = os.Getenv("AKS_CLIENT_SECRET")
+		})
+	case "eks":
+		credentialConfig := new(cloudcredentials.AmazonEC2CredentialConfig)
+		config.LoadAndUpdateConfig("awsCredentials", credentialConfig, func() {
+			credentialConfig.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
+			credentialConfig.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+			credentialConfig.DefaultRegion = GetEKSRegion()
+		})
+
+	case "gke":
+		credentialConfig := new(cloudcredentials.GoogleCredentialConfig)
+		config.LoadAndUpdateConfig("googleCredentials", credentialConfig, func() {
+			credentialConfig.AuthEncodedJSON = os.Getenv("GCP_CREDENTIALS")
+		})
+	}
+
+}
+
+func CommonBeforeSuite() Context {
+	ginkgo.GinkgoLogr.Info("Using Common BeforeSuite ...")
+
+	rancherConfig := new(rancher.Config)
+	config.LoadConfig(rancher.ConfigurationFileKey, rancherConfig)
+
 	testSession := session.NewSession()
 	rancherClient, err := rancher.NewClient(rancherConfig.AdminToken, testSession)
 	Expect(err).To(BeNil())
@@ -57,30 +89,15 @@ func CommonBeforeSuite(cloud string) Context {
 	Expect(err).To(BeNil())
 
 	var cloudCredential *cloudcredentials.CloudCredential
-	switch cloud {
+
+	switch Provider {
 	case "aks":
-		credentialConfig := new(cloudcredentials.AzureCredentialConfig)
-		config.LoadAndUpdateConfig("azureCredentials", credentialConfig, func() {
-			credentialConfig.ClientID = os.Getenv("AKS_CLIENT_ID")
-			credentialConfig.SubscriptionID = os.Getenv("AKS_SUBSCRIPTION_ID")
-			credentialConfig.ClientSecret = os.Getenv("AKS_CLIENT_SECRET")
-		})
 		cloudCredential, err = azure.CreateAzureCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
 	case "eks":
-		credentialConfig := new(cloudcredentials.AmazonEC2CredentialConfig)
-		config.LoadAndUpdateConfig("awsCredentials", credentialConfig, func() {
-			credentialConfig.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
-			credentialConfig.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
-			credentialConfig.DefaultRegion = GetEKSRegion()
-		})
 		cloudCredential, err = aws.CreateAWSCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
 	case "gke":
-		credentialConfig := new(cloudcredentials.GoogleCredentialConfig)
-		config.LoadAndUpdateConfig("googleCredentials", credentialConfig, func() {
-			credentialConfig.AuthEncodedJSON = os.Getenv("GCP_CREDENTIALS")
-		})
 		cloudCredential, err = google.CreateGoogleCloudCredentials(rancherClient)
 		Expect(err).To(BeNil())
 	}

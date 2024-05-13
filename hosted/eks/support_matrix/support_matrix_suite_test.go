@@ -35,8 +35,9 @@ var (
 
 func TestSupportMatrix(t *testing.T) {
 	RegisterFailHandler(Fail)
+	helpers.CommonSynchronizedBeforeSuite()
+	ctx = helpers.CommonBeforeSuite()
 	var err error
-	ctx = helpers.CommonBeforeSuite(helpers.Provider)
 	availableVersionList, err = kubernetesversions.ListEKSAllVersions(ctx.RancherClient)
 	Expect(err).To(BeNil())
 	Expect(availableVersionList).ToNot(BeEmpty())
