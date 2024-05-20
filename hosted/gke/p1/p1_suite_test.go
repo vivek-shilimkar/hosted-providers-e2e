@@ -51,7 +51,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = BeforeEach(func() {
 	var err error
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
-	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, project, ctx.CloudCred.ID, zone, "", false)
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", false)
 	Expect(err).To(BeNil())
 })
 
@@ -68,9 +68,9 @@ var _ = ReportAfterEach(func(report SpecReport) {
 // updateLoggingAndMonitoringServiceCheck tests updating `loggingService` and `monitoringService`
 func updateLoggingAndMonitoringServiceCheck(ctx helpers.Context, cluster *management.Cluster, updateMonitoringValue, updateLoggingValue string) {
 	var err error
-	cluster, err = helper.UpdateMonitoringAndLoggingService(cluster, ctx.RancherClient, updateMonitoringValue, updateLoggingValue)
+	cluster, err = helper.UpdateMonitoringAndLoggingService(cluster, ctx.RancherAdminClient, updateMonitoringValue, updateLoggingValue)
 	Expect(err).To(BeNil())
-	err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+	err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 	Expect(err).To(BeNil())
 
 	Expect(*cluster.GKEConfig.MonitoringService).To(BeEquivalentTo(updateMonitoringValue))
@@ -86,7 +86,7 @@ func updateAutoScaling(ctx helpers.Context, cluster *management.Cluster, autosca
 	}
 
 	var err error
-	cluster, err = helper.UpdateAutoScaling(cluster, ctx.RancherClient, autoscale)
+	cluster, err = helper.UpdateAutoScaling(cluster, ctx.RancherAdminClient, autoscale)
 	Expect(err).To(BeNil())
 
 	for _, np := range cluster.GKEConfig.NodePools {

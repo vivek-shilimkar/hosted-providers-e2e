@@ -46,7 +46,7 @@ var _ = BeforeEach(func() {
 	var err error
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 
-	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, project, ctx.CloudCred.ID, zone, "", false)
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", false)
 	Expect(err).To(BeNil())
 
 	GinkgoLogr.Info(fmt.Sprintf("Using GKE version %s", k8sVersion))
@@ -91,9 +91,9 @@ func commonChartSupport(ctx *helpers.Context, cluster *management.Cluster) {
 	By("making a change to the cluster to validate functionality after chart downgrade", func() {
 		initialNodeCount := *cluster.GKEConfig.NodePools[0].InitialNodeCount
 		var err error
-		cluster, err = helper.ScaleNodePool(cluster, ctx.RancherClient, initialNodeCount+1)
+		cluster, err = helper.ScaleNodePool(cluster, ctx.RancherAdminClient, initialNodeCount+1)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 		Expect(err).To(BeNil())
 		for i := range cluster.GKEConfig.NodePools {
 			Expect(*cluster.GKEConfig.NodePools[i].InitialNodeCount).To(BeNumerically("==", initialNodeCount+1))
@@ -107,14 +107,14 @@ func commonChartSupport(ctx *helpers.Context, cluster *management.Cluster) {
 	By("making a change(adding a nodepool) to the cluster to re-install the operator and validating it is re-installed to the latest/original version", func() {
 		currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
 		var err error
-		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherClient)
+		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 
 		By("ensuring that the chart is re-installed to the latest/original version", func() {
 			helpers.WaitUntilOperatorChartInstallation(originalChartVersion, "", 0)
 		})
 
-		err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 		Expect(err).To(BeNil())
 		Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
 	})

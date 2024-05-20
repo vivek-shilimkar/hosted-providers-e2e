@@ -21,148 +21,64 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher/shepherd/pkg/config"
 
+	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/clusters/eks"
-	nodestat "github.com/rancher/shepherd/extensions/nodes"
-	"github.com/rancher/shepherd/extensions/workloads/pods"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
 var _ = Describe("P0Provisioning", func() {
-	var cluster *management.Cluster
+	for _, testData := range []struct {
+		qaseID    int64
+		testBody  func(cluster *management.Cluster, client *rancher.Client, clusterName string)
+		testTitle string
+	}{
+		{
+			qaseID:    71,
+			testBody:  p0NodesChecks,
+			testTitle: "should successfully provision the cluster & add, delete, scale nodepool",
+		},
+		{
+			qaseID:    74,
+			testBody:  p0upgradeK8sVersionChecks,
+			testTitle: "should be able to upgrade k8s version of the provisioned cluster",
+		},
+	} {
+		testData := testData
+		When("a cluster is created", func() {
+			var cluster *management.Cluster
 
-	When("a cluster is created", func() {
-
-		BeforeEach(func() {
-			var err error
-			eksConfig := new(eks.ClusterConfig)
-			config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
-				eksConfig.Region = region
-				eksConfig.Tags = helper.GetTags()
-				eksConfig.KubernetesVersion = &k8sVersion
-			})
-			cluster, err = eks.CreateEKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
-			Expect(err).To(BeNil())
-			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
-			Expect(err).To(BeNil())
-		})
-		AfterEach(func() {
-			// TODO Check if EKS cluster deleted on AWS
-			if ctx.ClusterCleanup {
-				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
-				Expect(err).To(BeNil())
-			} else {
-				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
-			}
-		})
-
-		It("should successfully provision the cluster & add, delete, scale nodepool", func() {
-			// Report to Qase
-			testCaseID = 71
-
-			By("checking cluster name is same", func() {
-				Expect(cluster.Name).To(BeEquivalentTo(clusterName))
-			})
-
-			By("checking service account token secret", func() {
-				success, err := clusters.CheckServiceAccountTokenSecret(ctx.RancherClient, clusterName)
-				Expect(err).To(BeNil())
-				Expect(success).To(BeTrue())
-			})
-
-			By("checking all management nodes are ready", func() {
-				err := nodestat.AllManagementNodeReady(ctx.RancherClient, cluster.ID, helpers.Timeout)
-				Expect(err).To(BeNil())
-			})
-
-			By("checking all pods are ready", func() {
-				podErrors := pods.StatusPods(ctx.RancherClient, cluster.ID)
-				Expect(podErrors).To(BeEmpty())
-			})
-
-			currentNodeGroupNumber := len(cluster.EKSConfig.NodeGroups)
-			initialNodeCount := *cluster.EKSConfig.NodeGroups[0].DesiredSize
-
-			By("scaling up the NodeGroup", func() {
-				var err error
-				cluster, err = helper.ScaleNodeGroup(cluster, ctx.RancherClient, initialNodeCount+1)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				for i := range cluster.EKSConfig.NodeGroups {
-					Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", initialNodeCount+1))
-				}
-			})
-
-			By("scaling down the NodeGroup", func() {
-				var err error
-				cluster, err = helper.ScaleNodeGroup(cluster, ctx.RancherClient, initialNodeCount)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				for i := range cluster.EKSConfig.NodeGroups {
-					Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", initialNodeCount))
-				}
-			})
-
-			By("adding a NodeGroup", func() {
-				var err error
-				cluster, err = helper.AddNodeGroup(cluster, increaseBy, ctx.RancherClient)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				Expect(len(cluster.EKSConfig.NodeGroups)).To(BeNumerically("==", currentNodeGroupNumber+1))
-			})
-			By("deleting the NodeGroup", func() {
-				var err error
-				cluster, err = helper.DeleteNodeGroup(cluster, ctx.RancherClient)
-				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-				Expect(err).To(BeNil())
-				Expect(len(cluster.EKSConfig.NodeGroups)).To(BeNumerically("==", currentNodeGroupNumber))
-
-			})
-
-		})
-
-		Context("Upgrading K8s version", func() {
-			var upgradeToVersion *string
 			BeforeEach(func() {
-				versions, err := helper.ListEKSAvailableVersions(ctx.RancherClient, cluster.ID)
+				var err error
+				GinkgoLogr.Info("Using K8s version: " + k8sVersion)
+				eksConfig := new(eks.ClusterConfig)
+				config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
+					eksConfig.Region = region
+					eksConfig.Tags = helper.GetTags()
+					eksConfig.KubernetesVersion = &k8sVersion
+				})
+
+				cluster, err = eks.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())
-				Expect(versions).ToNot(BeEmpty())
-				upgradeToVersion = &versions[0]
+				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+			})
+			AfterEach(func() {
+				if ctx.ClusterCleanup {
+					err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
+					Expect(err).To(BeNil())
+				} else {
+					fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+				}
 			})
 
-			It("should be able to upgrade k8s version of the cluster", func() {
-				// Report to Qase
-				testCaseID = 74
-
-				By("upgrading the ControlPlane", func() {
-					var err error
-					cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, ctx.RancherClient)
-					Expect(err).To(BeNil())
-					err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-					Expect(err).To(BeNil())
-					Expect(cluster.EKSConfig.KubernetesVersion).To(BeEquivalentTo(upgradeToVersion))
-				})
-
-				By("upgrading the NodeGroups", func() {
-					var err error
-					cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, ctx.RancherClient)
-					Expect(err).To(BeNil())
-					err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
-					Expect(err).To(BeNil())
-					for _, ng := range cluster.EKSConfig.NodeGroups {
-						Expect(ng.Version).To(BeEquivalentTo(upgradeToVersion))
-					}
-				})
+			It(testData.testTitle, func() {
+				testCaseID = testData.qaseID
+				testData.testBody(cluster, ctx.RancherAdminClient, clusterName)
 			})
+
 		})
-
-	})
-
+	}
 })

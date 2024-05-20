@@ -44,9 +44,9 @@ var _ = Describe("P1Importing", func() {
 			err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, k8sVersion)
 			Expect(err).To(BeNil())
 
-			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
-			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 			// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
 			cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
@@ -54,7 +54,7 @@ var _ = Describe("P1Importing", func() {
 
 		AfterEach(func() {
 			if ctx.ClusterCleanup {
-				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
+				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 				err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
 				Expect(err).To(BeNil())
@@ -65,7 +65,7 @@ var _ = Describe("P1Importing", func() {
 
 		It("should fail to reimport an imported cluster", func() {
 			testCaseID = 49
-			_, err := helper.ImportGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			_, err := helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("cluster already exists for GKE cluster [%s] in zone [%s]", clusterName, zone)))
 		})
@@ -90,18 +90,19 @@ var _ = Describe("P1Importing", func() {
 			})
 		})
 
+		// TODO: Analyze test failure
 		It("should be able to reimport a deleted cluster", func() {
 			testCaseID = 57
-			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
+			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 			clusterID := cluster.ID
 			Eventually(func() error {
-				_, err := ctx.RancherClient.Management.Cluster.ByID(clusterID)
+				_, err := ctx.RancherAdminClient.Management.Cluster.ByID(clusterID)
 				return err
 			}, "10s", "1s").ShouldNot(BeNil())
-			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
-			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		})
 	})

@@ -23,15 +23,14 @@ var _ = Describe("K8sChartSupportProvisioning", func() {
 			eksConfig.Tags = helper.GetTags()
 			eksConfig.KubernetesVersion = &k8sVersion
 		})
-		cluster, err = eks.CreateEKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+		cluster, err = eks.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 		Expect(err).To(BeNil())
-		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 	})
 	AfterEach(func() {
-		// TODO Check if EKS cluster deleted on AWS
 		if ctx.ClusterCleanup {
-			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
+			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		} else {
 			fmt.Println("Skipping downstream cluster deletion: ", clusterName)

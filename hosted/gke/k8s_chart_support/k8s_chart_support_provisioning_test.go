@@ -32,15 +32,15 @@ var _ = Describe("K8sChartSupportProvisioning", func() {
 		})
 
 		var err error
-		cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+		cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 		Expect(err).To(BeNil())
-		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
 		if ctx.ClusterCleanup {
-			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
+			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		} else {
 			fmt.Println("Skipping downstream cluster deletion: ", clusterName)

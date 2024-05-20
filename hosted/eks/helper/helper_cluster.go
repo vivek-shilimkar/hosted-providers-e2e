@@ -232,7 +232,7 @@ type ImportClusterConfig struct {
 	Tags       *map[string]string      `json:"tags,omitempty" yaml:"tags,omitempty"`
 }
 
-// defaultEKS returns a version less than the highest version or K8S_UPGRADE_MINOR_VERSION is it is set.
+// defaultEKS returns a version less than the highest version or K8S_UPGRADE_MINOR_VERSION if it is set.
 // Note: It does not return the default version used by UI which is the highest supported version.
 func defaultEKS(client *rancher.Client) (defaultEKS string, err error) {
 	var versions []string

@@ -237,7 +237,7 @@ jobs:
           make e2e-import-tests
 
       - name: Provisioning cluster P1 tests
-        if:  ${{ inputs.run_p1_provisioning_tests == true }}
+        if:  ${{ !cancelled() && inputs.run_p1_provisioning_tests == true }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}

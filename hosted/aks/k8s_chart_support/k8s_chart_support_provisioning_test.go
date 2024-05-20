@@ -28,15 +28,15 @@ var _ = Describe("K8sChartSupportProvisioning", func() {
 			aksConfig.Tags = helper.GetTags()
 			aksConfig.KubernetesVersion = &k8sVersion
 		})
-		cluster, err = aks.CreateAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+		cluster, err = aks.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 		Expect(err).To(BeNil())
-		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 	})
 
 	AfterEach(func() {
 		if ctx.ClusterCleanup {
-			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
+			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		} else {
 			fmt.Println("Skipping downstream cluster deletion: ", clusterName)

@@ -10,6 +10,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	nodestat "github.com/rancher/shepherd/extensions/nodes"
 	"github.com/rancher/shepherd/extensions/pipeline"
+	"github.com/rancher/shepherd/extensions/users"
 	"github.com/rancher/shepherd/extensions/workloads/pods"
 
 	. "github.com/onsi/gomega"
@@ -21,10 +22,13 @@ import (
 	"github.com/rancher/shepherd/extensions/cloudcredentials/google"
 	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/defaults"
+	password "github.com/rancher/shepherd/extensions/users/passwordgenerator"
 	"github.com/rancher/shepherd/pkg/config"
+	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 	"github.com/rancher/shepherd/pkg/session"
 	"github.com/rancher/shepherd/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 func CommonSynchronizedBeforeSuite() {
@@ -76,38 +80,74 @@ func CommonBeforeSuite() Context {
 	config.LoadConfig(rancher.ConfigurationFileKey, rancherConfig)
 
 	testSession := session.NewSession()
-	rancherClient, err := rancher.NewClient(rancherConfig.AdminToken, testSession)
+	rancherAdminClient, err := rancher.NewClient(rancherConfig.AdminToken, testSession)
 	Expect(err).To(BeNil())
 
 	setting := new(management.Setting)
-	resp, err := rancherClient.Management.Setting.ByID("server-url")
+	resp, err := rancherAdminClient.Management.Setting.ByID("server-url")
 	Expect(err).To(BeNil())
 
 	setting.Source = "env"
 	setting.Value = fmt.Sprintf("https://%s", RancherHostname)
-	resp, err = rancherClient.Management.Setting.Update(resp, setting)
+	_, err = rancherAdminClient.Management.Setting.Update(resp, setting)
 	Expect(err).To(BeNil())
 
 	var cloudCredential *cloudcredentials.CloudCredential
 
 	switch Provider {
 	case "aks":
-		cloudCredential, err = azure.CreateAzureCloudCredentials(rancherClient)
+		cloudCredential, err = azure.CreateAzureCloudCredentials(rancherAdminClient)
 		Expect(err).To(BeNil())
 	case "eks":
-		cloudCredential, err = aws.CreateAWSCloudCredentials(rancherClient)
+		cloudCredential, err = aws.CreateAWSCloudCredentials(rancherAdminClient)
 		Expect(err).To(BeNil())
 	case "gke":
-		cloudCredential, err = google.CreateGoogleCloudCredentials(rancherClient)
+		cloudCredential, err = google.CreateGoogleCloudCredentials(rancherAdminClient)
 		Expect(err).To(BeNil())
 	}
 
 	return Context{
-		CloudCred:      cloudCredential,
-		RancherClient:  rancherClient,
-		Session:        testSession,
-		ClusterCleanup: clusterCleanup,
+		CloudCred:          cloudCredential,
+		RancherAdminClient: rancherAdminClient,
+		Session:            testSession,
+		ClusterCleanup:     clusterCleanup,
 	}
+}
+
+func CreateStdUserClient(ctx *Context) {
+	ginkgo.GinkgoLogr.Info("Creating Std User client ...")
+
+	var stduser = namegen.AppendRandomString("stduser-")
+	var stduserpassword = password.GenerateUserPassword("testpass-")
+	newuser := &management.User{
+		Username: stduser,
+		Password: stduserpassword,
+		Name:     stduser,
+		Enabled:  pointer.Bool(true),
+	}
+
+	stdUser, err := users.CreateUserWithRole(ctx.RancherAdminClient, newuser, "user")
+	Expect(err).To(BeNil())
+
+	stdUser.Password = newuser.Password
+	stdUserClient, err := ctx.RancherAdminClient.AsUser(stdUser)
+	Expect(err).To(BeNil())
+
+	var cloudCredential *cloudcredentials.CloudCredential
+	switch Provider {
+	case "aks":
+		cloudCredential, err = azure.CreateAzureCloudCredentials(stdUserClient)
+		Expect(err).To(BeNil())
+	case "eks":
+		cloudCredential, err = aws.CreateAWSCloudCredentials(stdUserClient)
+		Expect(err).To(BeNil())
+	case "gke":
+		cloudCredential, err = google.CreateGoogleCloudCredentials(stdUserClient)
+		Expect(err).To(BeNil())
+	}
+
+	ctx.CloudCred = cloudCredential
+	ctx.StdUserClient = stdUserClient
 }
 
 // WaitUntilClusterIsReady waits until the cluster is in a Ready state,
@@ -130,7 +170,6 @@ func WaitUntilClusterIsReady(cluster *management.Cluster, client *rancher.Client
 }
 
 // ClusterIsReadyChecks runs the basic checks on a cluster such as cluster name, service account, nodes and pods check
-// TODO(pvala): Use for other providers.
 func ClusterIsReadyChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
 
 	ginkgo.By("checking cluster name is same", func() {

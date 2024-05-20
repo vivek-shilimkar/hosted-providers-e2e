@@ -45,6 +45,7 @@ var (
 	}
 	K8sUpgradedMinorVersion   = os.Getenv("K8S_UPGRADE_MINOR_VERSION")
 	DownstreamK8sMinorVersion = os.Getenv("DOWNSTREAM_K8S_MINOR_VERSION")
+	TestConfig                = os.Getenv("CATTLE_TEST_CONFIG")
 )
 
 type HelmChart struct {
@@ -55,10 +56,11 @@ type HelmChart struct {
 }
 
 type Context struct {
-	CloudCred      *cloudcredentials.CloudCredential
-	RancherClient  *rancher.Client
-	Session        *session.Session
-	ClusterCleanup bool
+	CloudCred          *cloudcredentials.CloudCredential
+	RancherAdminClient *rancher.Client
+	StdUserClient      *rancher.Client
+	Session            *session.Session
+	ClusterCleanup     bool
 }
 
 type RancherVersionInfo struct {

@@ -68,7 +68,9 @@ var _ = ReportAfterEach(func(report SpecReport) {
 	Qase(testCaseID, report)
 })
 
-func p0upgradeK8sVersionCheck(cluster *management.Cluster, client *rancher.Client, clusterName string) {
+func p0upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
+	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
+
 	currentVersion := cluster.GKEConfig.KubernetesVersion
 	versions, err := helper.ListGKEAvailableVersions(client, cluster.ID)
 	Expect(err).To(BeNil())

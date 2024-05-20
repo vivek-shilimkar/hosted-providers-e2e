@@ -45,7 +45,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = BeforeEach(func() {
 	var err error
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
-	k8sVersion, err = helper.GetK8sVersion(ctx.RancherClient, ctx.CloudCred.ID, location)
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location)
 	Expect(err).To(BeNil())
 	Expect(k8sVersion).ToNot(BeEmpty())
 	GinkgoLogr.Info(fmt.Sprintf("Using AKS version %s", k8sVersion))
@@ -92,9 +92,9 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster) {
 	By("making a change to the cluster to validate functionality after chart downgrade", func() {
 		initialNodeCount := cluster.NodeCount
 		var err error
-		cluster, err = helper.ScaleNodePool(cluster, ctx.RancherClient, initialNodeCount+1)
+		cluster, err = helper.ScaleNodePool(cluster, ctx.RancherAdminClient, initialNodeCount+1)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 		Expect(err).To(BeNil())
 		for i := range cluster.AKSConfig.NodePools {
 			Expect(*cluster.AKSConfig.NodePools[i].Count).To(BeNumerically("==", initialNodeCount+1))
@@ -108,7 +108,7 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster) {
 	By("making a change(adding a nodepool) to the cluster to re-install the operator and validating it is re-installed to the latest/original version", func() {
 		currentNodePoolNumber := len(cluster.AKSConfig.NodePools)
 		var err error
-		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherClient)
+		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 
 		By("ensuring that the chart is re-installed to the latest/original version", func() {

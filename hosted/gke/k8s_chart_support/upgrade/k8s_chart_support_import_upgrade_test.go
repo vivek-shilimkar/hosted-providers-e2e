@@ -32,9 +32,9 @@ var _ = Describe("K8sChartSupportUpgradeImport", func() {
 				np.Version = &k8sVersion
 			}
 		})
-		cluster, err = helper.ImportGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+		cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 		Expect(err).To(BeNil())
-		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 		// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
 		cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
@@ -42,7 +42,7 @@ var _ = Describe("K8sChartSupportUpgradeImport", func() {
 
 	AfterEach(func() {
 		if ctx.ClusterCleanup {
-			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
+			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 			err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
 			Expect(err).To(BeNil())

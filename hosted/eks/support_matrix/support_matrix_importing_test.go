@@ -23,9 +23,6 @@ import (
 	"fmt"
 
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters"
-	nodestat "github.com/rancher/shepherd/extensions/nodes"
-	"github.com/rancher/shepherd/extensions/workloads/pods"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
@@ -53,14 +50,15 @@ var _ = Describe("SupportMatrixImporting", func() {
 					tags := helper.GetTags()
 					eksConfig.Tags = &tags
 				})
-				cluster, err = helper.ImportEKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = helper.ImportEKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())
-				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+				// Requires RancherAdminClient
+				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
 				if ctx.ClusterCleanup {
-					err := helper.DeleteEKSHostCluster(cluster, ctx.RancherClient)
+					err := helper.DeleteEKSHostCluster(cluster, ctx.StdUserClient)
 					Expect(err).To(BeNil())
 					err = helper.DeleteEKSClusterOnAWS(region, clusterName)
 					Expect(err).To(BeNil())
@@ -73,25 +71,7 @@ var _ = Describe("SupportMatrixImporting", func() {
 				// Report to Qase
 				testCaseID = 70
 
-				By("checking cluster name is same", func() {
-					Expect(cluster.Name).To(BeEquivalentTo(clusterName))
-				})
-
-				By("checking service account token secret", func() {
-					success, err := clusters.CheckServiceAccountTokenSecret(ctx.RancherClient, clusterName)
-					Expect(err).To(BeNil())
-					Expect(success).To(BeTrue())
-				})
-
-				By("checking all management nodes are ready", func() {
-					err := nodestat.AllManagementNodeReady(ctx.RancherClient, cluster.ID, helpers.Timeout)
-					Expect(err).To(BeNil())
-				})
-
-				By("checking all pods are ready", func() {
-					podErrors := pods.StatusPods(ctx.RancherClient, cluster.ID)
-					Expect(podErrors).To(BeEmpty())
-				})
+				helpers.ClusterIsReadyChecks(cluster, ctx.StdUserClient, clusterName)
 			})
 		})
 	}

@@ -48,16 +48,16 @@ var _ = Describe("P0Importing", func() {
 				aksConfig.Tags = helper.GetTags()
 			})
 
-			cluster, err = helper.ImportAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
-			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 			// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
 			cluster.AKSConfig = cluster.AKSStatus.UpstreamSpec
 		})
 		AfterEach(func() {
 			if ctx.ClusterCleanup {
-				err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
+				err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 				err = helper.DeleteAKSClusteronAzure(clusterName)
 				Expect(err).To(BeNil())
@@ -74,18 +74,18 @@ var _ = Describe("P0Importing", func() {
 			})
 
 			By("checking service account token secret", func() {
-				success, err := clusters.CheckServiceAccountTokenSecret(ctx.RancherClient, clusterName)
+				success, err := clusters.CheckServiceAccountTokenSecret(ctx.RancherAdminClient, clusterName)
 				Expect(err).To(BeNil())
 				Expect(success).To(BeTrue())
 			})
 
 			By("checking all management nodes are ready", func() {
-				err := nodestat.AllManagementNodeReady(ctx.RancherClient, cluster.ID, helpers.Timeout)
+				err := nodestat.AllManagementNodeReady(ctx.RancherAdminClient, cluster.ID, helpers.Timeout)
 				Expect(err).To(BeNil())
 			})
 
 			By("checking all pods are ready", func() {
-				podErrors := pods.StatusPods(ctx.RancherClient, cluster.ID)
+				podErrors := pods.StatusPods(ctx.RancherAdminClient, cluster.ID)
 				Expect(podErrors).To(BeEmpty())
 			})
 
@@ -94,9 +94,9 @@ var _ = Describe("P0Importing", func() {
 
 			By("scaling up the nodepool", func() {
 				var err error
-				cluster, err = helper.ScaleNodePool(cluster, ctx.RancherClient, initialNodeCount+1)
+				cluster, err = helper.ScaleNodePool(cluster, ctx.RancherAdminClient, initialNodeCount+1)
 				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 				Expect(err).To(BeNil())
 				for i := range cluster.AKSConfig.NodePools {
 					Expect(*cluster.AKSConfig.NodePools[i].Count).To(BeNumerically("==", initialNodeCount+1))
@@ -105,9 +105,9 @@ var _ = Describe("P0Importing", func() {
 
 			By("scaling down the nodepool", func() {
 				var err error
-				cluster, err = helper.ScaleNodePool(cluster, ctx.RancherClient, initialNodeCount)
+				cluster, err = helper.ScaleNodePool(cluster, ctx.RancherAdminClient, initialNodeCount)
 				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 				Expect(err).To(BeNil())
 				for i := range cluster.AKSConfig.NodePools {
 					Expect(*cluster.AKSConfig.NodePools[i].Count).To(BeNumerically("==", initialNodeCount))
@@ -116,17 +116,17 @@ var _ = Describe("P0Importing", func() {
 
 			By("adding a nodepool/s", func() {
 				var err error
-				cluster, err = helper.AddNodePool(cluster, increaseBy, ctx.RancherClient)
+				cluster, err = helper.AddNodePool(cluster, increaseBy, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 				Expect(err).To(BeNil())
 				Expect(len(cluster.AKSConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
 			})
 			By("deleting the nodepool", func() {
 				var err error
-				cluster, err = helper.DeleteNodePool(cluster, ctx.RancherClient)
+				cluster, err = helper.DeleteNodePool(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
-				err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 				Expect(err).To(BeNil())
 				Expect(len(cluster.AKSConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber))
 			})
@@ -136,7 +136,7 @@ var _ = Describe("P0Importing", func() {
 			var upgradeToVersion, currentVersion *string
 			BeforeEach(func() {
 				currentVersion = cluster.AKSConfig.KubernetesVersion
-				versions, err := helper.ListAKSAvailableVersions(ctx.RancherClient, cluster.ID)
+				versions, err := helper.ListAKSAvailableVersions(ctx.RancherAdminClient, cluster.ID)
 				Expect(err).To(BeNil())
 				Expect(versions).ToNot(BeEmpty())
 				upgradeToVersion = &versions[0]
@@ -148,9 +148,9 @@ var _ = Describe("P0Importing", func() {
 
 				By("upgrading the ControlPlane", func() {
 					var err error
-					cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, ctx.RancherClient)
+					cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, ctx.RancherAdminClient)
 					Expect(err).To(BeNil())
-					cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+					cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 					Expect(err).To(BeNil())
 					Expect(cluster.AKSConfig.KubernetesVersion).To(BeEquivalentTo(upgradeToVersion))
 					for _, np := range cluster.AKSConfig.NodePools {
@@ -160,9 +160,9 @@ var _ = Describe("P0Importing", func() {
 
 				By("upgrading the NodePools", func() {
 					var err error
-					cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, ctx.RancherClient)
+					cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, ctx.RancherAdminClient)
 					Expect(err).To(BeNil())
-					err = clusters.WaitClusterToBeUpgraded(ctx.RancherClient, cluster.ID)
+					err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 					Expect(err).To(BeNil())
 					Expect(cluster.AKSConfig.KubernetesVersion).To(BeEquivalentTo(upgradeToVersion))
 					for _, np := range cluster.AKSConfig.NodePools {

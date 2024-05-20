@@ -52,14 +52,15 @@ var _ = Describe("SupportMatrixImporting", func() {
 				})
 				err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, version)
 				Expect(err).To(BeNil())
-				cluster, err = helper.ImportGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = helper.ImportGKEHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())
-				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+				// Requires RancherAdminClient
+				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
 				if ctx.ClusterCleanup {
-					err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
+					err := helper.DeleteGKEHostCluster(cluster, ctx.StdUserClient)
 					Expect(err).To(BeNil())
 					err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
 					Expect(err).To(BeNil())
@@ -70,7 +71,7 @@ var _ = Describe("SupportMatrixImporting", func() {
 			It("should successfully import the cluster", func() {
 				// Report to Qase
 				testCaseID = 13
-				helpers.ClusterIsReadyChecks(cluster, ctx.RancherClient, clusterName)
+				helpers.ClusterIsReadyChecks(cluster, ctx.StdUserClient, clusterName)
 			})
 		})
 	}

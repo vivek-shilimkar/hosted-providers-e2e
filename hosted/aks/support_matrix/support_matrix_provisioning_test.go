@@ -54,14 +54,15 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 					aksConfig.KubernetesVersion = &version
 					aksConfig.Tags = helper.GetTags()
 				})
-				cluster, err = aks.CreateAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = aks.CreateAKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 				Expect(err).To(BeNil())
-				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+				// Requires RancherAdminClient
+				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
 				if ctx.ClusterCleanup {
-					err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
+					err := helper.DeleteAKSHostCluster(cluster, ctx.StdUserClient)
 					Expect(err).To(BeNil())
 					err = helper.DeleteAKSClusteronAzure(clusterName)
 					Expect(err).To(BeNil())
@@ -79,18 +80,18 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 				})
 
 				By("checking service account token secret", func() {
-					success, err := clusters.CheckServiceAccountTokenSecret(ctx.RancherClient, clusterName)
+					success, err := clusters.CheckServiceAccountTokenSecret(ctx.StdUserClient, clusterName)
 					Expect(err).To(BeNil())
 					Expect(success).To(BeTrue())
 				})
 
 				By("checking all management nodes are ready", func() {
-					err := nodestat.AllManagementNodeReady(ctx.RancherClient, cluster.ID, helpers.Timeout)
+					err := nodestat.AllManagementNodeReady(ctx.StdUserClient, cluster.ID, helpers.Timeout)
 					Expect(err).To(BeNil())
 				})
 
 				By("checking all pods are ready", func() {
-					podErrors := pods.StatusPods(ctx.RancherClient, cluster.ID)
+					podErrors := pods.StatusPods(ctx.StdUserClient, cluster.ID)
 					Expect(podErrors).To(BeEmpty())
 				})
 			})

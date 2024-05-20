@@ -45,7 +45,7 @@ var _ = Describe("P1Provisioning", func() {
 		AfterEach(func() {
 			if ctx.ClusterCleanup {
 				if cluster != nil {
-					err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
+					err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 					Expect(err).To(BeNil())
 				}
 			}
@@ -54,7 +54,7 @@ var _ = Describe("P1Provisioning", func() {
 		It("should fail to provision a cluster when creating cluster with invalid name", func() {
 			testCaseID = 36
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, "@!invalid-gke-name-@#", ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, "@!invalid-gke-name-@#", ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring("InvalidFormat"))
 		})
@@ -69,11 +69,11 @@ var _ = Describe("P1Provisioning", func() {
 			})
 
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
-				clusterState, err := ctx.RancherClient.Management.Cluster.ByID(cluster.ID)
+				clusterState, err := ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
 				for _, condition := range clusterState.Conditions {
 					if strings.Contains(condition.Message, "Invalid value for field \"node_pool.name\"") {
@@ -93,11 +93,11 @@ var _ = Describe("P1Provisioning", func() {
 			})
 
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
-				clusterState, err := ctx.RancherClient.Management.Cluster.ByID(cluster.ID)
+				clusterState, err := ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
 				for _, condition := range clusterState.Conditions {
 					if strings.Contains(condition.Message, "Cluster.initial_node_count must be greater than zero") {
@@ -113,15 +113,15 @@ var _ = Describe("P1Provisioning", func() {
 
 		BeforeEach(func() {
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
-			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		})
 
 		AfterEach(func() {
 			if ctx.ClusterCleanup {
-				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherClient)
+				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			} else {
 				fmt.Println("Skipping downstream cluster deletion: ", clusterName)

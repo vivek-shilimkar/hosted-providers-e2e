@@ -28,16 +28,16 @@ var _ = Describe("K8sChartSupportImport", func() {
 			aksConfig.Tags = helper.GetTags()
 		})
 
-		cluster, err = helper.ImportAKSHostedCluster(ctx.RancherClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+		cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
 		Expect(err).To(BeNil())
-		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherClient)
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 		// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
 		cluster.AKSConfig = cluster.AKSStatus.UpstreamSpec
 	})
 	AfterEach(func() {
 		if ctx.ClusterCleanup {
-			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherClient)
+			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 			err = helper.DeleteAKSClusteronAzure(clusterName)
 			Expect(err).To(BeNil())
