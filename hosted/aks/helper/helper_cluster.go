@@ -7,7 +7,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/rancher-sandbox/ele-testhelpers/tools"
+	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/clusters/aks"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
@@ -28,44 +33,139 @@ var (
 	subscriptionID = os.Getenv("AKS_SUBSCRIPTION_ID")
 )
 
-func GetTags() map[string]string {
-	aksConfig := new(management.AKSClusterConfigSpec)
-	config.LoadConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig)
-	tags := helpers.GetCommonMetadataLabels()
-	for key, value := range aksConfig.Tags {
-		tags[key] = value
-	}
-	return tags
-}
-
-// UpgradeClusterKubernetesVersion upgrades the k8s version to the value defined by upgradeToVersion.
-func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersion *string, client *rancher.Client) (*management.Cluster, error) {
+// UpgradeClusterKubernetesVersion upgrades the k8s version to the value defined by upgradeToVersio;
+// if checkClusterConfig is set to true, it will validate that the cluster control plane has been upgrade successfully
+func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersion string, client *rancher.Client, checkClusterConfig bool) (*management.Cluster, error) {
+	currentVersion := *cluster.AKSConfig.KubernetesVersion
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.AKSConfig = cluster.AKSConfig
-	upgradedCluster.AKSConfig.KubernetesVersion = upgradeToVersion
+	upgradedCluster.AKSConfig.KubernetesVersion = &upgradeToVersion
 
-	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	var err error
+	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
 	if err != nil {
 		return nil, err
+	}
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		Expect(*cluster.AKSConfig.KubernetesVersion).To(Equal(upgradeToVersion))
+		// ensure nodepool version is still the same when config is applied
+		for _, np := range cluster.AKSConfig.NodePools {
+			Expect(*np.OrchestratorVersion).To(Equal(currentVersion))
+		}
+
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() string {
+			ginkgo.GinkgoLogr.Info("Waiting for k8s upgrade to appear in AKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).NotTo(HaveOccurred())
+			return *cluster.AKSStatus.UpstreamSpec.KubernetesVersion
+		}, tools.SetTimeout(10*time.Minute), 5*time.Second).Should(Equal(upgradeToVersion))
+		// ensure nodepool version is same in Rancher
+		for _, np := range cluster.AKSStatus.UpstreamSpec.NodePools {
+			Expect(*np.OrchestratorVersion).To(Equal(currentVersion))
+		}
+
 	}
 	return cluster, nil
 }
 
-// UpgradeNodeKubernetesVersion upgrades the k8s version of nodepool to the value defined by upgradeToVersion.
-func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion *string, client *rancher.Client) (*management.Cluster, error) {
+// UpgradeNodeKubernetesVersion upgrades the k8s version of nodepool to the value defined by upgradeToVersion;
+// if wait is set to true, it will wait until the cluster finishes upgrading;
+// if checkClusterConfig is set to true, it will validate that nodepool has been upgraded successfully
+func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion string, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.AKSConfig = cluster.AKSConfig
 	for i := range upgradedCluster.AKSConfig.NodePools {
-		upgradedCluster.AKSConfig.NodePools[i].OrchestratorVersion = upgradeToVersion
+		upgradedCluster.AKSConfig.NodePools[i].OrchestratorVersion = &upgradeToVersion
 	}
-
-	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	var err error
+	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
 	if err != nil {
 		return nil, err
 	}
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		for _, np := range cluster.AKSConfig.NodePools {
+			Expect(*np.OrchestratorVersion).To(Equal(upgradeToVersion))
+		}
+	}
+
+	if wait {
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+	}
+
+	if checkClusterConfig {
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() bool {
+			ginkgo.GinkgoLogr.Info("waiting for the nodepool upgrade to appear in AKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			for _, np := range cluster.AKSStatus.UpstreamSpec.NodePools {
+				if *np.OrchestratorVersion != upgradeToVersion {
+					return false
+				}
+			}
+			return true
+		}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(BeTrue())
+	}
 	return cluster, nil
+}
+
+func CreateAKSHostedCluster(client *rancher.Client, cloudCredentialID, clusterName, k8sVersion, location string, tags map[string]string) (*management.Cluster, error) {
+	var aksClusterConfig aks.ClusterConfig
+	config.LoadConfig(aks.AKSClusterConfigConfigurationFileKey, &aksClusterConfig)
+	var aksNodePools []management.AKSNodePool
+	for _, aksNodePoolConfig := range *aksClusterConfig.NodePools {
+		aksNodePool := management.AKSNodePool{
+			AvailabilityZones:   aksNodePoolConfig.AvailabilityZones,
+			Count:               aksNodePoolConfig.NodeCount,
+			EnableAutoScaling:   aksNodePoolConfig.EnableAutoScaling,
+			MaxPods:             aksNodePoolConfig.MaxPods,
+			MaxCount:            aksNodePoolConfig.MaxCount,
+			MinCount:            aksNodePoolConfig.MinCount,
+			Mode:                aksNodePoolConfig.Mode,
+			Name:                aksNodePoolConfig.Name,
+			OrchestratorVersion: &k8sVersion,
+			OsDiskSizeGB:        aksNodePoolConfig.OsDiskSizeGB,
+			OsDiskType:          aksNodePoolConfig.OsDiskType,
+			OsType:              aksNodePoolConfig.OsType,
+			VMSize:              aksNodePoolConfig.VMSize,
+		}
+		aksNodePools = append(aksNodePools, aksNodePool)
+	}
+
+	cluster := &management.Cluster{
+		AKSConfig: &management.AKSClusterConfigSpec{
+			AzureCredentialSecret: cloudCredentialID,
+			ClusterName:           clusterName,
+			DNSPrefix:             pointer.String(clusterName + "-dns"),
+			Imported:              false,
+			KubernetesVersion:     &k8sVersion,
+			LinuxAdminUsername:    aksClusterConfig.LinuxAdminUsername,
+			LoadBalancerSKU:       aksClusterConfig.LoadBalancerSKU,
+			NetworkPlugin:         aksClusterConfig.NetworkPlugin,
+			NodePools:             aksNodePools,
+			PrivateCluster:        aksClusterConfig.PrivateCluster,
+			ResourceGroup:         clusterName,
+			ResourceLocation:      location,
+			Tags:                  tags,
+		},
+		DockerRootDir: "/var/lib/docker",
+		Name:          clusterName,
+	}
+
+	clusterResp, err := client.Management.Cluster.Create(cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return clusterResp, err
 }
 
 // DeleteAKSHostCluster deletes the AKS cluster
@@ -89,11 +189,11 @@ func ListSingleVariantAKSAvailableVersions(client *rancher.Client, cloudCredenti
 			oldMinor = currentMinor
 		}
 	}
-	return singleVersionList, nil
+	return helpers.FilterUIUnsupportedVersions(singleVersionList, client), nil
 }
 
 // GetK8sVersionVariantAKS returns a variant of a given minor K8s version
-func GetK8sVersionVariantAKS(minorVersion string, client *rancher.Client, cloudCredentialID, region string) (version string, err error) {
+func GetK8sVersionVariantAKS(minorVersion string, client *rancher.Client, cloudCredentialID, region string) (string, error) {
 	versions, err := ListSingleVariantAKSAvailableVersions(client, cloudCredentialID, region)
 	if err != nil {
 		return "", err
@@ -107,15 +207,18 @@ func GetK8sVersionVariantAKS(minorVersion string, client *rancher.Client, cloudC
 	return "", fmt.Errorf("version %s not found", minorVersion)
 }
 
-// AddNodePool adds a nodepool to the list
-func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Client) (*management.Cluster, error) {
+// AddNodePool adds a nodepool to the list; if wait is set to true, it will wait until the cluster finishes upgrading;
+// if checkClusterConfig is set to true, it will validate that nodepool has been added successfully
+func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
+	currentNodePoolNumber := len(cluster.AKSConfig.NodePools)
+
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.AKSConfig = cluster.AKSConfig
-	nodeConfig := AksHostNodeConfig()
 
+	updateNodePoolsList := cluster.AKSConfig.NodePools
 	for i := 1; i <= increaseBy; i++ {
-		for _, np := range nodeConfig {
+		for _, np := range cluster.AKSConfig.NodePools {
 			newNodepool := management.AKSNodePool{
 				Count:             pointer.Int64(1),
 				VMSize:            np.VMSize,
@@ -123,33 +226,94 @@ func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Cl
 				EnableAutoScaling: np.EnableAutoScaling,
 				Name:              pointer.String(namegen.RandStringLower(5)),
 			}
-			upgradedCluster.AKSConfig.NodePools = append(upgradedCluster.AKSConfig.NodePools, newNodepool)
+			updateNodePoolsList = append(updateNodePoolsList, newNodepool)
 		}
 	}
-	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	upgradedCluster.AKSConfig.NodePools = updateNodePoolsList
+
+	var err error
+	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
 	if err != nil {
 		return nil, err
+	}
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		Expect(len(cluster.AKSConfig.NodePools)).Should(BeNumerically("==", currentNodePoolNumber+increaseBy))
+		for i, np := range cluster.AKSConfig.NodePools {
+			Expect(np.Name).To(Equal(updateNodePoolsList[i].Name))
+		}
+	}
+
+	if wait {
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+	}
+	if checkClusterConfig {
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() int {
+			ginkgo.GinkgoLogr.Info("Waiting for the total nodepool count to increase in AKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return len(cluster.AKSStatus.UpstreamSpec.NodePools)
+		}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(BeNumerically("==", currentNodePoolNumber+increaseBy))
+
+		for i, np := range cluster.AKSStatus.UpstreamSpec.NodePools {
+			Expect(np.Name).To(Equal(updateNodePoolsList[i].Name))
+		}
 	}
 	return cluster, nil
 }
 
-// DeleteNodePool deletes a nodepool from the list
+// DeleteNodePool deletes a nodepool from the list; if wait is set to true, it will wait until the cluster finishes upgrading;
+// if checkClusterConfig is set to true, it will validate that nodepool has been deleted successfully
 // TODO: Modify this method to delete a custom qty of DeleteNodePool, perhaps by adding an `decreaseBy int` arg
-func DeleteNodePool(cluster *management.Cluster, client *rancher.Client) (*management.Cluster, error) {
+func DeleteNodePool(cluster *management.Cluster, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
+	currentNodePoolNumber := len(cluster.AKSConfig.NodePools)
+
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.AKSConfig = cluster.AKSConfig
-	upgradedCluster.AKSConfig.NodePools = cluster.AKSConfig.NodePools[:1]
+	updatedNodePoolsList := cluster.AKSConfig.NodePools[:1]
+	upgradedCluster.AKSConfig.NodePools = updatedNodePoolsList
 
-	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	var err error
+	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
 	if err != nil {
 		return nil, err
+	}
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		Expect(len(cluster.AKSConfig.NodePools)).Should(BeNumerically("==", currentNodePoolNumber-1))
+		for i, np := range cluster.AKSConfig.NodePools {
+			Expect(np.Name).To(Equal(updatedNodePoolsList[i].Name))
+		}
+	}
+	if wait {
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+	}
+	if checkClusterConfig {
+
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() int {
+			ginkgo.GinkgoLogr.Info("Waiting for the total nodepool count to decrease in AKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return len(cluster.AKSStatus.UpstreamSpec.NodePools)
+		}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(BeNumerically("==", currentNodePoolNumber-1))
+		for i, np := range cluster.AKSStatus.UpstreamSpec.NodePools {
+			Expect(np.Name).To(Equal(updatedNodePoolsList[i].Name))
+		}
 	}
 	return cluster, nil
 }
 
-// ScaleNodePool modifies the number of initialNodeCount of all the nodepools as defined by nodeCount
-func ScaleNodePool(cluster *management.Cluster, client *rancher.Client, nodeCount int64) (*management.Cluster, error) {
+// ScaleNodePool modifies the number of initialNodeCount of all the nodepools as defined by nodeCount;
+// if wait is set to true, it will wait until the cluster finishes upgrading;
+// if checkClusterConfig is set to true, it will validate that nodepool has been scaled successfully
+func ScaleNodePool(cluster *management.Cluster, client *rancher.Client, nodeCount int64, wait, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.AKSConfig = cluster.AKSConfig
@@ -157,26 +321,58 @@ func ScaleNodePool(cluster *management.Cluster, client *rancher.Client, nodeCoun
 		upgradedCluster.AKSConfig.NodePools[i].Count = pointer.Int64(nodeCount)
 	}
 
-	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	var err error
+	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
 	if err != nil {
 		return nil, err
 	}
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		for i := range cluster.AKSConfig.NodePools {
+			Expect(*cluster.AKSConfig.NodePools[i].Count).To(BeNumerically("==", nodeCount))
+		}
+	}
+
+	if wait {
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+	}
+
+	if checkClusterConfig {
+		// check that the desired config is applied on Rancher
+		Eventually(func() bool {
+			ginkgo.GinkgoLogr.Info("Waiting for the node count change to appear in AKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			for i := range cluster.AKSStatus.UpstreamSpec.NodePools {
+				if *cluster.AKSStatus.UpstreamSpec.NodePools[i].Count != nodeCount {
+					return false
+				}
+			}
+			return true
+		}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(BeTrue())
+	}
+
 	return cluster, nil
 }
 
 // ListAKSAvailableVersions is a function to list and return only available AKS versions for a specific cluster.
-func ListAKSAvailableVersions(client *rancher.Client, clusterID string) (availableVersions []string, err error) {
+func ListAKSAvailableVersions(client *rancher.Client, clusterID string) ([]string, error) {
 	// kubernetesversions.ListAKSAvailableVersions expects cluster.Version.GitVersion to be available, which it is not sometimes, so we fetch the cluster again to ensure it has all the available data
 	cluster, err := client.Management.Cluster.ByID(clusterID)
 	if err != nil {
 		return nil, err
 	}
-	return kubernetesversions.ListAKSAvailableVersions(client, cluster)
+	allAvailableVersions, err := kubernetesversions.ListAKSAvailableVersions(client, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return helpers.FilterUIUnsupportedVersions(allAvailableVersions, client), nil
 }
 
 // Create Azure AKS cluster using AZ CLI
-func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string) error {
-	tags := GetTags()
+func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string, tags map[string]string) error {
 	formattedTags := convertMapToAKSString(tags)
 	fmt.Println("Creating AKS resource group ...")
 	rgargs := []string{"group", "create", "--location", location, "--resource-group", clusterName, "--subscription", subscriptionID}
@@ -227,17 +423,19 @@ func DeleteAKSClusteronAzure(clusterName string) error {
 	return nil
 }
 
-func ImportAKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID string, enableClusterAlerting, enableClusterMonitoring, enableNetworkPolicy, windowsPreferedCluster bool, labels map[string]string) (*management.Cluster, error) {
-	aksHostCluster := AksHostClusterConfig(displayName, cloudCredentialID)
+// ImportAKSHostedCluster imports an AKS cluster to Rancher
+func ImportAKSHostedCluster(client *rancher.Client, clusterName, cloudCredentialID, location string, tags map[string]string) (*management.Cluster, error) {
 	cluster := &management.Cluster{
-		DockerRootDir:           "/var/lib/docker",
-		AKSConfig:               aksHostCluster,
-		Name:                    displayName,
-		EnableClusterAlerting:   enableClusterAlerting,
-		EnableClusterMonitoring: enableClusterMonitoring,
-		EnableNetworkPolicy:     &enableNetworkPolicy,
-		Labels:                  labels,
-		WindowsPreferedCluster:  windowsPreferedCluster,
+		DockerRootDir: "/var/lib/docker",
+		AKSConfig: &management.AKSClusterConfigSpec{
+			AzureCredentialSecret: cloudCredentialID,
+			ClusterName:           clusterName,
+			Imported:              true,
+			ResourceLocation:      location,
+			ResourceGroup:         clusterName,
+			Tags:                  tags,
+		},
+		Name: clusterName,
 	}
 
 	clusterResp, err := client.Management.Cluster.Create(cluster)
@@ -247,36 +445,8 @@ func ImportAKSHostedCluster(client *rancher.Client, displayName, cloudCredential
 	return clusterResp, err
 }
 
-func AksHostClusterConfig(displayName, cloudCredentialID string) *management.AKSClusterConfigSpec {
-	var aksClusterConfig ImportClusterConfig
-	config.LoadConfig("aksClusterConfig", &aksClusterConfig)
-
-	return &management.AKSClusterConfigSpec{
-		AzureCredentialSecret: cloudCredentialID,
-		ClusterName:           displayName,
-		Imported:              aksClusterConfig.Imported,
-		ResourceLocation:      aksClusterConfig.ResourceLocation,
-		ResourceGroup:         aksClusterConfig.ResourceGroup,
-	}
-}
-
-func AksHostNodeConfig() []management.AKSNodePool {
-	var nodeConfig management.AKSClusterConfigSpec
-	config.LoadConfig("aksClusterConfig", &nodeConfig)
-
-	return nodeConfig.NodePools
-}
-
-type ImportClusterConfig struct {
-	ResourceGroup    string                    `json:"resourceGroup" yaml:"resourceGroup"`
-	ResourceLocation string                    `json:"resourceLocation" yaml:"resourceLocation"`
-	Tags             map[string]string         `json:"tags,omitempty" yaml:"tags,omitempty"`
-	Imported         bool                      `json:"imported" yaml:"imported"`
-	NodePools        []*management.AKSNodePool `json:"nodePools" yaml:"nodePools"`
-}
-
-// defaultAKS returns the default AKS version used by Rancher
-func defaultAKS(client *rancher.Client, cloudCredentialID, region string) (defaultAKS string, err error) {
+// defaultAKS returns the default AKS version used by Rancher; if forUpgrade is true, it returns the second-highest minor k8s version
+func defaultAKS(client *rancher.Client, cloudCredentialID, region string, forUpgrade bool) (defaultAKS string, err error) {
 	url := fmt.Sprintf("%s://%s/meta/aksVersions", "https", client.RancherConfig.Host)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -307,10 +477,17 @@ func defaultAKS(client *rancher.Client, cloudCredentialID, region string) (defau
 
 	// Iterate in the reverse order to get the highest version
 	// We obtain the value similar to UI; ref: https://github.com/rancher/ui/blob/master/lib/shared/addon/components/cluster-driver/driver-azureaks/component.js#L140
+	// For upgrade tests, it returns a variant of the second-highest minor version
 	for i := len(versions) - 1; i >= 0; i-- {
-		if strings.Contains(versions[i], maxValue) {
-			defaultAKS = versions[i]
-			return
+		version := versions[i]
+		if forUpgrade {
+			if result := helpers.VersionCompare(version, maxValue); result == -1 {
+				return version, nil
+			}
+		} else {
+			if strings.Contains(version, maxValue) {
+				return version, nil
+			}
 		}
 	}
 
@@ -318,10 +495,10 @@ func defaultAKS(client *rancher.Client, cloudCredentialID, region string) (defau
 }
 
 // GetK8sVersion returns the k8s version to be used by the test;
-// this value can either be envvar DOWNSTREAM_K8S_MINOR_VERSION or the default UI value returned by DefaultAKS.
-func GetK8sVersion(client *rancher.Client, cloudCredentialID, region string) (string, error) {
+// this value can either be a variant of envvar DOWNSTREAM_K8S_MINOR_VERSION or the default UI value returned by defaultAKS.
+func GetK8sVersion(client *rancher.Client, cloudCredentialID, region string, forUpgrade bool) (string, error) {
 	if k8sMinorVersion := helpers.DownstreamK8sMinorVersion; k8sMinorVersion != "" {
 		return GetK8sVersionVariantAKS(k8sMinorVersion, client, cloudCredentialID, region)
 	}
-	return defaultAKS(client, cloudCredentialID, region)
+	return defaultAKS(client, cloudCredentialID, region, forUpgrade)
 }

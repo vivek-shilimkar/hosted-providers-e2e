@@ -21,11 +21,6 @@ import (
 	"fmt"
 
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters"
-	"github.com/rancher/shepherd/extensions/clusters/aks"
-	nodestat "github.com/rancher/shepherd/extensions/nodes"
-	"github.com/rancher/shepherd/extensions/workloads/pods"
-	"github.com/rancher/shepherd/pkg/config"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
@@ -44,16 +39,9 @@ var _ = Describe("SupportMatrixImporting", func() {
 			)
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
-				var err error
-				err = helper.CreateAKSClusterOnAzure(location, clusterName, version, "1")
+				err := helper.CreateAKSClusterOnAzure(location, clusterName, version, "1", helpers.GetCommonMetadataLabels())
 				Expect(err).To(BeNil())
-				aksConfig := new(helper.ImportClusterConfig)
-				config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {
-					aksConfig.ResourceGroup = clusterName
-					aksConfig.ResourceLocation = location
-					aksConfig.Tags = helper.GetTags()
-				})
-				cluster, err = helper.ImportAKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = helper.ImportAKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, location, helpers.GetCommonMetadataLabels())
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
@@ -73,26 +61,7 @@ var _ = Describe("SupportMatrixImporting", func() {
 			It("should successfully import the cluster", func() {
 				// Report to Qase
 				testCaseID = 250
-
-				By("checking cluster name is same", func() {
-					Expect(cluster.Name).To(BeEquivalentTo(clusterName))
-				})
-
-				By("checking service account token secret", func() {
-					success, err := clusters.CheckServiceAccountTokenSecret(ctx.StdUserClient, clusterName)
-					Expect(err).To(BeNil())
-					Expect(success).To(BeTrue())
-				})
-
-				By("checking all management nodes are ready", func() {
-					err := nodestat.AllManagementNodeReady(ctx.StdUserClient, cluster.ID, helpers.Timeout)
-					Expect(err).To(BeNil())
-				})
-
-				By("checking all pods are ready", func() {
-					podErrors := pods.StatusPods(ctx.StdUserClient, cluster.ID)
-					Expect(podErrors).To(BeEmpty())
-				})
+				helpers.ClusterIsReadyChecks(cluster, ctx.StdUserClient, clusterName)
 			})
 		})
 	}

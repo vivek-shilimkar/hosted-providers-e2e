@@ -6,8 +6,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters/aks"
-	"github.com/rancher/shepherd/pkg/config"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
@@ -17,18 +15,9 @@ var _ = Describe("K8sChartSupportUpgradeImport", func() {
 	var cluster *management.Cluster
 
 	BeforeEach(func() {
-		var err error
-		err = helper.CreateAKSClusterOnAzure(location, clusterName, k8sVersion, "1")
+		err := helper.CreateAKSClusterOnAzure(location, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels())
 		Expect(err).To(BeNil())
-
-		aksConfig := new(helper.ImportClusterConfig)
-		config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {
-			aksConfig.ResourceGroup = clusterName
-			aksConfig.ResourceLocation = location
-			aksConfig.Tags = helper.GetTags()
-		})
-
-		cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+		cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, location, helpers.GetCommonMetadataLabels())
 		Expect(err).To(BeNil())
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())

@@ -6,8 +6,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters/aks"
-	"github.com/rancher/shepherd/pkg/config"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
@@ -19,16 +17,7 @@ var _ = Describe("K8sChartSupportUpgradeProvisioning", func() {
 	)
 	BeforeEach(func() {
 		var err error
-		aksConfig := new(aks.ClusterConfig)
-		config.LoadAndUpdateConfig(aks.AKSClusterConfigConfigurationFileKey, aksConfig, func() {
-			aksConfig.ResourceGroup = clusterName
-			dnsPrefix := clusterName + "-dns"
-			aksConfig.DNSPrefix = &dnsPrefix
-			aksConfig.ResourceLocation = location
-			aksConfig.Tags = helper.GetTags()
-			aksConfig.KubernetesVersion = &k8sVersion
-		})
-		cluster, err = aks.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, ctx.CloudCred.ID, clusterName, k8sVersion, location, helpers.GetCommonMetadataLabels())
 		Expect(err).To(BeNil())
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())

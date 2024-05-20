@@ -61,7 +61,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = BeforeEach(func() {
 	var err error
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
-	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location)
+	// For k8s chart support upgrade we want to begin with the default k8s version; we will upgrade rancher and then upgrade k8s to the default available there.
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location, false)
 	Expect(err).To(BeNil())
 	Expect(k8sVersion).ToNot(BeEmpty())
 	GinkgoLogr.Info(fmt.Sprintf("Using AKS version %s", k8sVersion))
@@ -90,26 +91,7 @@ var _ = ReportAfterEach(func(report SpecReport) {
 })
 
 func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName, rancherUpgradedVersion, hostname, k8sUpgradedVersion string) {
-
-	By("checking cluster name is same", func() {
-		Expect(cluster.Name).To(BeEquivalentTo(clusterName))
-	})
-
-	By("checking service account token secret", func() {
-		success, err := clusters.CheckServiceAccountTokenSecret(ctx.RancherAdminClient, clusterName)
-		Expect(err).To(BeNil())
-		Expect(success).To(BeTrue())
-	})
-
-	By("checking all management nodes are ready", func() {
-		err := nodestat.AllManagementNodeReady(ctx.RancherAdminClient, cluster.ID, helpers.Timeout)
-		Expect(err).To(BeNil())
-	})
-
-	By("checking all pods are ready", func() {
-		podErrors := pods.StatusPods(ctx.RancherAdminClient, cluster.ID)
-		Expect(podErrors).To(BeEmpty())
-	})
+	helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
 
 	var originalChartVersion string
 
@@ -158,7 +140,7 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName
 	})
 
 	By("making sure the local cluster is ready", func() {
-		localClusterID := "local"
+		const localClusterID = "local"
 		By("checking all management nodes are ready", func() {
 			err := nodestat.AllManagementNodeReady(ctx.RancherAdminClient, localClusterID, helpers.Timeout)
 			Expect(err).To(BeNil())
@@ -178,24 +160,15 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName
 		GinkgoLogr.Info("Upgraded chart version: " + upgradedChartVersion)
 	})
 
-	var latestK8sVersion *string
+	var latestK8sVersion string
 	By(fmt.Sprintf("fetching a list of available k8s versions and ensure the v%s is present in the list and upgrading the cluster to it", k8sUpgradedVersion), func() {
 		versions, err := helper.ListAKSAvailableVersions(ctx.RancherAdminClient, cluster.ID)
 		Expect(err).To(BeNil())
-		latestK8sVersion = &versions[len(versions)-1]
-		Expect(*latestK8sVersion).To(ContainSubstring(k8sUpgradedVersion))
-		Expect(helpers.VersionCompare(*latestK8sVersion, cluster.Version.GitVersion)).To(BeNumerically("==", 1))
-
-		currentVersion := cluster.AKSConfig.KubernetesVersion
-
-		cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, latestK8sVersion, ctx.RancherAdminClient)
+		latestK8sVersion = versions[len(versions)-1]
+		Expect(latestK8sVersion).To(ContainSubstring(k8sUpgradedVersion))
+		Expect(helpers.VersionCompare(latestK8sVersion, cluster.Version.GitVersion)).To(BeNumerically("==", 1))
+		cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, latestK8sVersion, ctx.RancherAdminClient, true)
 		Expect(err).To(BeNil())
-		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
-		Expect(err).To(BeNil())
-		Expect(cluster.AKSConfig.KubernetesVersion).To(BeEquivalentTo(latestK8sVersion))
-		for _, np := range cluster.AKSConfig.NodePools {
-			Expect(np.OrchestratorVersion).To(BeEquivalentTo(currentVersion))
-		}
 	})
 
 	var downgradeVersion string
@@ -209,14 +182,8 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName
 
 	By("making a change to the cluster to validate functionality after chart downgrade", func() {
 		var err error
-		cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, latestK8sVersion, ctx.RancherAdminClient)
+		cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, latestK8sVersion, ctx.RancherAdminClient, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
-		Expect(err).To(BeNil())
-		Expect(cluster.AKSConfig.KubernetesVersion).To(BeEquivalentTo(latestK8sVersion))
-		for _, np := range cluster.AKSConfig.NodePools {
-			Expect(np.OrchestratorVersion).To(BeEquivalentTo(latestK8sVersion))
-		}
 	})
 
 	By("uninstalling the operator chart", func() {
@@ -226,8 +193,9 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName
 	By("making a change(adding a nodepool) to the cluster to re-install the operator and validating it is re-installed to the latest/upgraded version", func() {
 		currentNodePoolNumber := len(cluster.AKSConfig.NodePools)
 		var err error
-		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherAdminClient)
+		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherAdminClient, false, false)
 		Expect(err).To(BeNil())
+		Expect(len(cluster.AKSConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
 
 		By("ensuring that the chart is re-installed to the latest/upgraded version", func() {
 			helpers.WaitUntilOperatorChartInstallation(upgradedChartVersion, "", 0)
@@ -235,7 +203,13 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName
 
 		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 		Expect(err).To(BeNil())
-		Expect(len(cluster.AKSConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() int {
+			cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return len(cluster.AKSStatus.UpstreamSpec.NodePools)
+		}, tools.SetTimeout(10*time.Minute), 3*time.Second).Should(BeNumerically("==", currentNodePoolNumber+1))
+
 	})
 
 }

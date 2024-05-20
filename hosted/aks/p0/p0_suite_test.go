@@ -15,11 +15,14 @@ limitations under the License.
 package p0_test
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/rancher-sandbox/qase-ginkgo"
+	"github.com/rancher/shepherd/clients/rancher"
+	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
@@ -31,10 +34,10 @@ const (
 )
 
 var (
-	ctx                     helpers.Context
-	clusterName, k8sVersion string
-	testCaseID              int64
-	location                = helpers.GetAKSLocation()
+	ctx         helpers.Context
+	clusterName string
+	testCaseID  int64
+	location    = helpers.GetAKSLocation()
 )
 
 func TestP0(t *testing.T) {
@@ -50,10 +53,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 })
 
 var _ = BeforeEach(func() {
-	var err error
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
-	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location)
-	Expect(err).To(BeNil())
 })
 
 var _ = ReportBeforeEach(func(report SpecReport) {
@@ -65,3 +65,51 @@ var _ = ReportAfterEach(func(report SpecReport) {
 	// Add result in Qase if asked
 	Qase(testCaseID, report)
 })
+
+func p0upgradeK8sVersionCheck(cluster *management.Cluster, client *rancher.Client, clusterName string) {
+	versions, err := helper.ListAKSAvailableVersions(client, cluster.ID)
+	Expect(err).To(BeNil())
+	Expect(versions).ToNot(BeEmpty())
+	upgradeToVersion := versions[0]
+	GinkgoLogr.Info(fmt.Sprintf("Upgrading cluster to AKS version %s", upgradeToVersion))
+
+	By("upgrading the ControlPlane", func() {
+		cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, client, true)
+		Expect(err).To(BeNil())
+	})
+
+	By("upgrading the NodePools", func() {
+		cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, true, true)
+		Expect(err).To(BeNil())
+	})
+}
+
+func p0NodesChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
+
+	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
+
+	initialNodeCount := *cluster.AKSConfig.NodePools[0].Count
+
+	By("adding a nodepool", func() {
+		var err error
+		cluster, err = helper.AddNodePool(cluster, increaseBy, client, true, true)
+		Expect(err).To(BeNil())
+	})
+	By("deleting the nodepool", func() {
+		var err error
+		cluster, err = helper.DeleteNodePool(cluster, client, true, true)
+		Expect(err).To(BeNil())
+	})
+
+	By("scaling up the nodepool", func() {
+		var err error
+		cluster, err = helper.ScaleNodePool(cluster, client, initialNodeCount+1, true, true)
+		Expect(err).To(BeNil())
+	})
+
+	By("scaling down the nodepool", func() {
+		var err error
+		cluster, err = helper.ScaleNodePool(cluster, client, initialNodeCount, true, true)
+		Expect(err).To(BeNil())
+	})
+}

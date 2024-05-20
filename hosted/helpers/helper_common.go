@@ -3,7 +3,6 @@ package helpers
 import (
 	"fmt"
 	"os"
-	"os/user"
 	"strings"
 	"time"
 
@@ -250,9 +249,6 @@ func GetGKEProjectID() string {
 
 // GetCommonMetadataLabels returns a list of common metadata labels/tabs
 func GetCommonMetadataLabels() map[string]string {
-	testuser, err := user.Current()
-	Expect(err).To(BeNil())
-
 	specReport := ginkgo.CurrentSpecReport()
 	// filename indicates the filename and line number of the test
 	// we only use this information instead of the ginkgo.CurrentSpecReport().FullText() because of the 63 character limit

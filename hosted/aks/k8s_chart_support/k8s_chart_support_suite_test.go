@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
 	. "github.com/rancher-sandbox/qase-ginkgo"
+	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	"github.com/rancher/shepherd/extensions/clusters"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
@@ -45,7 +46,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 var _ = BeforeEach(func() {
 	var err error
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
-	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location)
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location, false)
 	Expect(err).To(BeNil())
 	Expect(k8sVersion).ToNot(BeEmpty())
 	GinkgoLogr.Info(fmt.Sprintf("Using AKS version %s", k8sVersion))
@@ -69,7 +70,7 @@ var _ = ReportAfterEach(func(report SpecReport) {
 	Qase(testCaseID, report)
 })
 
-func commonchecks(ctx *helpers.Context, cluster *management.Cluster) {
+func commonchecks(client *rancher.Client, cluster *management.Cluster) {
 	var originalChartVersion string
 
 	By("checking the chart version", func() {
@@ -92,13 +93,8 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster) {
 	By("making a change to the cluster to validate functionality after chart downgrade", func() {
 		initialNodeCount := cluster.NodeCount
 		var err error
-		cluster, err = helper.ScaleNodePool(cluster, ctx.RancherAdminClient, initialNodeCount+1)
+		cluster, err = helper.ScaleNodePool(cluster, client, initialNodeCount+1, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
-		Expect(err).To(BeNil())
-		for i := range cluster.AKSConfig.NodePools {
-			Expect(*cluster.AKSConfig.NodePools[i].Count).To(BeNumerically("==", initialNodeCount+1))
-		}
 	})
 
 	By("uninstalling the operator chart", func() {
@@ -108,16 +104,21 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster) {
 	By("making a change(adding a nodepool) to the cluster to re-install the operator and validating it is re-installed to the latest/original version", func() {
 		currentNodePoolNumber := len(cluster.AKSConfig.NodePools)
 		var err error
-		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherAdminClient)
+		cluster, err = helper.AddNodePool(cluster, 1, client, false, false)
 		Expect(err).To(BeNil())
+		Expect(len(cluster.AKSConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
 
 		By("ensuring that the chart is re-installed to the latest/original version", func() {
 			helpers.WaitUntilOperatorChartInstallation(originalChartVersion, "", 0)
 		})
 
-		// We do not use WaitClusterToBeUpgraded because it has been flaky here and times out
-		Eventually(func() bool {
-			return len(cluster.AKSConfig.NodePools) == currentNodePoolNumber+1
-		}, tools.SetTimeout(5*time.Minute), 2*time.Second).Should(BeTrue())
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() int {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return len(cluster.AKSStatus.UpstreamSpec.NodePools)
+		}, tools.SetTimeout(10*time.Minute), 3*time.Second).Should(BeNumerically("==", currentNodePoolNumber+1))
 	})
 }

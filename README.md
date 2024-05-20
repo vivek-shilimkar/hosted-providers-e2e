@@ -16,6 +16,7 @@ Following are the common environment variables that need to be exported for runn
 4. PROVIDER: Type of the hosted provider you want to test. Acceptable values - gke, eks, aks
 5. DOWNSTREAM_K8S_MINOR_VERSION (optional): Downstream cluster Kubernetes version to test. If the env var is not provided, it uses a provider specific default value.
 6. DOWNSTREAM_CLUSTER_CLEANUP (optional): If set to true, downstream cluster will be deleted. Default: false. 
+7. RANCHER_CLIENT_DEBUG (optional, debug): Set to true to watch API requests and responses being sent to rancher.
 
 #### To run K8s Chart support test cases:
 1. KUBECONFIG: Upstream K8s' Kubeconfig file; usually it is k3s.yaml.
