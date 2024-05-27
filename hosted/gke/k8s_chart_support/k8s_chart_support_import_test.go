@@ -55,6 +55,6 @@ var _ = Describe("K8sChartSupportImport", func() {
 
 	It("should successfully test k8s chart support import", func() {
 		testCaseID = 65 // Report to Qase
-		commonChartSupport(&ctx, cluster)
+		commonChartSupport(ctx.RancherAdminClient, cluster)
 	})
 })

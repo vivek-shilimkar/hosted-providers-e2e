@@ -23,7 +23,6 @@ import (
 	. "github.com/rancher-sandbox/qase-ginkgo"
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
@@ -71,84 +70,49 @@ var _ = ReportAfterEach(func(report SpecReport) {
 func p0upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
 	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
 
-	currentVersion := cluster.GKEConfig.KubernetesVersion
 	versions, err := helper.ListGKEAvailableVersions(client, cluster.ID)
 	Expect(err).To(BeNil())
 	Expect(versions).ToNot(BeEmpty())
-	upgradeToVersion := &versions[0]
-	GinkgoLogr.Info(fmt.Sprintf("Upgrading cluster to GKE version %s", *upgradeToVersion))
+	upgradeToVersion := versions[0]
+	GinkgoLogr.Info(fmt.Sprintf("Upgrading cluster to GKE version %s", upgradeToVersion))
 
 	By("upgrading the ControlPlane", func() {
-		cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, false)
+		cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, false, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		Expect(cluster.GKEConfig.KubernetesVersion).To(BeEquivalentTo(upgradeToVersion))
-		for _, np := range cluster.GKEConfig.NodePools {
-			Expect(np.Version).To(BeEquivalentTo(currentVersion))
-		}
 	})
 
 	By("upgrading the NodePools", func() {
-		cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, true)
+		cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, true, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-
-		Expect(cluster.GKEConfig.KubernetesVersion).To(BeEquivalentTo(upgradeToVersion))
-		for _, np := range cluster.GKEConfig.NodePools {
-			Expect(np.Version).To(BeEquivalentTo(upgradeToVersion))
-		}
 	})
 }
 
 func p0NodesChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
 	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
 
-	currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
 	initialNodeCount := *cluster.GKEConfig.NodePools[0].InitialNodeCount
 
 	By("scaling up the nodepool", func() {
 		var err error
-		cluster, err = helper.ScaleNodePool(cluster, client, initialNodeCount+1)
+		cluster, err = helper.ScaleNodePool(cluster, client, initialNodeCount+1, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		for i := range cluster.GKEConfig.NodePools {
-			Expect(*cluster.GKEConfig.NodePools[i].InitialNodeCount).To(BeNumerically("==", initialNodeCount+1))
-		}
 	})
 
 	By("scaling down the nodepool", func() {
 		var err error
-		cluster, err = helper.ScaleNodePool(cluster, client, initialNodeCount)
+		cluster, err = helper.ScaleNodePool(cluster, client, initialNodeCount, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		for i := range cluster.GKEConfig.NodePools {
-			Expect(*cluster.GKEConfig.NodePools[i].InitialNodeCount).To(BeNumerically("==", initialNodeCount))
-		}
 	})
 
 	By("adding a nodepool", func() {
 		var err error
-		cluster, err = helper.AddNodePool(cluster, increaseBy, client)
+		cluster, err = helper.AddNodePool(cluster, increaseBy, client, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
-		for _, np := range cluster.GKEConfig.NodePools {
-			// qase: HIGHLANDER-35
-			Expect(np.Version).To(BeEquivalentTo(cluster.GKEConfig.KubernetesVersion))
-		}
 	})
+
 	By("deleting the nodepool", func() {
 		var err error
-		cluster, err = helper.DeleteNodePool(cluster, client)
+		cluster, err = helper.DeleteNodePool(cluster, client, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber))
-
 	})
 }

@@ -33,7 +33,7 @@ var (
 	subscriptionID = os.Getenv("AKS_SUBSCRIPTION_ID")
 )
 
-// UpgradeClusterKubernetesVersion upgrades the k8s version to the value defined by upgradeToVersio;
+// UpgradeClusterKubernetesVersion upgrades the k8s version to the value defined by upgradeToVersion;
 // if checkClusterConfig is set to true, it will validate that the cluster control plane has been upgrade successfully
 func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersion string, client *rancher.Client, checkClusterConfig bool) (*management.Cluster, error) {
 	currentVersion := *cluster.AKSConfig.KubernetesVersion

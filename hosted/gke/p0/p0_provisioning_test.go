@@ -58,6 +58,7 @@ var _ = Describe("P0Provisioning", func() {
 				Expect(err).NotTo(HaveOccurred())
 				GinkgoLogr.Info("Using K8s version: " + k8sVersion)
 
+				// TODO: Refactor the methods to not use config file after rancher/shepherd update
 				gkeConfig := new(management.GKEClusterConfigSpec)
 				config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
 					gkeConfig.ProjectID = project

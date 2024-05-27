@@ -61,6 +61,7 @@ var _ = Describe("P0Importing", func() {
 				err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, k8sVersion)
 				Expect(err).To(BeNil())
 
+				// TODO: Refactor the methods to not use config file after rancher/shepherd update
 				gkeConfig := new(helper.ImportClusterConfig)
 				config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
 					gkeConfig.ProjectID = project

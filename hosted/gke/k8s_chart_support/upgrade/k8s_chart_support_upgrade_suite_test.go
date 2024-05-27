@@ -170,18 +170,11 @@ func commonChartSupportUpgrade(ctx *helpers.Context, cluster *management.Cluster
 				latestVersion = v
 			}
 		}
-		//latestVersion := versions[len(versions)-1]
 		Expect(latestVersion).To(ContainSubstring(k8sUpgradedVersion))
 		Expect(helpers.VersionCompare(latestVersion, cluster.Version.GitVersion)).To(BeNumerically("==", 1))
 
-		cluster, err = helper.UpgradeKubernetesVersion(cluster, &latestVersion, ctx.RancherAdminClient, true)
+		cluster, err = helper.UpgradeKubernetesVersion(cluster, latestVersion, ctx.RancherAdminClient, true, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
-		Expect(err).To(BeNil())
-		Expect(*cluster.GKEConfig.KubernetesVersion).To(BeEquivalentTo(latestVersion))
-		for _, np := range cluster.GKEConfig.NodePools {
-			Expect(*np.Version).To(BeEquivalentTo(latestVersion))
-		}
 	})
 
 	var downgradeVersion string
@@ -196,13 +189,8 @@ func commonChartSupportUpgrade(ctx *helpers.Context, cluster *management.Cluster
 	By("making a change to the cluster to validate functionality after chart downgrade", func() {
 		initialNodeCount := *cluster.GKEConfig.NodePools[0].InitialNodeCount
 		var err error
-		cluster, err = helper.ScaleNodePool(cluster, ctx.RancherAdminClient, initialNodeCount+1)
+		cluster, err = helper.ScaleNodePool(cluster, ctx.RancherAdminClient, initialNodeCount+1, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
-		Expect(err).To(BeNil())
-		for i := range cluster.GKEConfig.NodePools {
-			Expect(*cluster.GKEConfig.NodePools[i].InitialNodeCount).To(BeNumerically(">", initialNodeCount))
-		}
 	})
 
 	By("uninstalling the operator chart", func() {
@@ -212,8 +200,10 @@ func commonChartSupportUpgrade(ctx *helpers.Context, cluster *management.Cluster
 	By("making a change(adding a nodepool) to the cluster to re-install the operator and validating it is re-installed to the latest/upgraded version", func() {
 		currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
 		var err error
-		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherAdminClient)
+		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherAdminClient, false, false)
 		Expect(err).To(BeNil())
+
+		Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
 
 		By("ensuring that the chart is re-installed to the latest/upgraded version", func() {
 			helpers.WaitUntilOperatorChartInstallation(upgradedChartVersion, "", 0)
@@ -221,7 +211,14 @@ func commonChartSupportUpgrade(ctx *helpers.Context, cluster *management.Cluster
 
 		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
 		Expect(err).To(BeNil())
-		Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
+
+		Eventually(func() int {
+			GinkgoLogr.Info("Waiting for the total nodepool count to increase in GKEStatus.UpstreamSpec ...")
+			cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return len(cluster.GKEStatus.UpstreamSpec.NodePools)
+		}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(BeNumerically("==", currentNodePoolNumber+1))
+
 	})
 
 }
