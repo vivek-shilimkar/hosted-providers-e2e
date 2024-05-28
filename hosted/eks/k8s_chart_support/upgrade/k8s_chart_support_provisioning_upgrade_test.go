@@ -6,8 +6,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters/eks"
-	"github.com/rancher/shepherd/pkg/config"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
@@ -17,13 +15,7 @@ var _ = Describe("K8sChartSupportUpgradeProvisioning", func() {
 	var cluster *management.Cluster
 	BeforeEach(func() {
 		var err error
-		eksConfig := new(eks.ClusterConfig)
-		config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
-			eksConfig.Region = region
-			eksConfig.Tags = helper.GetTags()
-			eksConfig.KubernetesVersion = &k8sVersion
-		})
-		cluster, err = eks.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+		cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, helpers.GetCommonMetadataLabels())
 		Expect(err).To(BeNil())
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())

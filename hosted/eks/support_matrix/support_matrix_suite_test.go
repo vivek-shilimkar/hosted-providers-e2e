@@ -27,10 +27,10 @@ import (
 )
 
 var (
-	availableVersionList []string
-	testCaseID           int64
-	ctx                  helpers.Context
-	region               = helpers.GetEKSRegion()
+	allAvailableVersionList, availableVersionList []string
+	testCaseID                                    int64
+	ctx                                           helpers.Context
+	region                                        = helpers.GetEKSRegion()
 )
 
 func TestSupportMatrix(t *testing.T) {
@@ -39,7 +39,8 @@ func TestSupportMatrix(t *testing.T) {
 	ctx = helpers.CommonBeforeSuite()
 	helpers.CreateStdUserClient(&ctx)
 	var err error
-	availableVersionList, err = kubernetesversions.ListEKSAllVersions(ctx.StdUserClient)
+	allAvailableVersionList, err = kubernetesversions.ListEKSAllVersions(ctx.StdUserClient)
+	availableVersionList = helpers.FilterUIUnsupportedVersions(allAvailableVersionList, ctx.StdUserClient)
 	Expect(err).To(BeNil())
 	Expect(availableVersionList).ToNot(BeEmpty())
 	RunSpecs(t, "SupportMatrix Suite")

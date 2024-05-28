@@ -19,8 +19,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/shepherd/extensions/clusters/eks"
-	"github.com/rancher/shepherd/pkg/config"
 
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
@@ -32,16 +30,19 @@ import (
 var _ = Describe("P0Importing", func() {
 	for _, testData := range []struct {
 		qaseID    int64
+		isUpgrade bool
 		testBody  func(cluster *management.Cluster, client *rancher.Client, clusterName string)
 		testTitle string
 	}{
 		{
 			qaseID:    234,
+			isUpgrade: false,
 			testBody:  p0NodesChecks,
 			testTitle: "should successfully provision the cluster & add, delete, scale nodepool",
 		},
 		{
 			qaseID:    73,
+			isUpgrade: true,
 			testBody:  p0upgradeK8sVersionChecks,
 			testTitle: "should be able to upgrade k8s version of the imported cluster",
 		},
@@ -51,19 +52,13 @@ var _ = Describe("P0Importing", func() {
 			var cluster *management.Cluster
 
 			BeforeEach(func() {
-				var err error
+				k8sVersion, err := helper.GetK8sVersion(ctx.RancherAdminClient, testData.isUpgrade)
+				Expect(err).To(BeNil())
 				GinkgoLogr.Info("Using K8s version: " + k8sVersion)
-				err = helper.CreateEKSClusterOnAWS(region, clusterName, k8sVersion, "1")
+				err = helper.CreateEKSClusterOnAWS(region, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels())
 				Expect(err).To(BeNil())
 
-				eksConfig := new(helper.ImportClusterConfig)
-				config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
-					eksConfig.Region = region
-					tags := helper.GetTags()
-					eksConfig.Tags = &tags
-				})
-
-				cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, region)
 				Expect(err).To(BeNil())
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())

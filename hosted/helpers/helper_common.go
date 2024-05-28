@@ -264,10 +264,15 @@ func GetCommonMetadataLabels() map[string]string {
 		filename = fmt.Sprintf("line%d_%s", specReport.LineNumber(), filename)
 	}
 
-	return map[string]string{
+	metadataLabels := map[string]string{
 		"owner":          "hosted-providers-qa-ci-" + testuser.Username,
 		"testfilenumber": filename,
 	}
+
+	if !clusterCleanup {
+		metadataLabels["janitor-ignore"] = "true"
+	}
+	return metadataLabels
 }
 
 func SetTempKubeConfig(clusterName string) {

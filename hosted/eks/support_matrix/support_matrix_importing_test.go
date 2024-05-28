@@ -17,8 +17,6 @@ package support_matrix_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/shepherd/extensions/clusters/eks"
-	"github.com/rancher/shepherd/pkg/config"
 
 	"fmt"
 
@@ -42,15 +40,9 @@ var _ = Describe("SupportMatrixImporting", func() {
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				var err error
-				err = helper.CreateEKSClusterOnAWS(region, clusterName, version, "1")
+				err = helper.CreateEKSClusterOnAWS(region, clusterName, version, "1", helpers.GetCommonMetadataLabels())
 				Expect(err).To(BeNil())
-				eksConfig := new(helper.ImportClusterConfig)
-				config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
-					eksConfig.Region = region
-					tags := helper.GetTags()
-					eksConfig.Tags = &tags
-				})
-				cluster, err = helper.ImportEKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = helper.ImportEKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, region)
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)

@@ -25,7 +25,6 @@ import (
 
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
@@ -37,10 +36,10 @@ const (
 )
 
 var (
-	ctx                     helpers.Context
-	k8sVersion, clusterName string
-	testCaseID              int64
-	region                  = helpers.GetEKSRegion()
+	ctx         helpers.Context
+	clusterName string
+	testCaseID  int64
+	region      = helpers.GetEKSRegion()
 )
 
 func TestP0(t *testing.T) {
@@ -56,10 +55,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 })
 
 var _ = BeforeEach(func() {
-	var err error
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
-	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient)
-	Expect(err).To(BeNil())
 })
 
 var _ = ReportBeforeEach(func(report SpecReport) {
@@ -78,77 +74,48 @@ func p0upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Clie
 	versions, err := helper.ListEKSAvailableVersions(client, cluster.ID)
 	Expect(err).To(BeNil())
 	Expect(versions).ToNot(BeEmpty())
-	upgradeToVersion := &versions[0]
-	GinkgoLogr.Info(fmt.Sprintf("Upgrading cluster to EKS version %s", *upgradeToVersion))
+	upgradeToVersion := versions[0]
+	GinkgoLogr.Info(fmt.Sprintf("Upgrading cluster to EKS version %s", upgradeToVersion))
 
 	By("upgrading the ControlPlane", func() {
-		var err error
-		cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, client)
+		cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, client, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		Expect(cluster.EKSConfig.KubernetesVersion).To(BeEquivalentTo(upgradeToVersion))
 	})
 
 	// Does not upgrades version since using custom LT, skip for imported cluster
 	Expect(helpers.TestConfig).ToNot(BeEmpty())
 	if strings.Contains(helpers.TestConfig, "provisioning") {
 		By("upgrading the NodeGroups", func() {
-			var err error
-			cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client)
+			cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, true, false)
 			Expect(err).To(BeNil())
-			err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-			Expect(err).To(BeNil())
-			for _, ng := range cluster.EKSConfig.NodeGroups {
-				Expect(ng.Version).To(BeEquivalentTo(upgradeToVersion))
-			}
 		})
 	}
 }
 
 func p0NodesChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
 	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
-
-	currentNodeGroupNumber := len(cluster.EKSConfig.NodeGroups)
 	initialNodeCount := *cluster.EKSConfig.NodeGroups[0].DesiredSize
 
 	By("scaling up the NodeGroup", func() {
 		var err error
-		cluster, err = helper.ScaleNodeGroup(cluster, client, initialNodeCount+1)
+		cluster, err = helper.ScaleNodeGroup(cluster, client, initialNodeCount+increaseBy, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		for i := range cluster.EKSConfig.NodeGroups {
-			Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", initialNodeCount+1))
-		}
 	})
 
 	By("scaling down the NodeGroup", func() {
 		var err error
-		cluster, err = helper.ScaleNodeGroup(cluster, client, initialNodeCount)
+		cluster, err = helper.ScaleNodeGroup(cluster, client, initialNodeCount, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		for i := range cluster.EKSConfig.NodeGroups {
-			Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", initialNodeCount))
-		}
 	})
 
 	By("adding a NodeGroup", func() {
 		var err error
-		cluster, err = helper.AddNodeGroup(cluster, increaseBy, client)
+		cluster, err = helper.AddNodeGroup(cluster, increaseBy, client, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		Expect(len(cluster.EKSConfig.NodeGroups)).To(BeNumerically("==", currentNodeGroupNumber+1))
 	})
 	By("deleting the NodeGroup", func() {
 		var err error
-		cluster, err = helper.DeleteNodeGroup(cluster, client)
+		cluster, err = helper.DeleteNodeGroup(cluster, client, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
-		Expect(err).To(BeNil())
-		Expect(len(cluster.EKSConfig.NodeGroups)).To(BeNumerically("==", currentNodeGroupNumber))
-
 	})
 }

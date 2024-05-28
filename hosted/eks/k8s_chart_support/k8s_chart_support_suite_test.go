@@ -9,8 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
 	. "github.com/rancher-sandbox/qase-ginkgo"
+	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
@@ -45,7 +45,7 @@ var _ = BeforeEach(func() {
 	var err error
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 
-	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient)
+	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, false)
 	Expect(err).To(BeNil())
 	Expect(k8sVersion).ToNot(BeEmpty())
 
@@ -70,7 +70,7 @@ var _ = ReportAfterEach(func(report SpecReport) {
 	Qase(testCaseID, report)
 })
 
-func commonchecks(ctx *helpers.Context, cluster *management.Cluster) {
+func commonchecks(client *rancher.Client, cluster *management.Cluster) {
 	var originalChartVersion string
 
 	By("checking the chart version", func() {
@@ -94,13 +94,8 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster) {
 
 	By("making a change(scaling nodegroup up) to the cluster to validate functionality after chart downgrade", func() {
 		var err error
-		cluster, err = helper.ScaleNodeGroup(cluster, ctx.RancherAdminClient, initialNodeCount+1)
+		cluster, err = helper.ScaleNodeGroup(cluster, client, initialNodeCount+1, true, true)
 		Expect(err).To(BeNil())
-		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
-		Expect(err).To(BeNil())
-		for i := range cluster.EKSConfig.NodeGroups {
-			Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", initialNodeCount+1))
-		}
 	})
 
 	By("uninstalling the operator chart", func() {
@@ -109,7 +104,7 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster) {
 
 	By("making a change(scaling nodegroup down) to the cluster to re-install the operator and validating it is re-installed to the latest/original version", func() {
 		var err error
-		cluster, err = helper.ScaleNodeGroup(cluster, ctx.RancherAdminClient, initialNodeCount)
+		cluster, err = helper.ScaleNodeGroup(cluster, client, initialNodeCount, false, true)
 		Expect(err).To(BeNil())
 
 		By("ensuring that the chart is re-installed to the latest/original version", func() {

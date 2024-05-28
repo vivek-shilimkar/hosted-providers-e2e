@@ -17,12 +17,10 @@ package support_matrix_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/rancher/shepherd/pkg/config"
 
 	"fmt"
 
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters/eks"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
@@ -41,14 +39,8 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 			)
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
-				eksConfig := new(eks.ClusterConfig)
-				config.LoadAndUpdateConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig, func() {
-					eksConfig.Region = region
-					eksConfig.KubernetesVersion = &version
-					eksConfig.Tags = helper.GetTags()
-				})
 				var err error
-				cluster, err = eks.CreateEKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = helper.CreateEKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, version, region, helpers.GetCommonMetadataLabels())
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)

@@ -3,16 +3,20 @@ package helper
 import (
 	"fmt"
 	"os"
-	"strconv"
+	"strings"
+	"time"
 
-	"github.com/rancher/shepherd/extensions/clusters/eks"
-
+	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/rancher-sandbox/ele-testhelpers/tools"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 
 	"github.com/epinio/epinio/acceptance/helpers/proc"
 	"github.com/pkg/errors"
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
+	"github.com/rancher/shepherd/extensions/clusters"
+	"github.com/rancher/shepherd/extensions/clusters/eks"
 	"github.com/rancher/shepherd/extensions/clusters/kubernetesversions"
 	"github.com/rancher/shepherd/pkg/config"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
@@ -20,50 +24,91 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-func GetTags() map[string]string {
-	eksConfig := new(management.EKSClusterConfigSpec)
-	config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, eksConfig)
-	providerTags := helpers.GetCommonMetadataLabels()
-	if clusterCleanup, _ := strconv.ParseBool(os.Getenv("DOWNSTREAM_CLUSTER_CLEANUP")); clusterCleanup == false {
-		providerTags["janitor-ignore"] = "true"
-	}
+// CreateEKSHostedCluster is a helper function that creates an EKS hosted cluster
+func CreateEKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, kubernetesVersion, region string, tags map[string]string) (*management.Cluster, error) {
+	var eksClusterConfig eks.ClusterConfig
+	config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, &eksClusterConfig)
 
-	if eksConfig.Tags != nil {
-		for key, value := range *eksConfig.Tags {
-			providerTags[key] = value
+	var nodeGroups []management.NodeGroup
+	for _, nodeGroupConfig := range *eksClusterConfig.NodeGroupsConfig {
+		var launchTemplate *management.LaunchTemplate
+		if nodeGroupConfig.LaunchTemplateConfig != nil {
+			launchTemplate = &management.LaunchTemplate{
+				Name:    nodeGroupConfig.LaunchTemplateConfig.Name,
+				Version: nodeGroupConfig.LaunchTemplateConfig.Version,
+			}
 		}
+		nodeGroup := management.NodeGroup{
+			DesiredSize:          nodeGroupConfig.DesiredSize,
+			DiskSize:             nodeGroupConfig.DiskSize,
+			Ec2SshKey:            nodeGroupConfig.Ec2SshKey,
+			Gpu:                  nodeGroupConfig.Gpu,
+			ImageID:              nodeGroupConfig.ImageID,
+			InstanceType:         nodeGroupConfig.InstanceType,
+			Labels:               &nodeGroupConfig.Labels,
+			LaunchTemplate:       launchTemplate,
+			MaxSize:              nodeGroupConfig.MaxSize,
+			MinSize:              nodeGroupConfig.MinSize,
+			NodegroupName:        nodeGroupConfig.NodegroupName,
+			NodeRole:             nodeGroupConfig.NodeRole,
+			RequestSpotInstances: nodeGroupConfig.RequestSpotInstances,
+			ResourceTags:         &nodeGroupConfig.ResourceTags,
+			SpotInstanceTypes:    &nodeGroupConfig.SpotInstanceTypes,
+			Subnets:              &nodeGroupConfig.Subnets,
+			Tags:                 &nodeGroupConfig.Tags,
+			UserData:             nodeGroupConfig.UserData,
+			Version:              &kubernetesVersion,
+		}
+		nodeGroups = append(nodeGroups, nodeGroup)
 	}
-	return providerTags
-}
 
-// UpgradeClusterKubernetesVersion upgrades the k8s version to the value defined by upgradeToVersion.
-func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersion *string, client *rancher.Client) (*management.Cluster, error) {
-	upgradedCluster := new(management.Cluster)
-	upgradedCluster.Name = cluster.Name
-	upgradedCluster.EKSConfig = cluster.EKSConfig
-	upgradedCluster.EKSConfig.KubernetesVersion = upgradeToVersion
+	cluster := &management.Cluster{
+		DockerRootDir: "/var/lib/docker",
+		EKSConfig: &management.EKSClusterConfigSpec{
+			AmazonCredentialSecret: cloudCredentialID,
+			DisplayName:            displayName,
+			Imported:               false,
+			KmsKey:                 eksClusterConfig.KmsKey,
+			KubernetesVersion:      &kubernetesVersion,
+			LoggingTypes:           &eksClusterConfig.LoggingTypes,
+			NodeGroups:             nodeGroups,
+			PrivateAccess:          eksClusterConfig.PrivateAccess,
+			PublicAccess:           eksClusterConfig.PublicAccess,
+			PublicAccessSources:    &eksClusterConfig.PublicAccessSources,
+			Region:                 region,
+			SecretsEncryption:      eksClusterConfig.SecretsEncryption,
+			SecurityGroups:         &eksClusterConfig.SecurityGroups,
+			ServiceRole:            eksClusterConfig.ServiceRole,
+			Subnets:                &eksClusterConfig.Subnets,
+			Tags:                   &tags,
+		},
+		Name: displayName,
+	}
 
-	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	clusterResp, err := client.Management.Cluster.Create(cluster)
 	if err != nil {
 		return nil, err
 	}
-	return cluster, nil
+	return clusterResp, err
 }
 
-// UpgradeNodeKubernetesVersion upgrades the k8s version of nodegroup to the value defined by upgradeToVersion.
-func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion *string, client *rancher.Client) (*management.Cluster, error) {
-	upgradedCluster := new(management.Cluster)
-	upgradedCluster.Name = cluster.Name
-	upgradedCluster.EKSConfig = cluster.EKSConfig
-	for i := range upgradedCluster.EKSConfig.NodeGroups {
-		upgradedCluster.EKSConfig.NodeGroups[i].Version = upgradeToVersion
+func ImportEKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, region string) (*management.Cluster, error) {
+	cluster := &management.Cluster{
+		DockerRootDir: "/var/lib/docker",
+		EKSConfig: &management.EKSClusterConfigSpec{
+			AmazonCredentialSecret: cloudCredentialID,
+			DisplayName:            displayName,
+			Imported:               true,
+			Region:                 region,
+		},
+		Name: displayName,
 	}
 
-	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	clusterResp, err := client.Management.Cluster.Create(cluster)
 	if err != nil {
 		return nil, err
 	}
-	return cluster, nil
+	return clusterResp, err
 }
 
 // DeleteEKSHostCluster deletes the EKS cluster
@@ -71,15 +116,91 @@ func DeleteEKSHostCluster(cluster *management.Cluster, client *rancher.Client) e
 	return client.Management.Cluster.Delete(cluster)
 }
 
-// AddNodeGroup adds a nodegroup to the list
-func AddNodeGroup(cluster *management.Cluster, increaseBy int, client *rancher.Client) (*management.Cluster, error) {
-	upgradedCluster := new(management.Cluster)
-	upgradedCluster.Name = cluster.Name
-	upgradedCluster.EKSConfig = cluster.EKSConfig
-	nodeConfig := EksHostNodeConfig()
+// UpgradeClusterKubernetesVersion upgrades the k8s version to the value defined by upgradeToVersion.
+// if checkClusterConfig is set to true, it will validate that the cluster control plane has been upgrade successfully
+func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersion string, client *rancher.Client, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	currentVersion := *cluster.EKSConfig.KubernetesVersion
+	upgradedCluster.EKSConfig.KubernetesVersion = &upgradeToVersion
 
+	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	Expect(err).To(BeNil())
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		Expect(*cluster.EKSConfig.KubernetesVersion).To(Equal(upgradeToVersion))
+		// ensure nodegroup version is still the same when config is applied
+		for _, ng := range cluster.EKSConfig.NodeGroups {
+			Expect(*ng.Version).To(Equal(currentVersion))
+		}
+
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() string {
+			ginkgo.GinkgoLogr.Info("Waiting for k8s upgrade to appear in EKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return *cluster.EKSStatus.UpstreamSpec.KubernetesVersion
+		}, tools.SetTimeout(15*time.Minute), 10*time.Second).Should(Equal(upgradeToVersion))
+		// ensure nodegroup version is same in Rancher
+		for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+			Expect(*ng.Version).To(Equal(currentVersion))
+		}
+	}
+	return cluster, nil
+}
+
+// UpgradeNodeKubernetesVersion upgrades the k8s version of nodegroup to the value defined by upgradeToVersion.
+// if wait is set to true, it will wait until the cluster finishes upgrading;
+// if checkClusterConfig is set to true, it will validate that nodegroup has been upgraded successfully
+func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion string, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	for i := range upgradedCluster.EKSConfig.NodeGroups {
+		upgradedCluster.EKSConfig.NodeGroups[i].Version = &upgradeToVersion
+	}
+
+	var err error
+	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
+	Expect(err).To(BeNil())
+
+	// Check if the desired config is set correctly
+	for _, ng := range cluster.EKSConfig.NodeGroups {
+		Expect(*ng.Version).To(Equal(upgradeToVersion))
+	}
+
+	if wait {
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+	}
+
+	// TODO: Fix flaky check
+	if checkClusterConfig {
+		Eventually(func() bool {
+			ginkgo.GinkgoLogr.Info("waiting for the nodegroup upgrade to appear in EKSStatus.UpstreamSpec ...")
+			// Check if the desired config has been applied in Rancher
+			for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+				if *ng.Version != upgradeToVersion {
+					return false
+				}
+			}
+			return true
+		}, tools.SetTimeout(15*time.Minute), 10*time.Second).Should(BeTrue())
+	}
+	return cluster, nil
+}
+
+// AddNodeGroup adds a nodegroup to the list
+// if checkClusterConfig is set to true, it will validate that nodegroup has been added successfully
+func AddNodeGroup(cluster *management.Cluster, increaseBy int, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	currentNodeGroupNumber := len(cluster.EKSConfig.NodeGroups)
+
+	// Workaround for eks-operator/issues/406
+	var eksClusterConfig management.EKSClusterConfigSpec
+	config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, &eksClusterConfig)
+
+	updateNodeGroupsList := upgradedCluster.EKSConfig.NodeGroups
 	for i := 1; i <= increaseBy; i++ {
-		for _, ng := range nodeConfig {
+		for _, ng := range eksClusterConfig.NodeGroups {
 			newNodeGroup := management.NodeGroup{
 				NodegroupName: pointer.String(namegen.AppendRandomString("nodegroup")),
 				DesiredSize:   ng.DesiredSize,
@@ -88,68 +209,144 @@ func AddNodeGroup(cluster *management.Cluster, increaseBy int, client *rancher.C
 				MaxSize:       ng.MaxSize,
 				MinSize:       ng.MinSize,
 			}
-			upgradedCluster.EKSConfig.NodeGroups = append(upgradedCluster.EKSConfig.NodeGroups, newNodeGroup)
+			updateNodeGroupsList = append([]management.NodeGroup{newNodeGroup}, updateNodeGroupsList...)
 		}
 	}
+	upgradedCluster.EKSConfig.NodeGroups = updateNodeGroupsList
+
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
-	if err != nil {
-		return nil, err
+	Expect(err).To(BeNil())
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		Expect(len(cluster.EKSConfig.NodeGroups)).Should(BeNumerically("==", currentNodeGroupNumber+increaseBy))
+		for i, ng := range cluster.EKSConfig.NodeGroups {
+			Expect(ng.NodegroupName).To(Equal(updateNodeGroupsList[i].NodegroupName))
+		}
 	}
+
+	if wait {
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+	}
+
+	if checkClusterConfig {
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() int {
+			ginkgo.GinkgoLogr.Info("Waiting for the total nodegroup count to increase in EKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return len(cluster.EKSStatus.UpstreamSpec.NodeGroups)
+		}, tools.SetTimeout(15*time.Minute), 10*time.Second).Should(BeNumerically("==", currentNodeGroupNumber+increaseBy))
+
+		for i, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+			Expect(ng.NodegroupName).To(Equal(updateNodeGroupsList[i].NodegroupName))
+		}
+	}
+
 	return cluster, nil
 }
 
 // DeleteNodeGroup deletes a nodegroup from the list
+// if checkClusterConfig is set to true, it will validate that nodegroup has been deleted successfully
 // TODO: Modify this method to delete a custom qty of DeleteNodeGroup, perhaps by adding an `decreaseBy int` arg
-func DeleteNodeGroup(cluster *management.Cluster, client *rancher.Client) (*management.Cluster, error) {
-	upgradedCluster := new(management.Cluster)
-	upgradedCluster.Name = cluster.Name
-	upgradedCluster.EKSConfig = cluster.EKSConfig
-
-	upgradedCluster.EKSConfig.NodeGroups = cluster.EKSConfig.NodeGroups[:1]
+func DeleteNodeGroup(cluster *management.Cluster, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	currentNodeGroupNumber := len(cluster.EKSConfig.NodeGroups)
+	updateNodeGroupsList := cluster.EKSConfig.NodeGroups[:1]
+	upgradedCluster.EKSConfig.NodeGroups = updateNodeGroupsList
 
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
-	if err != nil {
-		return nil, err
+	Expect(err).To(BeNil())
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		Expect(len(cluster.EKSConfig.NodeGroups)).Should(BeNumerically("==", currentNodeGroupNumber-1))
+		for i, ng := range cluster.EKSConfig.NodeGroups {
+			Expect(ng.NodegroupName).To(Equal(updateNodeGroupsList[i].NodegroupName))
+		}
+	}
+	if wait {
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+	}
+	if checkClusterConfig {
+
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() int {
+			ginkgo.GinkgoLogr.Info("Waiting for the total nodegroup count to decrease in EKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return len(cluster.EKSStatus.UpstreamSpec.NodeGroups)
+		}, tools.SetTimeout(15*time.Minute), 10*time.Second).Should(BeNumerically("==", currentNodeGroupNumber-1))
+		for i, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+			Expect(ng.NodegroupName).To(Equal(updateNodeGroupsList[i].NodegroupName))
+		}
 	}
 	return cluster, nil
 }
 
 // ScaleNodeGroup modifies the number of initialNodeCount of all the nodegroups as defined by nodeCount
-func ScaleNodeGroup(cluster *management.Cluster, client *rancher.Client, nodeCount int64) (*management.Cluster, error) {
-	upgradedCluster := new(management.Cluster)
-	upgradedCluster.Name = cluster.Name
-	upgradedCluster.EKSConfig = cluster.EKSConfig
+// if wait is set to true, it will wait until the cluster finishes updating;
+// if checkClusterConfig is set to true, it will validate that nodegroup has been scaled successfully
+func ScaleNodeGroup(cluster *management.Cluster, client *rancher.Client, nodeCount int64, wait, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
 	for i := range upgradedCluster.EKSConfig.NodeGroups {
 		upgradedCluster.EKSConfig.NodeGroups[i].DesiredSize = pointer.Int64(nodeCount)
 		upgradedCluster.EKSConfig.NodeGroups[i].MaxSize = pointer.Int64(nodeCount)
-		upgradedCluster.EKSConfig.NodeGroups[i].MinSize = pointer.Int64(nodeCount)
 	}
 
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
-	if err != nil {
-		return nil, err
+	Expect(err).To(BeNil())
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		for i := range cluster.EKSConfig.NodeGroups {
+			Expect(*cluster.EKSConfig.NodeGroups[i].DesiredSize).To(BeNumerically("==", nodeCount))
+		}
 	}
+
+	if wait {
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+	}
+
+	if checkClusterConfig {
+		// check that the desired config is applied on Rancher
+		Eventually(func() bool {
+			ginkgo.GinkgoLogr.Info("Waiting for the node count change to appear in EKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			for i := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+				if ng := cluster.EKSStatus.UpstreamSpec.NodeGroups[i]; *ng.DesiredSize != nodeCount {
+					return false
+				}
+			}
+			return true
+		}, tools.SetTimeout(15*time.Minute), 10*time.Second).Should(BeTrue())
+	}
+
 	return cluster, nil
 }
 
 // ListEKSAvailableVersions is a function to list and return only available EKS versions for a specific cluster.
 func ListEKSAvailableVersions(client *rancher.Client, clusterID string) (availableVersions []string, err error) {
-	// kubernetesversions.ListEKSAvailableVersions expects cluster.Version.GitVersion to be available, which it is not sometimes, so we fetch the cluster again to ensure it has all the available data
-	cluster, err := client.Management.Cluster.ByID(clusterID)
+
+	allAvailableVersions, err := kubernetesversions.ListEKSAllVersions(client)
 	if err != nil {
 		return nil, err
 	}
-	return kubernetesversions.ListEKSAvailableVersions(client, cluster)
+
+	return helpers.FilterUIUnsupportedVersions(allAvailableVersions, client), nil
 }
 
 // Create AWS EKS cluster using EKS CLI
-func CreateEKSClusterOnAWS(eks_region string, clusterName string, k8sVersion string, nodes string) error {
+func CreateEKSClusterOnAWS(eks_region string, clusterName string, k8sVersion string, nodes string, tags map[string]string) error {
 	currentKubeconfig := os.Getenv("KUBECONFIG")
 	defer os.Setenv("KUBECONFIG", currentKubeconfig)
 
 	helpers.SetTempKubeConfig(clusterName)
 
-	tags := GetTags()
 	formattedTags := k8slabels.SelectorFromSet(tags).String()
 	fmt.Println("Creating EKS cluster ...")
 	args := []string{"create", "cluster", "--region=" + eks_region, "--name=" + clusterName, "--version=" + k8sVersion, "--nodegroup-name", "ranchernodes", "--nodes", nodes, "--managed", "--tags", formattedTags}
@@ -186,77 +383,39 @@ func DeleteEKSClusterOnAWS(eks_region string, clusterName string) error {
 	return nil
 }
 
-func ImportEKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID string, enableClusterAlerting, enableClusterMonitoring, enableNetworkPolicy, windowsPreferedCluster bool, labels map[string]string) (*management.Cluster, error) {
-	eksHostCluster := EksHostClusterConfig(displayName, cloudCredentialID)
-	cluster := &management.Cluster{
-		DockerRootDir:           "/var/lib/docker",
-		EKSConfig:               eksHostCluster,
-		Name:                    displayName,
-		EnableClusterAlerting:   enableClusterAlerting,
-		EnableClusterMonitoring: enableClusterMonitoring,
-		EnableNetworkPolicy:     &enableNetworkPolicy,
-		Labels:                  labels,
-		WindowsPreferedCluster:  windowsPreferedCluster,
-	}
-
-	clusterResp, err := client.Management.Cluster.Create(cluster)
-	if err != nil {
-		return nil, err
-	}
-	return clusterResp, err
-}
-
-func EksHostClusterConfig(displayName, cloudCredentialID string) *management.EKSClusterConfigSpec {
-	var eksClusterConfig ImportClusterConfig
-	config.LoadConfig("eksClusterConfig", &eksClusterConfig)
-
-	return &management.EKSClusterConfigSpec{
-		AmazonCredentialSecret: cloudCredentialID,
-		DisplayName:            displayName,
-		Imported:               eksClusterConfig.Imported,
-		Region:                 eksClusterConfig.Region,
-	}
-}
-
-func EksHostNodeConfig() []management.NodeGroup {
-	var nodeConfig management.EKSClusterConfigSpec
-	config.LoadConfig("eksClusterConfig", &nodeConfig)
-
-	return nodeConfig.NodeGroups
-}
-
-type ImportClusterConfig struct {
-	Region     string                  `json:"region" yaml:"region"`
-	Imported   bool                    `json:"imported" yaml:"imported"`
-	NodeGroups []*management.NodeGroup `json:"nodeGroups" yaml:"nodeGroups"`
-	Tags       *map[string]string      `json:"tags,omitempty" yaml:"tags,omitempty"`
-}
-
 // defaultEKS returns a version less than the highest version or K8S_UPGRADE_MINOR_VERSION if it is set.
 // Note: It does not return the default version used by UI which is the highest supported version.
-func defaultEKS(client *rancher.Client) (defaultEKS string, err error) {
-	var versions []string
-	versions, err = kubernetesversions.ListEKSAllVersions(client)
+func defaultEKS(client *rancher.Client, forUpgrade bool) (defaultEKS string, err error) {
+
+	var allVersions []string
+	allVersions, err = kubernetesversions.ListEKSAllVersions(client)
 	if err != nil {
 		return
 	}
 
-	if upgradeVersion := helpers.K8sUpgradedMinorVersion; upgradeVersion != "" {
-		for _, version := range versions {
-			if helpers.VersionCompare(upgradeVersion, version) > 0 {
+	versions := helpers.FilterUIUnsupportedVersions(allVersions, client)
+	maxValue := helpers.HighestK8sMinorVersionSupportedByUI(client)
+
+	for i := 0; i < len(versions); i++ {
+		version := versions[i]
+		if forUpgrade {
+			if result := helpers.VersionCompare(version, maxValue); result == -1 {
+				return version, nil
+			}
+		} else {
+			if strings.Contains(version, maxValue) {
 				return version, nil
 			}
 		}
-
 	}
-	return versions[1], nil
+	return
 }
 
 // GetK8sVersion returns the k8s version to be used by the test;
 // this value can either be envvar DOWNSTREAM_K8S_MINOR_VERSION or the default UI value returned by DefaultEKS.
-func GetK8sVersion(client *rancher.Client) (string, error) {
+func GetK8sVersion(client *rancher.Client, forUpgrade bool) (string, error) {
 	if k8sVersion := helpers.DownstreamK8sMinorVersion; k8sVersion != "" {
 		return k8sVersion, nil
 	}
-	return defaultEKS(client)
+	return defaultEKS(client, forUpgrade)
 }
