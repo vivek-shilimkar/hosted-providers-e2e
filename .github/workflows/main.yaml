@@ -23,30 +23,9 @@ on:
       rancher_installed:
         description: Rancher details if already installed
         type: string
-      run_p0_provisioning_tests:
+      tests_to_run:
         required: true
-        type: boolean
-      run_p0_importing_tests:
-        required: true
-        type: boolean
-      run_p1_provisioning_tests:
-        required: false
-        type: boolean
-      run_p1_importing_tests:
-        required: false
-        type: boolean
-      run_support_matrix_provisioning_tests:
-        required: true
-        type: boolean
-      run_support_matrix_importing_tests:
-        required: true
-        type: boolean
-      run_k8s_chart_support_importing_tests:
-        required: false
-        type: boolean
-      run_k8s_chart_support_provisioning_tests:
-        required: false
-        type: boolean
+        type: string
       destroy_runner:
         description: Destroy the auto-generated self-hosted runner
         type: boolean
@@ -217,7 +196,7 @@ jobs:
           echo -e "Exported values:\nQASE_RUN_ID=${ID}\nQASE_RUN_DESCRIPTION=${QASE_RUN_DESCRIPTION}\nQASE_RUN_NAME=${QASE_RUN_NAME}"
 
       - name: Provisioning cluster tests
-        if:  ${{ inputs.run_p0_provisioning_tests == true }}
+        if:  ${{ contains(inputs.tests_to_run, 'p0_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -227,7 +206,7 @@ jobs:
           make e2e-provisioning-tests
 
       - name: Importing cluster tests
-        if: ${{ !cancelled() && inputs.run_p0_importing_tests == true }}
+        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'p0_importing') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -237,7 +216,7 @@ jobs:
           make e2e-import-tests
 
       - name: Provisioning cluster P1 tests
-        if:  ${{ !cancelled() && inputs.run_p1_provisioning_tests == true }}
+        if:  ${{ !cancelled() && contains(inputs.tests_to_run, 'p1_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -247,7 +226,7 @@ jobs:
           make e2e-p1-provisioning-tests
 
       - name: Importing cluster P1 tests
-        if: ${{ !cancelled() && inputs.run_p1_importing_tests == true }}
+        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'p1_importing') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -257,7 +236,7 @@ jobs:
           make e2e-p1-import-tests
 
       - name: Support matrix provisioning tests
-        if: ${{ !cancelled() && inputs.run_support_matrix_provisioning_tests == true }}
+        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'support_matrix_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -267,7 +246,7 @@ jobs:
           make e2e-support-matrix-provisioning-tests
 
       - name: Support matrix importing tests
-        if: ${{ !cancelled() && inputs.run_support_matrix_importing_tests == true }}
+        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'support_matrix_importing') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -277,7 +256,7 @@ jobs:
           make e2e-support-matrix-importing-tests
 
       - name: K8s Chart Support provisioning tests
-        if: ${{ !cancelled() && inputs.run_k8s_chart_support_provisioning_tests == true }}
+        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'k8s_chart_support_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -289,7 +268,7 @@ jobs:
           make e2e-k8s-chart-support-provisioning-tests
 
       - name: K8s Chart Support importing tests
-        if: ${{ !cancelled() && inputs.run_k8s_chart_support_importing_tests == true }}
+        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'k8s_chart_support_importing') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -336,6 +315,7 @@ jobs:
           echo "Rancher Manager Version: ${{ inputs.rancher_version }}" >> ${GITHUB_STEP_SUMMARY}
           echo "K3s on Rancher Manager: ${{ inputs.k3s_version }}" >> ${GITHUB_STEP_SUMMARY}
           echo "Downstream ${{ inputs.hosted_provider }} minor version: ${{ inputs.downstream_k8s_minor_version }}" >> ${GITHUB_STEP_SUMMARY}
+          echo "Tests run: ${{ inputs.tests_to_run }}" >> ${GITHUB_STEP_SUMMARY}
 
   delete-runner:
     if: ${{ always() && inputs.destroy_runner == true }}
