@@ -9,6 +9,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
+
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 
 	"github.com/epinio/epinio/acceptance/helpers/proc"
@@ -25,71 +26,14 @@ import (
 )
 
 // CreateEKSHostedCluster is a helper function that creates an EKS hosted cluster
-func CreateEKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, kubernetesVersion, region string, tags map[string]string) (*management.Cluster, error) {
+func CreateEKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, kubernetesVersion, region string) (*management.Cluster, error) {
 	var eksClusterConfig eks.ClusterConfig
 	config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, &eksClusterConfig)
+	eksClusterConfig.Region = region
+	eksClusterConfig.Tags = helpers.GetCommonMetadataLabels()
+	eksClusterConfig.KubernetesVersion = &kubernetesVersion
 
-	var nodeGroups []management.NodeGroup
-	for _, nodeGroupConfig := range *eksClusterConfig.NodeGroupsConfig {
-		var launchTemplate *management.LaunchTemplate
-		if nodeGroupConfig.LaunchTemplateConfig != nil {
-			launchTemplate = &management.LaunchTemplate{
-				Name:    nodeGroupConfig.LaunchTemplateConfig.Name,
-				Version: nodeGroupConfig.LaunchTemplateConfig.Version,
-			}
-		}
-		nodeGroup := management.NodeGroup{
-			DesiredSize:          nodeGroupConfig.DesiredSize,
-			DiskSize:             nodeGroupConfig.DiskSize,
-			Ec2SshKey:            nodeGroupConfig.Ec2SshKey,
-			Gpu:                  nodeGroupConfig.Gpu,
-			ImageID:              nodeGroupConfig.ImageID,
-			InstanceType:         nodeGroupConfig.InstanceType,
-			Labels:               &nodeGroupConfig.Labels,
-			LaunchTemplate:       launchTemplate,
-			MaxSize:              nodeGroupConfig.MaxSize,
-			MinSize:              nodeGroupConfig.MinSize,
-			NodegroupName:        nodeGroupConfig.NodegroupName,
-			NodeRole:             nodeGroupConfig.NodeRole,
-			RequestSpotInstances: nodeGroupConfig.RequestSpotInstances,
-			ResourceTags:         &nodeGroupConfig.ResourceTags,
-			SpotInstanceTypes:    &nodeGroupConfig.SpotInstanceTypes,
-			Subnets:              &nodeGroupConfig.Subnets,
-			Tags:                 &nodeGroupConfig.Tags,
-			UserData:             nodeGroupConfig.UserData,
-			Version:              &kubernetesVersion,
-		}
-		nodeGroups = append(nodeGroups, nodeGroup)
-	}
-
-	cluster := &management.Cluster{
-		DockerRootDir: "/var/lib/docker",
-		EKSConfig: &management.EKSClusterConfigSpec{
-			AmazonCredentialSecret: cloudCredentialID,
-			DisplayName:            displayName,
-			Imported:               false,
-			KmsKey:                 eksClusterConfig.KmsKey,
-			KubernetesVersion:      &kubernetesVersion,
-			LoggingTypes:           &eksClusterConfig.LoggingTypes,
-			NodeGroups:             nodeGroups,
-			PrivateAccess:          eksClusterConfig.PrivateAccess,
-			PublicAccess:           eksClusterConfig.PublicAccess,
-			PublicAccessSources:    &eksClusterConfig.PublicAccessSources,
-			Region:                 region,
-			SecretsEncryption:      eksClusterConfig.SecretsEncryption,
-			SecurityGroups:         &eksClusterConfig.SecurityGroups,
-			ServiceRole:            eksClusterConfig.ServiceRole,
-			Subnets:                &eksClusterConfig.Subnets,
-			Tags:                   &tags,
-		},
-		Name: displayName,
-	}
-
-	clusterResp, err := client.Management.Cluster.Create(cluster)
-	if err != nil {
-		return nil, err
-	}
-	return clusterResp, err
+	return eks.CreateEKSHostedCluster(client, displayName, cloudCredentialID, eksClusterConfig, false, false, false, false, nil)
 }
 
 func ImportEKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, region string) (*management.Cluster, error) {
@@ -114,6 +58,7 @@ func ImportEKSHostedCluster(client *rancher.Client, displayName, cloudCredential
 // DeleteEKSHostCluster deletes the EKS cluster
 func DeleteEKSHostCluster(cluster *management.Cluster, client *rancher.Client) error {
 	return client.Management.Cluster.Delete(cluster)
+
 }
 
 // UpgradeClusterKubernetesVersion upgrades the k8s version to the value defined by upgradeToVersion.
@@ -188,29 +133,29 @@ func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion 
 	return cluster, nil
 }
 
-// AddNodeGroup adds a nodegroup to the list
+// AddNodeGroup adds a nodegroup to the list; it uses the nodegroup template defined in CATTLE_TEST_CONFIG file
 // if checkClusterConfig is set to true, it will validate that nodegroup has been added successfully
 func AddNodeGroup(cluster *management.Cluster, increaseBy int, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := cluster
 	currentNodeGroupNumber := len(cluster.EKSConfig.NodeGroups)
 
 	// Workaround for eks-operator/issues/406
+	// We use management.EKSClusterConfigSpec instead of the usual eks.ClusterConfig to unmarshal the data without the need of a lot of post-processing.
 	var eksClusterConfig management.EKSClusterConfigSpec
 	config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, &eksClusterConfig)
+	ngTemplate := eksClusterConfig.NodeGroups[0]
 
-	updateNodeGroupsList := upgradedCluster.EKSConfig.NodeGroups
+	updateNodeGroupsList := cluster.EKSConfig.NodeGroups
 	for i := 1; i <= increaseBy; i++ {
-		for _, ng := range eksClusterConfig.NodeGroups {
-			newNodeGroup := management.NodeGroup{
-				NodegroupName: pointer.String(namegen.AppendRandomString("nodegroup")),
-				DesiredSize:   ng.DesiredSize,
-				DiskSize:      ng.DiskSize,
-				InstanceType:  ng.InstanceType,
-				MaxSize:       ng.MaxSize,
-				MinSize:       ng.MinSize,
-			}
-			updateNodeGroupsList = append([]management.NodeGroup{newNodeGroup}, updateNodeGroupsList...)
+		newNodeGroup := management.NodeGroup{
+			NodegroupName: pointer.String(namegen.AppendRandomString("nodegroup")),
+			DesiredSize:   ngTemplate.DesiredSize,
+			DiskSize:      ngTemplate.DiskSize,
+			InstanceType:  ngTemplate.InstanceType,
+			MaxSize:       ngTemplate.MaxSize,
+			MinSize:       ngTemplate.MinSize,
 		}
+		updateNodeGroupsList = append([]management.NodeGroup{newNodeGroup}, updateNodeGroupsList...)
 	}
 	upgradedCluster.EKSConfig.NodeGroups = updateNodeGroupsList
 
@@ -371,7 +316,7 @@ func DeleteEKSClusterOnAWS(eks_region string, clusterName string) error {
 	_ = os.Setenv("KUBECONFIG", downstreamKubeconfig)
 
 	fmt.Println("Deleting EKS cluster ...")
-	args := []string{"delete", "cluster", "--region=" + eks_region, "--name=" + clusterName, "--disable-nodegroup-eviction"}
+	args := []string{"delete", "cluster", "--region=" + eks_region, "--name=" + clusterName, "--wait", "--force"}
 	fmt.Printf("Running command: eksctl %v\n", args)
 	out, err := proc.RunW("eksctl", args...)
 	if err != nil {

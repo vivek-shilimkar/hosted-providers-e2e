@@ -15,6 +15,7 @@ limitations under the License.
 package p1_test
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -52,7 +53,7 @@ var _ = BeforeEach(func() {
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", false)
 	Expect(err).To(BeNil())
-	GinkgoLogr.Info("Using kubernetes version: " + k8sVersion)
+	GinkgoLogr.Info(fmt.Sprintf("Using kubernetes version %s for cluster %s", k8sVersion, clusterName))
 })
 
 var _ = ReportBeforeEach(func(report SpecReport) {

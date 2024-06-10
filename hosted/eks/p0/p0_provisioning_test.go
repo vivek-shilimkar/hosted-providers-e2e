@@ -54,14 +54,14 @@ var _ = Describe("P0Provisioning", func() {
 			BeforeEach(func() {
 				k8sVersion, err := helper.GetK8sVersion(ctx.RancherAdminClient, testData.isUpgrade)
 				Expect(err).To(BeNil())
-				GinkgoLogr.Info("Using K8s version: " + k8sVersion)
-				cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, helpers.GetCommonMetadataLabels())
+				GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
+				cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region)
 				Expect(err).To(BeNil())
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
-				if ctx.ClusterCleanup {
+				if ctx.ClusterCleanup && cluster != nil {
 					err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
 					Expect(err).To(BeNil())
 				} else {

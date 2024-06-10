@@ -49,7 +49,7 @@ var _ = BeforeEach(func() {
 	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location, false)
 	Expect(err).To(BeNil())
 	Expect(k8sVersion).ToNot(BeEmpty())
-	GinkgoLogr.Info(fmt.Sprintf("Using AKS version %s", k8sVersion))
+	GinkgoLogr.Info(fmt.Sprintf("Using AKS version %s for cluster %s", k8sVersion, clusterName))
 
 })
 

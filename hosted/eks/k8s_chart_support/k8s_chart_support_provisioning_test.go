@@ -15,13 +15,13 @@ var _ = Describe("K8sChartSupportProvisioning", func() {
 	var cluster *management.Cluster
 	BeforeEach(func() {
 		var err error
-		cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, helpers.GetCommonMetadataLabels())
+		cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region)
 		Expect(err).To(BeNil())
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 	})
 	AfterEach(func() {
-		if ctx.ClusterCleanup {
+		if ctx.ClusterCleanup && cluster != nil {
 			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		} else {

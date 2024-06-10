@@ -6,45 +6,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters/gke"
-	"github.com/rancher/shepherd/pkg/config"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
 var _ = Describe("P1Importing", func() {
-	var cluster *management.Cluster
-	var (
-		originalConfig = new(management.GKEClusterConfigSpec)
-	)
-
-	BeforeEach(func() {
-		config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, originalConfig)
-
-		gkeConfig := new(helper.ImportClusterConfig)
-		config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
-			gkeConfig.ProjectID = project
-			gkeConfig.Zone = zone
-			labels := helper.GetLabels()
-			gkeConfig.Labels = &labels
-			for _, np := range gkeConfig.NodePools {
-				np.Version = &k8sVersion
-			}
-		})
-	})
-	AfterEach(func() {
-		config.UpdateConfig(gke.GKEClusterConfigConfigurationFileKey, originalConfig)
-	})
-
 	When("a cluster is created", func() {
+		var cluster *management.Cluster
 
 		BeforeEach(func() {
 			var err error
 			err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, k8sVersion)
 			Expect(err).To(BeNil())
 
-			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -53,7 +29,7 @@ var _ = Describe("P1Importing", func() {
 		})
 
 		AfterEach(func() {
-			if ctx.ClusterCleanup {
+			if ctx.ClusterCleanup && cluster != nil {
 				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 				err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
@@ -65,7 +41,7 @@ var _ = Describe("P1Importing", func() {
 
 		It("should fail to reimport an imported cluster", func() {
 			testCaseID = 49
-			_, err := helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			_, err := helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("cluster already exists for GKE cluster [%s] in zone [%s]", clusterName, zone)))
 		})
@@ -90,7 +66,6 @@ var _ = Describe("P1Importing", func() {
 			})
 		})
 
-		// TODO: Analyze test failure
 		It("should be able to reimport a deleted cluster", func() {
 			testCaseID = 57
 			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
@@ -100,7 +75,7 @@ var _ = Describe("P1Importing", func() {
 				_, err := ctx.RancherAdminClient.Management.Cluster.ByID(clusterID)
 				return err
 			}, "10s", "1s").ShouldNot(BeNil())
-			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())

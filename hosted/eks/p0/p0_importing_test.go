@@ -54,7 +54,7 @@ var _ = Describe("P0Importing", func() {
 			BeforeEach(func() {
 				k8sVersion, err := helper.GetK8sVersion(ctx.RancherAdminClient, testData.isUpgrade)
 				Expect(err).To(BeNil())
-				GinkgoLogr.Info("Using K8s version: " + k8sVersion)
+				GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
 				err = helper.CreateEKSClusterOnAWS(region, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels())
 				Expect(err).To(BeNil())
 
@@ -66,7 +66,7 @@ var _ = Describe("P0Importing", func() {
 				cluster.EKSConfig = cluster.EKSStatus.UpstreamSpec
 			})
 			AfterEach(func() {
-				if ctx.ClusterCleanup {
+				if ctx.ClusterCleanup && cluster != nil {
 					err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
 					Expect(err).To(BeNil())
 					err = helper.DeleteEKSClusterOnAWS(region, clusterName)

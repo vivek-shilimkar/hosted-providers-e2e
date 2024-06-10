@@ -40,14 +40,14 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				var err error
-				cluster, err = helper.CreateAKSHostedCluster(ctx.StdUserClient, ctx.CloudCred.ID, clusterName, version, location, helpers.GetCommonMetadataLabels())
+				cluster, err = helper.CreateAKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, version, location)
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
-				if ctx.ClusterCleanup {
+				if ctx.ClusterCleanup && cluster != nil {
 					err := helper.DeleteAKSHostCluster(cluster, ctx.StdUserClient)
 					Expect(err).To(BeNil())
 					err = helper.DeleteAKSClusteronAzure(clusterName)

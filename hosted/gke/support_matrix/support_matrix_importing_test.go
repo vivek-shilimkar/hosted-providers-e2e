@@ -21,8 +21,6 @@ import (
 	"fmt"
 
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters/gke"
-	"github.com/rancher/shepherd/pkg/config"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
@@ -42,24 +40,16 @@ var _ = Describe("SupportMatrixImporting", func() {
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				var err error
-				gkeConfig := new(management.GKEClusterConfigSpec)
-				config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
-					gkeConfig.ProjectID = project
-					gkeConfig.Zone = zone
-					gkeConfig.KubernetesVersion = &version
-					labels := helper.GetLabels()
-					gkeConfig.Labels = &labels
-				})
 				err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, version)
 				Expect(err).To(BeNil())
-				cluster, err = helper.ImportGKEHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = helper.ImportGKEHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, zone, project)
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
-				if ctx.ClusterCleanup {
+				if ctx.ClusterCleanup && cluster != nil {
 					err := helper.DeleteGKEHostCluster(cluster, ctx.StdUserClient)
 					Expect(err).To(BeNil())
 					err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)

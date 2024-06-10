@@ -33,53 +33,19 @@ var (
 	subscriptionID = os.Getenv("AKS_SUBSCRIPTION_ID")
 )
 
-func CreateAKSHostedCluster(client *rancher.Client, cloudCredentialID, clusterName, k8sVersion, location string, tags map[string]string) (*management.Cluster, error) {
+// CreateAKSHostedCluster creates the AKS cluster on Rancher
+func CreateAKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, location string) (*management.Cluster, error) {
 	var aksClusterConfig aks.ClusterConfig
 	config.LoadConfig(aks.AKSClusterConfigConfigurationFileKey, &aksClusterConfig)
-	var aksNodePools []management.AKSNodePool
-	for _, aksNodePoolConfig := range *aksClusterConfig.NodePools {
-		aksNodePool := management.AKSNodePool{
-			AvailabilityZones:   aksNodePoolConfig.AvailabilityZones,
-			Count:               aksNodePoolConfig.NodeCount,
-			EnableAutoScaling:   aksNodePoolConfig.EnableAutoScaling,
-			MaxPods:             aksNodePoolConfig.MaxPods,
-			MaxCount:            aksNodePoolConfig.MaxCount,
-			MinCount:            aksNodePoolConfig.MinCount,
-			Mode:                aksNodePoolConfig.Mode,
-			Name:                aksNodePoolConfig.Name,
-			OrchestratorVersion: &k8sVersion,
-			OsDiskSizeGB:        aksNodePoolConfig.OsDiskSizeGB,
-			OsDiskType:          aksNodePoolConfig.OsDiskType,
-			OsType:              aksNodePoolConfig.OsType,
-			VMSize:              aksNodePoolConfig.VMSize,
-		}
-		aksNodePools = append(aksNodePools, aksNodePool)
-	}
 
-	cluster := &management.Cluster{
-		AKSConfig: &management.AKSClusterConfigSpec{
-			AzureCredentialSecret: cloudCredentialID,
-			ClusterName:           clusterName,
-			DNSPrefix:             pointer.String(clusterName + "-dns"),
-			Imported:              false,
-			KubernetesVersion:     &k8sVersion,
-			LinuxAdminUsername:    aksClusterConfig.LinuxAdminUsername,
-			LoadBalancerSKU:       aksClusterConfig.LoadBalancerSKU,
-			NetworkPlugin:         aksClusterConfig.NetworkPlugin,
-			NodePools:             aksNodePools,
-			PrivateCluster:        aksClusterConfig.PrivateCluster,
-			ResourceGroup:         clusterName,
-			ResourceLocation:      location,
-			Tags:                  tags,
-		},
-		DockerRootDir: "/var/lib/docker",
-		Name:          clusterName,
-	}
+	aksClusterConfig.ResourceGroup = displayName
+	dnsPrefix := displayName + "-dns"
+	aksClusterConfig.DNSPrefix = &dnsPrefix
+	aksClusterConfig.ResourceLocation = location
+	aksClusterConfig.Tags = helpers.GetCommonMetadataLabels()
+	aksClusterConfig.KubernetesVersion = &k8sVersion
 
-	clusterResp, err := client.Management.Cluster.Create(cluster)
-	Expect(err).To(BeNil())
-
-	return clusterResp, err
+	return aks.CreateAKSHostedCluster(client, displayName, cloudCredentialID, aksClusterConfig, false, false, false, false, nil)
 }
 
 // ImportAKSHostedCluster imports an AKS cluster to Rancher
@@ -218,24 +184,30 @@ func GetK8sVersionVariantAKS(minorVersion string, client *rancher.Client, cloudC
 	return "", fmt.Errorf("version %s not found", minorVersion)
 }
 
-// AddNodePool adds a nodepool to the list; if wait is set to true, it will wait until the cluster finishes upgrading;
+// AddNodePool adds a nodepool to the list; it uses the nodepool template defined in CATTLE_TEST_CONFIG file
+// if wait is set to true, it will wait until the cluster finishes upgrading;
 // if checkClusterConfig is set to true, it will validate that nodepool has been added successfully
 func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := cluster
 	currentNodePoolNumber := len(cluster.AKSConfig.NodePools)
 
+	// We use management.AKSClusterConfigSpec instead of the usual aks.ClusterConfig to unmarshal the data without the need of a lot of post-processing.
+	var aksConfig management.AKSClusterConfigSpec
+	config.LoadConfig(aks.AKSClusterConfigConfigurationFileKey, &aksConfig)
+	npTemplate := aksConfig.NodePools[0]
+
 	updateNodePoolsList := cluster.AKSConfig.NodePools
+
 	for i := 1; i <= increaseBy; i++ {
-		for _, np := range cluster.AKSConfig.NodePools {
-			newNodepool := management.AKSNodePool{
-				Count:             pointer.Int64(1),
-				VMSize:            np.VMSize,
-				Mode:              np.Mode,
-				EnableAutoScaling: np.EnableAutoScaling,
-				Name:              pointer.String(namegen.RandStringLower(5)),
-			}
-			updateNodePoolsList = append(updateNodePoolsList, newNodepool)
+		newNodepool := management.AKSNodePool{
+			Count:             pointer.Int64(1),
+			VMSize:            npTemplate.VMSize,
+			Mode:              npTemplate.Mode,
+			EnableAutoScaling: npTemplate.EnableAutoScaling,
+			Name:              pointer.String(namegen.RandStringLower(5)),
 		}
+		updateNodePoolsList = append(updateNodePoolsList, newNodepool)
+
 	}
 	upgradedCluster.AKSConfig.NodePools = updateNodePoolsList
 

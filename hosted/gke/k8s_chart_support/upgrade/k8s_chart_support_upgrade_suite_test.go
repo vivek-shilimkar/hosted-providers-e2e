@@ -62,7 +62,7 @@ var _ = BeforeEach(func() {
 	// For k8s chart support upgrade we want to begin with the default k8s version; we will upgrade rancher and then upgrade k8s to the default available there.
 	k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", false)
 	Expect(err).To(BeNil())
-	GinkgoLogr.Info(fmt.Sprintf("Using GKE version %s", k8sVersion))
+	GinkgoLogr.Info(fmt.Sprintf("Using GKE version %s for cluster %s", k8sVersion, clusterName))
 })
 
 var _ = AfterEach(func() {

@@ -48,7 +48,7 @@ var _ = Describe("SupportMatrixImporting", func() {
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
-				if ctx.ClusterCleanup {
+				if ctx.ClusterCleanup && cluster != nil {
 					err := helper.DeleteAKSHostCluster(cluster, ctx.StdUserClient)
 					Expect(err).To(BeNil())
 					err = helper.DeleteAKSClusteronAzure(clusterName)

@@ -49,7 +49,7 @@ var _ = BeforeEach(func() {
 	Expect(err).To(BeNil())
 	Expect(k8sVersion).ToNot(BeEmpty())
 
-	GinkgoLogr.Info(fmt.Sprintf("Using EKS version %s", k8sVersion))
+	GinkgoLogr.Info(fmt.Sprintf("Using EKS version %s for cluster %s", k8sVersion, clusterName))
 
 })
 

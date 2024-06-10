@@ -16,34 +16,11 @@ import (
 
 var _ = Describe("P1Provisioning", func() {
 	var cluster *management.Cluster
-	var (
-		originalConfig = new(management.GKEClusterConfigSpec)
-	)
-
-	BeforeEach(func() {
-		config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, originalConfig)
-
-		gkeConfig := new(management.GKEClusterConfigSpec)
-
-		config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
-			gkeConfig.ProjectID = project
-			gkeConfig.Zone = zone
-			labels := helper.GetLabels()
-			gkeConfig.Labels = &labels
-			gkeConfig.KubernetesVersion = &k8sVersion
-			for _, np := range gkeConfig.NodePools {
-				np.Version = &k8sVersion
-			}
-		})
-	})
-	AfterEach(func() {
-		config.UpdateConfig(gke.GKEClusterConfigConfigurationFileKey, originalConfig)
-	})
 
 	Context("Provisioning a cluster with invalid config", func() {
 
 		AfterEach(func() {
-			if ctx.ClusterCleanup {
+			if ctx.ClusterCleanup && cluster != nil {
 				if cluster != nil {
 					err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 					Expect(err).To(BeNil())
@@ -54,22 +31,26 @@ var _ = Describe("P1Provisioning", func() {
 		It("should fail to provision a cluster when creating cluster with invalid name", func() {
 			testCaseID = 36
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, "@!invalid-gke-name-@#", ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, "@!invalid-gke-name-@#", ctx.CloudCred.ID, k8sVersion, zone, project)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring("InvalidFormat"))
 		})
 
 		It("should fail to provision a cluster with invalid nodepool name", func() {
 			testCaseID = 37
-			gkeConfig := new(management.GKEClusterConfigSpec)
-			config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
-				for _, np := range gkeConfig.NodePools {
-					*np.Name = "#@invalid-nodepoolname-$$$$"
-				}
-			})
+
+			var gkeClusterConfig gke.ClusterConfig
+			config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeClusterConfig)
+			gkeClusterConfig.ProjectID = project
+			gkeClusterConfig.Zone = zone
+			gkeClusterConfig.Labels = helpers.GetCommonMetadataLabels()
+			gkeClusterConfig.KubernetesVersion = &k8sVersion
+			for _, np := range gkeClusterConfig.NodePools {
+				*np.Name = "#@invalid-nodepoolname-$$$$"
+			}
 
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, gkeClusterConfig, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
@@ -87,13 +68,16 @@ var _ = Describe("P1Provisioning", func() {
 
 		It("should fail to provision a cluster with no nodepools", func() {
 			testCaseID = 27
-			gkeConfig := new(management.GKEClusterConfigSpec)
-			config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
-				gkeConfig.NodePools = nil
-			})
+			var gkeClusterConfig gke.ClusterConfig
+			config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeClusterConfig)
+			gkeClusterConfig.ProjectID = project
+			gkeClusterConfig.Zone = zone
+			gkeClusterConfig.Labels = helpers.GetCommonMetadataLabels()
+			gkeClusterConfig.KubernetesVersion = &k8sVersion
+			gkeClusterConfig.NodePools = nil
 
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, gkeClusterConfig, false, false, false, false, map[string]string{})
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
@@ -113,14 +97,14 @@ var _ = Describe("P1Provisioning", func() {
 
 		BeforeEach(func() {
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		})
 
 		AfterEach(func() {
-			if ctx.ClusterCleanup {
+			if ctx.ClusterCleanup && cluster != nil {
 				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			} else {

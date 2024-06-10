@@ -21,8 +21,6 @@ import (
 	"fmt"
 
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
-	"github.com/rancher/shepherd/extensions/clusters/gke"
-	"github.com/rancher/shepherd/pkg/config"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
@@ -42,22 +40,14 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				var err error
-				gkeConfig := new(management.GKEClusterConfigSpec)
-				config.LoadAndUpdateConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig, func() {
-					gkeConfig.ProjectID = project
-					gkeConfig.KubernetesVersion = &version
-					gkeConfig.Zone = zone
-					labels := helper.GetLabels()
-					gkeConfig.Labels = &labels
-				})
-				cluster, err = gke.CreateGKEHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, false, false, false, false, map[string]string{})
+				cluster, err = helper.CreateGKEHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, version, zone, project)
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
-				if ctx.ClusterCleanup {
+				if ctx.ClusterCleanup && cluster != nil {
 					err := helper.DeleteGKEHostCluster(cluster, ctx.StdUserClient)
 					Expect(err).To(BeNil())
 				} else {

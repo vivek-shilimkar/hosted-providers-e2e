@@ -30,17 +30,43 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-// GetLabels fetches labels from config file, appends the common labels/tags to it and returns the map
-func GetLabels() map[string]string {
-	gkeConfig := new(management.GKEClusterConfigSpec)
-	config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, gkeConfig)
-	labels := helpers.GetCommonMetadataLabels()
-	if gkeConfig.Labels != nil {
-		for key, value := range *gkeConfig.Labels {
-			labels[key] = value
-		}
+// CreateGKEHostedCluster creates the GKE cluster
+func CreateGKEHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, zone, project string) (*management.Cluster, error) {
+	var gkeClusterConfig gke.ClusterConfig
+	config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeClusterConfig)
+
+	gkeClusterConfig.ProjectID = project
+	gkeClusterConfig.Zone = zone
+	gkeClusterConfig.Labels = helpers.GetCommonMetadataLabels()
+	gkeClusterConfig.KubernetesVersion = &k8sVersion
+
+	return gke.CreateGKEHostedCluster(client, displayName, cloudCredentialID, gkeClusterConfig, false, false, false, false, nil)
+}
+
+// ImportGKEHostedCluster imports the GKE cluster
+func ImportGKEHostedCluster(client *rancher.Client, displayName, cloudCredentialID, zone, project string) (*management.Cluster, error) {
+	cluster := &management.Cluster{
+		DockerRootDir: "/var/lib/docker",
+		GKEConfig: &management.GKEClusterConfigSpec{
+			GoogleCredentialSecret: cloudCredentialID,
+			ClusterName:            displayName,
+			Imported:               true,
+			Zone:                   zone,
+			ProjectID:              project,
+		},
+		Name: displayName,
 	}
-	return labels
+
+	clusterResp, err := client.Management.Cluster.Create(cluster)
+	if err != nil {
+		return nil, err
+	}
+	return clusterResp, err
+}
+
+// DeleteGKEHostCluster deletes the GKE cluster
+func DeleteGKEHostCluster(cluster *management.Cluster, client *rancher.Client) error {
+	return client.Management.Cluster.Delete(cluster)
 }
 
 // UpgradeKubernetesVersion upgrades the k8s version to the value defined by upgradeToVersion; if upgradeNodePool is true, it also upgrades nodepool k8s version;
@@ -117,33 +143,32 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 	return cluster, nil
 }
 
-// DeleteGKEHostCluster deletes the GKE cluster
-func DeleteGKEHostCluster(cluster *management.Cluster, client *rancher.Client) error {
-	return client.Management.Cluster.Delete(cluster)
-}
-
-// AddNodePool adds a nodepool to the list
+// AddNodePool adds a nodepool to the list; it uses the nodepool template defined in CATTLE_TEST_CONFIG file
 // if wait is set to true, it waits until the update is complete; if checkClusterConfig is true, it validates the update
+// TODO(pvala): Enhance this method to accept a nodepool with different configuration
 func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
 	currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.GKEConfig = cluster.GKEConfig
-	nodeConfig := GkeHostNodeConfig()
+
+	// We use management.GKENodePoolConfig instead of the usual gke.ClusterConfig to unmarshal the data without the need of a lot of post-processing.
+	var gkeConfigTemplate management.GKEClusterConfigSpec
+	config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeConfigTemplate)
+	npTemplate := gkeConfigTemplate.NodePools[0]
+
 	updateNodePoolsList := cluster.GKEConfig.NodePools
 	for i := 1; i <= increaseBy; i++ {
-		for _, np := range nodeConfig {
-			newNodepool := management.GKENodePoolConfig{
-				InitialNodeCount:  np.InitialNodeCount,
-				Version:           cluster.GKEConfig.KubernetesVersion,
-				Config:            np.Config,
-				Autoscaling:       np.Autoscaling,
-				Management:        np.Management,
-				MaxPodsConstraint: np.MaxPodsConstraint,
-				Name:              pointer.String(namegen.RandStringLower(5)),
-			}
-			updateNodePoolsList = append(updateNodePoolsList, newNodepool)
+		newNodepool := management.GKENodePoolConfig{
+			InitialNodeCount:  npTemplate.InitialNodeCount,
+			Version:           cluster.GKEConfig.KubernetesVersion,
+			Config:            npTemplate.Config,
+			Autoscaling:       npTemplate.Autoscaling,
+			Management:        npTemplate.Management,
+			MaxPodsConstraint: npTemplate.MaxPodsConstraint,
+			Name:              pointer.String(namegen.RandStringLower(5)),
 		}
+		updateNodePoolsList = append(updateNodePoolsList, newNodepool)
 	}
 	upgradedCluster.GKEConfig.NodePools = updateNodePoolsList
 
@@ -293,7 +318,7 @@ func UpdateMonitoringAndLoggingService(cluster *management.Cluster, client *ranc
 	}
 	if checkClusterConfig {
 		Eventually(func() bool {
-			ginkgo.GinkgoLogr.Info("Waiting for the node count change to appear in GKEStatus.UpstreamSpec ...")
+			ginkgo.GinkgoLogr.Info("Waiting for the service change to appear in GKEStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
 			return *cluster.GKEStatus.UpstreamSpec.MonitoringService == monitoringService && *cluster.GKEStatus.UpstreamSpec.LoggingService == loggingService
@@ -329,7 +354,7 @@ func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enab
 	}
 	if checkClusterConfig {
 		Eventually(func() bool {
-			ginkgo.GinkgoLogr.Info("Waiting for the node count change to appear in GKEStatus.UpstreamSpec ...")
+			ginkgo.GinkgoLogr.Info("Waiting for the autoscaling update to appear in GKEStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
 			for _, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
@@ -394,7 +419,7 @@ func GetK8sVersionVariantGKE(minorVersion string, client *rancher.Client, projec
 // Create Google GKE cluster using gcloud CLI
 func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k8sVersion string, extraArgs ...string) error {
 
-	labels := GetLabels()
+	labels := helpers.GetCommonMetadataLabels()
 	labelsAsString := k8slabels.SelectorFromSet(labels).String()
 
 	// creating GKE using gcloud changes the kubeconfig to use GKE; this can be problematic for test cases that need to use local cluster;
@@ -439,54 +464,6 @@ func DeleteGKEClusterOnGCloud(zone, project, clusterName string) error {
 	fmt.Println("Deleted GKE cluster: ", clusterName)
 
 	return nil
-}
-
-func ImportGKEHostedCluster(client *rancher.Client, displayName, cloudCredentialID string, enableClusterAlerting, enableClusterMonitoring, enableNetworkPolicy, windowsPreferedCluster bool, labels map[string]string) (*management.Cluster, error) {
-	gkeHostCluster := GkeHostClusterConfig(displayName, cloudCredentialID)
-	cluster := &management.Cluster{
-		DockerRootDir:           "/var/lib/docker",
-		GKEConfig:               gkeHostCluster,
-		Name:                    displayName,
-		EnableClusterAlerting:   enableClusterAlerting,
-		EnableClusterMonitoring: enableClusterMonitoring,
-		EnableNetworkPolicy:     &enableNetworkPolicy,
-		Labels:                  labels,
-		WindowsPreferedCluster:  windowsPreferedCluster,
-	}
-
-	clusterResp, err := client.Management.Cluster.Create(cluster)
-	if err != nil {
-		return nil, err
-	}
-	return clusterResp, err
-}
-
-func GkeHostClusterConfig(displayName, cloudCredentialID string) *management.GKEClusterConfigSpec {
-	var gkeClusterConfig ImportClusterConfig
-	config.LoadConfig("gkeClusterConfig", &gkeClusterConfig)
-
-	return &management.GKEClusterConfigSpec{
-		GoogleCredentialSecret: cloudCredentialID,
-		ClusterName:            displayName,
-		Imported:               gkeClusterConfig.Imported,
-		Zone:                   gkeClusterConfig.Zone,
-		ProjectID:              gkeClusterConfig.ProjectID,
-	}
-}
-
-func GkeHostNodeConfig() []management.GKENodePoolConfig {
-	var nodeConfig management.GKEClusterConfigSpec
-	config.LoadConfig("gkeClusterConfig", &nodeConfig)
-
-	return nodeConfig.NodePools
-}
-
-type ImportClusterConfig struct {
-	ProjectID string                          `json:"projectID" yaml:"projectID"`
-	Zone      string                          `json:"zone" yaml:"zone"`
-	Imported  bool                            `json:"imported" yaml:"imported"`
-	NodePools []*management.GKENodePoolConfig `json:"nodePools" yaml:"nodePools"`
-	Labels    *map[string]string              `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
 // defaultGKE returns the default GKE version used by Rancher

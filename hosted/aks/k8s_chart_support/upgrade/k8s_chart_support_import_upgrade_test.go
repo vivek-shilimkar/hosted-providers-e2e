@@ -25,7 +25,7 @@ var _ = Describe("K8sChartSupportUpgradeImport", func() {
 		cluster.AKSConfig = cluster.AKSStatus.UpstreamSpec
 	})
 	AfterEach(func() {
-		if ctx.ClusterCleanup {
+		if ctx.ClusterCleanup && cluster != nil {
 			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 			err = helper.DeleteAKSClusteronAzure(clusterName)

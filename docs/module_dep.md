@@ -74,7 +74,7 @@ There are 4 different kind of packages we are concerned about:
     - These pkgs can be updated as usual by either using `latest` or a specific version.
 2. Non-kubernetes, Rancher pkg: `rancher/shepherd.
     - `rancher/shepherd` is always updated by using commit HEAD and then resolving using `go mod download`.
-    - `github.com/rancher/shepherd` has many branches, currently we are using the `main` branch.
+    - `github.com/rancher/shepherd` has many branches, currently we are using the `relase/v2.8` branch.
     - `rancher/shepherd` is the main automation framework we use. It relies on `rancher/rancher` to decide when to upgrade to a newer k8s pkg.
 3. Kubernetes, non-Rancher pkg: k8s.io/api, k8s.io/apimachinery.
     - Kubernetes related packages are bumped to support a newer k8s version and must always be in sync to avoid unnecessary conflicts.
