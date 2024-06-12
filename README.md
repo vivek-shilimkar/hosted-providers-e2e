@@ -1,10 +1,10 @@
 # HOSTED PROVIDERS E2E
 
-[![AKS-E2E_head_2.8](https://github.com/rancher/hosted-providers-e2e/actions/workflows/aks.yaml/badge.svg?branch=main)](https://github.com/rancher/hosted-providers-e2e/actions/workflows/aks.yaml)
+[![AKS-E2E_head_2.9](https://github.com/rancher/hosted-providers-e2e/actions/workflows/aks.yaml/badge.svg?branch=main)](https://github.com/rancher/hosted-providers-e2e/actions/workflows/aks.yaml)
 
-[![EKS-E2E_head_2.8](https://github.com/rancher/hosted-providers-e2e/actions/workflows/eks.yaml/badge.svg?branch=main)](https://github.com/rancher/hosted-providers-e2e/actions/workflows/eks.yaml)
+[![EKS-E2E_head_2.9](https://github.com/rancher/hosted-providers-e2e/actions/workflows/eks.yaml/badge.svg?branch=main)](https://github.com/rancher/hosted-providers-e2e/actions/workflows/eks.yaml)
 
-[![GKE-E2E_head_2.8](https://github.com/rancher/hosted-providers-e2e/actions/workflows/gke.yaml/badge.svg?branch=main)](https://github.com/rancher/hosted-providers-e2e/actions/workflows/gke.yaml)
+[![GKE-E2E_head_2.9](https://github.com/rancher/hosted-providers-e2e/actions/workflows/gke.yaml/badge.svg?branch=main)](https://github.com/rancher/hosted-providers-e2e/actions/workflows/gke.yaml)
 
 ## How to run a test locally:
 
@@ -22,9 +22,9 @@ Following are the common environment variables that need to be exported for runn
 1. KUBECONFIG: Upstream K8s' Kubeconfig file; usually it is k3s.yaml.
 
 ##### Upgrade Scenarios
-1. RANCHER_UPGRADE_VERSION: Rancher version to test upgrade. This version can be in the following formats: 2.8.2, 2.8.2-rc3, devel/2.8
+1. RANCHER_UPGRADE_VERSION: Rancher version to test upgrade. This version can be in the following formats: 2.9.0, 2.9.0-rc1, devel/2.9
 2. K8S_UPGRADE_MINOR_VERSION: K8s version to test. This value does not have to be exact, just the X.Y version. For e.g. 1.28. The complete version value will be fetched during the test.
-3. RANCHER_VERSION: Base rancher version to begin with. Since chart support tests are basically upgrade scenarios, the base version should be a released version, if it is an unreleased version such as 2.8-head, the test will fail. This version can be in the following formats: 2.8.2, 2.8.2-rc3
+3. RANCHER_VERSION: Base rancher version to begin with. Since chart support tests are basically upgrade scenarios, the base version should be a released version, if it is an unreleased version such as 2.9-head, the test will fail. This version can be in the following formats: 2.9.0, 2.9.0-rc1
 4. RANCHER_CHANNEL (Optional): Acceptable values: latest (default), alpha, stable, prime
 
 Note: These are E2E tests, so rancher (version=`RANCHER_VERSION`) will be installed by the test.

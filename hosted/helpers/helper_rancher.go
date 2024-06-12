@@ -13,7 +13,7 @@ import (
 )
 
 // DeployRancherManager deploys Rancher. If checkPods is true, it waits until all the necessary pods are running
-// fullVersion: devel/2.8, 2.8.2, 2.8.1-rc3
+// fullVersion: devel/2.9, 2.9.0, 2.9.0-rc1
 func DeployRancherManager(fullVersion string, checkPods bool) {
 	channelName := "rancher-" + RancherChannel
 

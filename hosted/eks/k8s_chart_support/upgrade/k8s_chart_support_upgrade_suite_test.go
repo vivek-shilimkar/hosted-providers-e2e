@@ -40,7 +40,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	return nil
 }, func() {
 	Expect(helpers.RancherVersion).ToNot(BeEmpty())
-	// For upgrade tests, the rancher version should not be an unreleased version (for e.g. 2.8-head)
+	// For upgrade tests, the rancher version should not be an unreleased version (for e.g. 2.9-head)
 	Expect(helpers.RancherVersion).ToNot(ContainSubstring("head"))
 
 	Expect(helpers.RancherUpgradeVersion).ToNot(BeEmpty())

@@ -2,7 +2,7 @@
 ### USED BY CI ###
 ##################
 
-STANDARD_TEST_OPTIONS= -v -r --timeout=2h --keep-going --randomize-all --randomize-suites
+STANDARD_TEST_OPTIONS= -v -r --timeout=3h --keep-going --randomize-all --randomize-suites
 BUILD_DATE= $(shell date +'%Y%m%d')
 
 install-k3s: ## Install K3s with default options; installed on the local machine
