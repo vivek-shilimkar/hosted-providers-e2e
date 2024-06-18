@@ -523,9 +523,10 @@ func GetK8sVersion(client *rancher.Client, projectID, cloudCredentialID, zone, r
 		return "", err
 	}
 
-	maxValue := helpers.HighestK8sMinorVersionSupportedByUI(client)
+	// defaultValue has highest supported minorVersion
+	defaultValue, _ := defaultGKE(client, projectID, cloudCredentialID, zone, region)
 	for _, v := range allVariants {
-		if comparator := helpers.VersionCompare(v, maxValue); comparator == -1 {
+		if comparator := helpers.VersionCompare(v, defaultValue); comparator == -1 {
 			return v, nil
 		}
 	}

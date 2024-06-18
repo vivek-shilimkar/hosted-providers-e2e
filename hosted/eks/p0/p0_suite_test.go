@@ -71,10 +71,9 @@ var _ = ReportAfterEach(func(report SpecReport) {
 func p0upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
 	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
 
-	versions, err := helper.ListEKSAvailableVersions(client, cluster.ID)
+	// Default version is highest supported version
+	upgradeToVersion, err := helper.GetK8sVersion(client, false)
 	Expect(err).To(BeNil())
-	Expect(versions).ToNot(BeEmpty())
-	upgradeToVersion := versions[0]
 	GinkgoLogr.Info(fmt.Sprintf("Upgrading cluster to EKS version %s", upgradeToVersion))
 
 	By("upgrading the ControlPlane", func() {

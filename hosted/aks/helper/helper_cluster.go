@@ -428,6 +428,11 @@ func defaultAKS(client *rancher.Client, cloudCredentialID, region string, forUpg
 	// For upgrade tests, it returns a variant of the second-highest minor version
 	for i := len(versions) - 1; i >= 0; i-- {
 		version := versions[i]
+		// If UI maxValue not yet supported by operator
+		if !strings.Contains(version, maxValue) {
+			maxValue = versions[len(versions)-1]
+		}
+
 		if forUpgrade {
 			if result := helpers.VersionCompare(version, maxValue); result == -1 {
 				return version, nil
