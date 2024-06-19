@@ -58,16 +58,22 @@ func DeployRancherManager(fullVersion string, checkPods bool) {
 	Expect(err).To(BeNil())
 
 	if checkPods {
-		// Wait for all pods to be started
-		checkList := [][]string{
-			{CattleSystemNS, "app=rancher"},
-			{"cattle-fleet-local-system", "app=fleet-agent"},
-			{CattleSystemNS, "app=rancher-webhook"},
-		}
-		Eventually(func() error {
-			return rancherhelper.CheckPod(kubectl.New(), checkList)
-		}, tools.SetTimeout(4*time.Minute), 30*time.Second).Should(BeNil())
+		CheckRancherPods(true)
+	}
+}
 
+func CheckRancherPods(wait bool) {
+	// Wait for all pods to be started
+	checkList := [][]string{
+		{CattleSystemNS, "app=rancher"},
+		{"cattle-fleet-system", "app=fleet-controller"},
+		{CattleSystemNS, "app=rancher-webhook"},
+	}
+	Eventually(func() error {
+		return rancherhelper.CheckPod(kubectl.New(), checkList)
+	}, tools.SetTimeout(4*time.Minute), 30*time.Second).Should(BeNil())
+
+	if wait {
 		// A bit dirty be better to wait a little here for all to be correctly started
 		time.Sleep(2 * time.Minute)
 	}

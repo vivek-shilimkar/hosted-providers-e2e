@@ -112,6 +112,10 @@ func commonchecks(client *rancher.Client, cluster *management.Cluster) {
 			helpers.WaitUntilOperatorChartInstallation(originalChartVersion, "", 0)
 		})
 
+		By("ensuring that rancher is up", func() {
+			helpers.CheckRancherPods(false)
+		})
+
 		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
 		Expect(err).To(BeNil())
 		// Check if the desired config has been applied in Rancher
