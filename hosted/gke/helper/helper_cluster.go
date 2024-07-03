@@ -358,7 +358,7 @@ func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enab
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
 			for _, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
-				if np.Autoscaling.Enabled != enabled {
+				if np.Autoscaling != nil && np.Autoscaling.Enabled != enabled {
 					return false
 				}
 			}
