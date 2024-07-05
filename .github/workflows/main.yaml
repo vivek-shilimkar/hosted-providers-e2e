@@ -119,9 +119,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
       - name: Get Runner IP
         id: runner-ip
-        run: echo "PUBLIC_IP=$(curl -s ifconfig.co)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "PUBLIC_IP=$(gcloud compute instances describe ${{ needs.create-runner.outputs.runner }} \
+            --format='get(networkInterfaces[0].accessConfigs[0].natIP)' --zone ${{ env.GCP_RUNNER_ZONE }})" >> "$GITHUB_OUTPUT"
 
       - name: Set Rancher hostname / password
         run: |
@@ -148,13 +157,6 @@ jobs:
           else
             make prepare-e2e-ci-rancher
           fi
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
 
       - name: Install Azure cli
         run: |
