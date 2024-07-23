@@ -105,7 +105,7 @@ func commonChartSupport(client *rancher.Client, cluster *management.Cluster) {
 	By("making a change(adding a nodepool) to the cluster to re-install the operator and validating it is re-installed to the latest/original version", func() {
 		currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
 		var err error
-		cluster, err = helper.AddNodePool(cluster, 1, client, false, false)
+		cluster, err = helper.AddNodePool(cluster, client, 1, "", false, false)
 		Expect(err).To(BeNil())
 
 		Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))

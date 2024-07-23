@@ -80,6 +80,13 @@ var _ = Describe("P1Importing", func() {
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		})
+
+		It("should successfully add a windows nodepool", func() {
+			testCaseID = 54
+			var err error
+			_, err = helper.AddNodePool(cluster, ctx.RancherAdminClient, 1, "WINDOWS_LTSC_CONTAINERD", true, true)
+			Expect(err).To(BeNil())
+		})
 	})
 
 })

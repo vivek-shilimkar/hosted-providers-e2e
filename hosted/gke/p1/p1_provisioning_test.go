@@ -189,6 +189,12 @@ var _ = Describe("P1Provisioning", func() {
 			})
 		})
 
+		It("should successfully add a windows nodepool", func() {
+			testCaseID = 30
+			var err error
+			_, err = helper.AddNodePool(cluster, ctx.RancherAdminClient, 1, "WINDOWS_LTSC_CONTAINERD", true, true)
+			Expect(err).To(BeNil())
+		})
 	})
 
 })

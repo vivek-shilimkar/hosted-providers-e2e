@@ -146,7 +146,7 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 // AddNodePool adds a nodepool to the list; it uses the nodepool template defined in CATTLE_TEST_CONFIG file
 // if wait is set to true, it waits until the update is complete; if checkClusterConfig is true, it validates the update
 // TODO(pvala): Enhance this method to accept a nodepool with different configuration
-func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
+func AddNodePool(cluster *management.Cluster, client *rancher.Client, increaseBy int, imageType string, wait, checkClusterConfig bool) (*management.Cluster, error) {
 	currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
@@ -156,7 +156,9 @@ func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Cl
 	var gkeConfigTemplate management.GKEClusterConfigSpec
 	config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeConfigTemplate)
 	npTemplate := gkeConfigTemplate.NodePools[0]
-
+	if imageType != "" {
+		npTemplate.Config.ImageType = imageType
+	}
 	updateNodePoolsList := cluster.GKEConfig.NodePools
 	for i := 1; i <= increaseBy; i++ {
 		newNodepool := management.GKENodePoolConfig{
@@ -472,7 +474,7 @@ func DeleteGKEClusterOnGCloud(zone, project, clusterName string) error {
 	_ = os.Setenv("KUBECONFIG", downstreamKubeconfig)
 
 	fmt.Println("Deleting GKE cluster ...")
-	args := []string{"container", "clusters", "delete", clusterName, "--zone", zone, "--quiet", "--project", project}
+	args := []string{"container", "clusters", "delete", clusterName, "--zone", zone, "--quiet", "--project", project, "--async"}
 	fmt.Printf("Running command: gcloud %v\n", args)
 	out, err := proc.RunW("gcloud", args...)
 	if err != nil {

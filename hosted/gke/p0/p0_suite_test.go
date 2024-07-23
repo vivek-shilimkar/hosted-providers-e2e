@@ -102,7 +102,7 @@ func p0NodesChecks(cluster *management.Cluster, client *rancher.Client, clusterN
 
 	By("adding a nodepool", func() {
 		var err error
-		cluster, err = helper.AddNodePool(cluster, increaseBy, client, true, true)
+		cluster, err = helper.AddNodePool(cluster, client, increaseBy, "", true, true)
 		Expect(err).To(BeNil())
 	})
 

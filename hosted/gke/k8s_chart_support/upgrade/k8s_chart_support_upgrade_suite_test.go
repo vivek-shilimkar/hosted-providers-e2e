@@ -200,7 +200,7 @@ func commonChartSupportUpgrade(ctx *helpers.Context, cluster *management.Cluster
 	By("making a change(adding a nodepool) to the cluster to re-install the operator and validating it is re-installed to the latest/upgraded version", func() {
 		currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
 		var err error
-		cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherAdminClient, false, false)
+		cluster, err = helper.AddNodePool(cluster, ctx.RancherAdminClient, 1, "", false, false)
 		Expect(err).To(BeNil())
 
 		Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
