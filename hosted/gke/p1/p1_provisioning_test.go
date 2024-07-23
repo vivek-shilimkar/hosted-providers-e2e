@@ -93,6 +93,36 @@ var _ = Describe("P1Provisioning", func() {
 
 		})
 	})
+
+	It("deleting a cluster while it is in creation state should delete the it from rancher and cloud console", func() {
+		testCaseID = 25
+		var err error
+		cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project)
+		Expect(err).To(BeNil())
+
+		// Wait for the cluster to appear on cloud console before deleting it
+		Eventually(func() bool {
+			exists, err := helper.ClusterExistsOnGCloud(clusterName, project, zone)
+			Expect(err).To(BeNil())
+			return exists
+		}, "1m", "5s").Should(BeTrue())
+
+		err = helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+
+		// Wait until the cluster finishes provisioning and then begins deletion process
+		Eventually(func() bool {
+			exists, err := helper.ClusterExistsOnGCloud(clusterName, project, zone)
+			Expect(err).To(BeNil())
+			return exists
+		}, "10m", "10s").Should(BeFalse())
+
+		_, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("not found"))
+
+	})
+
 	When("a cluster is created", func() {
 
 		BeforeEach(func() {
@@ -110,6 +140,33 @@ var _ = Describe("P1Provisioning", func() {
 			} else {
 				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
 			}
+		})
+
+		It("recreating a cluster while it is being deleted should recreate the cluster", func() {
+			testCaseID = 26
+
+			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+
+			// Wait until the cluster begins deletion process before recreating
+			Eventually(func() bool {
+				exists, err := helper.ClusterExistsOnGCloud(clusterName, project, zone)
+				Expect(err).To(BeNil())
+				return exists
+			}, "1m", "5s").Should(BeFalse())
+
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project)
+			Expect(err).To(BeNil())
+
+			// wait until the error is visible on the provisioned cluster
+			Eventually(func() bool {
+				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+				Expect(err).To(BeNil())
+				return cluster.State == "provisioning" && cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "a cluster in GKE exists with the same name")
+			}, "30s", "2s").Should(BeTrue())
+
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
 		})
 
 		It("should be able to update mutable parameter loggingService and monitoringService", func() {

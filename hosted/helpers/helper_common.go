@@ -7,11 +7,6 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
-	nodestat "github.com/rancher/shepherd/extensions/nodes"
-	"github.com/rancher/shepherd/extensions/pipeline"
-	"github.com/rancher/shepherd/extensions/users"
-	"github.com/rancher/shepherd/extensions/workloads/pods"
-
 	. "github.com/onsi/gomega"
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
@@ -21,7 +16,11 @@ import (
 	"github.com/rancher/shepherd/extensions/cloudcredentials/google"
 	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/defaults"
+	nodestat "github.com/rancher/shepherd/extensions/nodes"
+	"github.com/rancher/shepherd/extensions/pipeline"
+	"github.com/rancher/shepherd/extensions/users"
 	password "github.com/rancher/shepherd/extensions/users/passwordgenerator"
+	"github.com/rancher/shepherd/extensions/workloads/pods"
 	"github.com/rancher/shepherd/pkg/config"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 	"github.com/rancher/shepherd/pkg/session"

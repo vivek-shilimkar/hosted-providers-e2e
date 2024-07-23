@@ -443,6 +443,24 @@ func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k
 	return nil
 }
 
+// ClusterExistsOnGCloud gets a list of cluster based on the name filter and returns true if the cluster is in RUNNING or PROVISIONING state;
+// it returns false if the cluster does not exist or is in STOPPING state.
+func ClusterExistsOnGCloud(clusterName, project, zone string) (bool, error) {
+	fmt.Println("Listing GKE cluster ...")
+	args := []string{"container", "clusters", "list", "--filter", clusterName, "--project", project, "--zone", zone}
+
+	fmt.Printf("Running command: gcloud %v\n", args)
+	out, err := proc.RunW("gcloud", args...)
+	if err != nil {
+		return false, errors.Wrap(err, "Failed to list cluster: "+out)
+	}
+	fmt.Println(out)
+	if strings.Contains(out, "RUNNING") || strings.Contains(out, "PROVISIONING") {
+		return true, nil
+	}
+	return false, nil
+}
+
 // Complete cleanup steps for Google GKE
 func DeleteGKEClusterOnGCloud(zone, project, clusterName string) error {
 	currentKubeconfig := os.Getenv("KUBECONFIG")
