@@ -31,7 +31,7 @@ import (
 )
 
 // CreateGKEHostedCluster creates the GKE cluster
-func CreateGKEHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, zone, project string) (*management.Cluster, error) {
+func CreateGKEHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, zone, project string, npSize int) (*management.Cluster, error) {
 	var gkeClusterConfig gke.ClusterConfig
 	config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeClusterConfig)
 
@@ -39,6 +39,25 @@ func CreateGKEHostedCluster(client *rancher.Client, displayName, cloudCredential
 	gkeClusterConfig.Zone = zone
 	gkeClusterConfig.Labels = helpers.GetCommonMetadataLabels()
 	gkeClusterConfig.KubernetesVersion = &k8sVersion
+
+	if npSize > 1 {
+		var updateNodePoolsList []gke.NodePool
+		npTemplate := gkeClusterConfig.NodePools[0]
+
+		for i := 0; i < npSize; i++ {
+			newNodePool := gke.NodePool{
+				Autoscaling:       npTemplate.Autoscaling,
+				Config:            npTemplate.Config,
+				InitialNodeCount:  npTemplate.InitialNodeCount,
+				Management:        npTemplate.Management,
+				MaxPodsConstraint: npTemplate.MaxPodsConstraint,
+				Name:              pointer.String(namegen.AppendRandomString(*npTemplate.Name)),
+				Version:           pointer.String(k8sVersion),
+			}
+			updateNodePoolsList = append(updateNodePoolsList, newNodePool)
+		}
+		gkeClusterConfig.NodePools = updateNodePoolsList
+	}
 
 	return gke.CreateGKEHostedCluster(client, displayName, cloudCredentialID, gkeClusterConfig, false, false, false, false, nil)
 }
@@ -370,6 +389,17 @@ func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enab
 	return cluster, nil
 }
 
+// UpdateCluster is a generic function to update a cluster
+func UpdateCluster(cluster *management.Cluster, client *rancher.Client, updateFunc func(*management.Cluster)) (*management.Cluster, error) {
+	upgradedCluster := new(management.Cluster)
+	upgradedCluster.Name = cluster.Name
+	upgradedCluster.GKEConfig = cluster.GKEConfig
+
+	updateFunc(upgradedCluster)
+
+	return client.Management.Cluster.Update(cluster, &upgradedCluster)
+}
+
 // ListGKEAvailableVersions is a function to list and return only available GKE versions for a specific cluster.
 func ListGKEAvailableVersions(client *rancher.Client, clusterID string) ([]string, error) {
 	// kubernetesversions.ListGKEAvailableVersions expects cluster.Version.GitVersion to be available, which it is not sometimes, so we fetch the cluster again to ensure it has all the available data
@@ -441,6 +471,27 @@ func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k
 	}
 
 	fmt.Println("Created GKE cluster: ", clusterName)
+
+	return nil
+}
+
+// AddNodePoolOnGCloud adds a nodepool to the GKE cluster via gcloud CLI
+func AddNodePoolOnGCloud(clusterName, zone, project, npName string, extraArgs ...string) error {
+	if npName == "" {
+		npName = namegen.AppendRandomString("np")
+	}
+
+	fmt.Println("Adding nodepool to the GKE cluster ...")
+	args := []string{"container", "node-pools", "create", npName, "--cluster", clusterName, "--project", project, "--zone", zone, "--num-nodes", "1"}
+
+	args = append(args, extraArgs...)
+	fmt.Printf("Running command: gcloud %v\n", args)
+	out, err := proc.RunW("gcloud", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to add nodepool to the cluster: "+out)
+	}
+
+	fmt.Println("Added nodepool to GKE cluster: ", clusterName)
 
 	return nil
 }
