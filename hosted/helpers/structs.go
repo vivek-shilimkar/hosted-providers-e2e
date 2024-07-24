@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rancher/shepherd/clients/rancher"
@@ -45,7 +46,12 @@ var (
 	}
 	K8sUpgradedMinorVersion   = os.Getenv("K8S_UPGRADE_MINOR_VERSION")
 	DownstreamK8sMinorVersion = os.Getenv("DOWNSTREAM_K8S_MINOR_VERSION")
-	TestConfig                = os.Getenv("CATTLE_TEST_CONFIG")
+	IsImport                  = func() bool {
+		if strings.Contains(os.Getenv("CATTLE_TEST_CONFIG"), "import") {
+			return true
+		}
+		return false
+	}()
 )
 
 type HelmChart struct {

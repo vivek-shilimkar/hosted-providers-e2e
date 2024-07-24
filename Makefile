@@ -110,6 +110,12 @@ e2e-k8s-chart-support-importing-tests: deps ## Run the 'K8sChartSupportImport' t
 e2e-k8s-chart-support-provisioning-tests: deps ## Run the 'K8sChartSupportProvisioning' test suite for a given ${PROVIDER}
 	ginkgo ${STANDARD_TEST_OPTIONS} --focus "K8sChartSupportProvisioning" ./hosted/${PROVIDER}/k8s_chart_support
 
+e2e-sync-provisioning-tests: deps ## Run "SyncProvisioning" test suite for a given ${PROVIDER}
+	ginkgo ${STANDARD_TEST_OPTIONS} --nodes 2 --focus "SyncProvisioning" ./hosted/${PROVIDER}/p1
+
+e2e-sync-importing-tests: deps ## Run "SyncImport" test suite for a given ${PROVIDER}
+	ginkgo ${STANDARD_TEST_OPTIONS} --focus "SyncImport" ./hosted/${PROVIDER}/p1
+
 clean-k3s:	## Uninstall k3s cluster
 	/usr/local/bin/k3s-uninstall.sh
 

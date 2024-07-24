@@ -289,6 +289,28 @@ jobs:
         run: |
           make e2e-k8s-chart-support-importing-tests
 
+      - name: Sync provisioning tests
+        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'sync_provisioning') }}
+        env:
+          RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
+          RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
+          QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
+          DOWNSTREAM_K8S_MINOR_VERSION: ${{ env.DOWNSTREAM_K8S_MINOR_VERSION }}
+        run: |
+          make e2e-sync-provisioning-tests
+
+      - name: Sync importing tests
+        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'sync_importing') }}
+        env:
+          RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
+          RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
+          QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
+          DOWNSTREAM_K8S_MINOR_VERSION: ${{ env.DOWNSTREAM_K8S_MINOR_VERSION }}
+        run: |
+          make e2e-sync-importing-tests
+
       - name: Finalize Qase Run and publish Results
         env:
           QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}

@@ -145,7 +145,7 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 
 		if upgradeNodePool {
 			Eventually(func() bool {
-				ginkgo.GinkgoLogr.Info("waiting for the nodepool upgrade to appear in GKEStatus.UpstreamSpec ...")
+				ginkgo.GinkgoLogr.Info("Waiting for the nodepool upgrade to appear in GKEStatus.UpstreamSpec ...")
 				cluster, err = client.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
 				for _, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
@@ -448,6 +448,8 @@ func GetK8sVersionVariantGKE(minorVersion string, client *rancher.Client, projec
 	return "", fmt.Errorf("version %s not found", minorVersion)
 }
 
+// <==============================================================================GCLOUD CLI==============================>
+
 // Create Google GKE cluster using gcloud CLI
 func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k8sVersion string, extraArgs ...string) error {
 
@@ -514,6 +516,72 @@ func ClusterExistsOnGCloud(clusterName, project, zone string) (bool, error) {
 	return false, nil
 }
 
+// AddNodePoolOnGCloud adds a nodepool to the GKE cluster via gcloud CLI
+func AddNodePoolOnGCloud(clusterName, zone, project, npName string, extraArgs ...string) error {
+	if npName == "" {
+		npName = namegen.AppendRandomString("np")
+	}
+
+	fmt.Println("Adding nodepool to the GKE cluster ...")
+	args := []string{"container", "node-pools", "create", npName, "--cluster", clusterName, "--project", project, "--zone", zone, "--num-nodes", "1"}
+
+	args = append(args, extraArgs...)
+	fmt.Printf("Running command: gcloud %v\n", args)
+	out, err := proc.RunW("gcloud", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to add node pool: "+out)
+	}
+	fmt.Println("Node pool added on GKE cluster ...")
+	return nil
+}
+
+// DeleteNodePoolOnGCloud deletes a node pool to GKE using gcloud cli
+func DeleteNodePoolOnGCloud(zone, project, clusterName, poolName string) error {
+	fmt.Println("Deleting node pool on GKE cluster ...")
+	args := []string{"container", "node-pools", "delete", poolName, "--cluster", clusterName, "--project", project, "--zone", zone, "--quiet"}
+	fmt.Printf("Running command: gcloud %v\n", args)
+	out, err := proc.RunW("gcloud", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to delete node pool: "+out)
+	}
+	fmt.Println("Node pool deleted on GKE cluster ...")
+	return nil
+}
+
+// UpgradeGKEClusterOnGCloud upgrades the k8s version of a given GKE cluster; if upgradeNodePool is true, it only upgrades the nodepool version
+func UpgradeGKEClusterOnGCloud(zone, clusterName, project, k8sVersion string, upgradeNodePool bool, nodePoolName string, exrtaArgs ...string) error {
+	args := []string{"container", "clusters", "upgrade", clusterName, "--cluster-version", k8sVersion, "--project", project, "--zone", zone, "--quiet"}
+
+	if upgradeNodePool {
+		if nodePoolName == "" {
+			return fmt.Errorf("node pool name must be provided")
+		}
+
+		args = append(args, "--node-pool", nodePoolName)
+
+		fmt.Println("Upgrading Node pool ...")
+	} else {
+		args = append(args, "--master")
+
+		fmt.Println("Upgrading GKE cluster ...")
+	}
+
+	args = append(args, exrtaArgs...)
+
+	fmt.Printf("Running command: gcloud %v\n", args)
+	out, err := proc.RunW("gcloud", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to upgrade cluster: "+out)
+	}
+
+	if upgradeNodePool {
+		fmt.Println("Upgraded GKE node pool ", nodePoolName)
+	} else {
+		fmt.Println("Upgraded GKE cluster control plane: ", clusterName)
+	}
+	return nil
+}
+
 // Complete cleanup steps for Google GKE
 func DeleteGKEClusterOnGCloud(zone, project, clusterName string) error {
 	currentKubeconfig := os.Getenv("KUBECONFIG")
@@ -536,6 +604,8 @@ func DeleteGKEClusterOnGCloud(zone, project, clusterName string) error {
 
 	return nil
 }
+
+// <==============================================================================GCLOUD CLI (end)==============================>
 
 // defaultGKE returns the default GKE version used by Rancher
 func defaultGKE(client *rancher.Client, projectID, cloudCredentialID, zone, region string) (defaultGKE string, err error) {

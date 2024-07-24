@@ -16,7 +16,6 @@ package p0_test
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -82,8 +81,7 @@ func p0upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Clie
 	})
 
 	// Does not upgrades version since using custom LT, skip for imported cluster
-	Expect(helpers.TestConfig).ToNot(BeEmpty())
-	if strings.Contains(helpers.TestConfig, "provisioning") {
+	if !helpers.IsImport {
 		By("upgrading the NodeGroups", func() {
 			cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, true, false)
 			Expect(err).To(BeNil())

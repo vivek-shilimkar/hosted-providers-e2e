@@ -13,6 +13,14 @@ import (
 )
 
 var _ = Describe("P1Importing", func() {
+
+	var _ = BeforeEach(func() {
+		var err error
+		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", false)
+		Expect(err).To(BeNil())
+		GinkgoLogr.Info(fmt.Sprintf("Using kubernetes version %s for cluster %s", k8sVersion, clusterName))
+	})
+
 	When("a cluster is created", func() {
 		var cluster *management.Cluster
 
