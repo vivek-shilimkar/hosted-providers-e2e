@@ -12,7 +12,7 @@ import (
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
-var _ = Describe("P1Importing", func() {
+var _ = Describe("P1Import", func() {
 
 	var _ = BeforeEach(func() {
 		var err error

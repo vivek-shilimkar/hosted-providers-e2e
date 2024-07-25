@@ -477,27 +477,6 @@ func CreateGKEClusterOnGCloud(zone string, clusterName string, project string, k
 	return nil
 }
 
-// AddNodePoolOnGCloud adds a nodepool to the GKE cluster via gcloud CLI
-func AddNodePoolOnGCloud(clusterName, zone, project, npName string, extraArgs ...string) error {
-	if npName == "" {
-		npName = namegen.AppendRandomString("np")
-	}
-
-	fmt.Println("Adding nodepool to the GKE cluster ...")
-	args := []string{"container", "node-pools", "create", npName, "--cluster", clusterName, "--project", project, "--zone", zone, "--num-nodes", "1"}
-
-	args = append(args, extraArgs...)
-	fmt.Printf("Running command: gcloud %v\n", args)
-	out, err := proc.RunW("gcloud", args...)
-	if err != nil {
-		return errors.Wrap(err, "Failed to add nodepool to the cluster: "+out)
-	}
-
-	fmt.Println("Added nodepool to GKE cluster: ", clusterName)
-
-	return nil
-}
-
 // ClusterExistsOnGCloud gets a list of cluster based on the name filter and returns true if the cluster is in RUNNING or PROVISIONING state;
 // it returns false if the cluster does not exist or is in STOPPING state.
 func ClusterExistsOnGCloud(clusterName, project, zone string) (bool, error) {

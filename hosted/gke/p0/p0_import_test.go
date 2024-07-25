@@ -19,14 +19,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 
-	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
+	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
-var _ = Describe("P0Importing", func() {
+var _ = Describe("P0Import", func() {
 	for _, testData := range []struct {
 		qaseID    int64
 		isUpgrade bool
@@ -34,43 +35,42 @@ var _ = Describe("P0Importing", func() {
 		testTitle string
 	}{
 		{
-			qaseID:    213,
+			qaseID:    8,
 			isUpgrade: false,
 			testBody:  p0NodesChecks,
 			testTitle: "should successfully import the cluster & add, delete, scale nodepool",
 		},
 		{
-			qaseID:    232,
+			qaseID:    9,
 			isUpgrade: true,
-			testBody:  p0upgradeK8sVersionCheck,
-			testTitle: "should be able to upgrade k8s version of the cluster",
+			testBody:  p0upgradeK8sVersionChecks,
+			testTitle: "should be able to upgrade k8s version of the imported cluster",
 		},
 	} {
 		testData := testData
-		When("a cluster is imported", func() {
+		When("a cluster is import", func() {
 			var cluster *management.Cluster
 
 			BeforeEach(func() {
-				k8sVersion, err := helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location, testData.isUpgrade)
+				k8sVersion, err := helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", testData.isUpgrade)
 				Expect(err).NotTo(HaveOccurred())
 				GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
 
-				err = helper.CreateAKSClusterOnAzure(location, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels())
+				err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, k8sVersion)
 				Expect(err).To(BeNil())
 
-				cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, location, helpers.GetCommonMetadataLabels())
+				cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
 				Expect(err).To(BeNil())
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 				// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
-				cluster.AKSConfig = cluster.AKSStatus.UpstreamSpec
+				cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
 			})
-
 			AfterEach(func() {
 				if ctx.ClusterCleanup && cluster != nil {
-					err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
+					err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
 					Expect(err).To(BeNil())
-					err = helper.DeleteAKSClusteronAzure(clusterName)
+					err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
 					Expect(err).To(BeNil())
 				} else {
 					fmt.Println("Skipping downstream cluster deletion: ", clusterName)
@@ -82,5 +82,6 @@ var _ = Describe("P0Importing", func() {
 				testData.testBody(cluster, ctx.RancherAdminClient, clusterName)
 			})
 		})
+
 	}
 })

@@ -1,8 +1,8 @@
 # Tests description for aks/p0
 
-## `p0_importing_test.go`
+## `p0_import_test.go`
 
-- **Describe:** P0Importing
+- **Describe:** P0Import
     - **It:** should successfully import the cluster & add, delete, scale nodepool
       -  **By:** checking cluster name is same
       -  **By:** checking service account token secret
@@ -36,9 +36,9 @@
 
 # Tests description for aks/support_matrix
 
-## `support_matrix_importing_test.go`
+## `support_matrix_import_test.go`
 
-- **Describe:** SupportMatrixImporting
+- **Describe:** SupportMatrixImport
     - **It:** should successfully import the cluster
       -  **By:** checking cluster name is same
       -  **By:** checking service account token secret
@@ -56,9 +56,9 @@
 
 # Tests description for eks/p0
 
-## `p0_importing_test.go`
+## `p0_import_test.go`
 
-- **Describe:** P0Importing
+- **Describe:** P0Import
     - **It:** should successfully import the cluster & add, delete, scale nodepool
       -  **By:** checking cluster name is same
       -  **By:** checking service account token secret
@@ -92,9 +92,9 @@
 
 # Tests description for eks/support_matrix
 
-## `support_matrix_importing_test.go`
+## `support_matrix_import_test.go`
 
-- **Describe:** SupportMatrixImporting
+- **Describe:** SupportMatrixImport
     - **It:** should successfully import the cluster
       -  **By:** checking cluster name is same
       -  **By:** checking service account token secret
@@ -112,9 +112,9 @@
 
 # Tests description for gke/p0
 
-## `p0_importing_test.go`
+## `p0_import_test.go`
 
-- **Describe:** P0Importing
+- **Describe:** P0Import
     - **It:** should successfully import the cluster & add, delete, scale nodepool
       -  **By:** checking cluster name is same
       -  **By:** checking service account token secret
@@ -147,9 +147,9 @@
 
 # Tests description for gke/support_matrix
 
-## `support_matrix_importing_test.go`
+## `support_matrix_import_test.go`
 
-- **Describe:** SupportMatrixImporting
+- **Describe:** SupportMatrixImport
     - **It:** should successfully import the cluster
       -  **By:** checking cluster name is same
       -  **By:** checking service account token secret

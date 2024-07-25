@@ -53,12 +53,12 @@ Note: These are E2E tests, so rancher (version=`RANCHER_VERSION`) will be instal
 
 ### Makefile targets to run tests
 1. `make e2e-provisioning-tests` - Covers the _P0Provisioning_ test suite for a given `${PROVIDER}`
-2. `make e2e-import-tests` - Covers the _P0Importing_ test suite for a given `${PROVIDER}`
-3. `make e2e-support-matrix-importing-tests` - Covers the _SupportMatrixImporting_ test suite for a given `${PROVIDER}`
+2. `make e2e-import-tests` - Covers the _P0Import_ test suite for a given `${PROVIDER}`
+3. `make e2e-support-matrix-import-tests` - Covers the _SupportMatrixImport_ test suite for a given `${PROVIDER}`
 4. `make e2e-support-matrix-provisioning-tests` - Covers the _SupportMatrixProvisioning_ test suite for a given `${PROVIDER}`
 5. `make e2e-k8s-chart-support-provisioning-tests` - Focuses on _K8sChartSupportProvisioning_ for a given `${PROVIDER}`
-6. `make e2e-k8s-chart-support-importing-tests` - Focuses on _K8sChartSupportImport_ for a given `${PROVIDER}`
-7. `make e2e-k8s-chart-support-importing-tests-upgrade` - Focuses on _K8sChartSupportUpgradeImport_ for a given `${PROVIDER}`
+6. `make e2e-k8s-chart-support-import-tests` - Focuses on _K8sChartSupportImport_ for a given `${PROVIDER}`
+7. `make e2e-k8s-chart-support-import-tests-upgrade` - Focuses on _K8sChartSupportUpgradeImport_ for a given `${PROVIDER}`
 8. `make e2e-k8s-chart-support-provisioning-tests-upgrade` - Focuses on _K8sChartSupportUpgradeProvisioning_ for a given `${PROVIDER}`
 
 Run `make help` to know about other targets.
