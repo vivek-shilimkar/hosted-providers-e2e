@@ -24,6 +24,7 @@ import (
 	. "github.com/rancher-sandbox/qase-ginkgo"
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
+	"github.com/rancher/shepherd/extensions/clusters"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
@@ -65,14 +66,14 @@ var _ = ReportAfterEach(func(report SpecReport) {
 })
 
 // updateLoggingAndMonitoringServiceCheck tests updating `loggingService` and `monitoringService`
-func updateLoggingAndMonitoringServiceCheck(ctx helpers.Context, cluster *management.Cluster, updateMonitoringValue, updateLoggingValue string) {
+func updateLoggingAndMonitoringServiceCheck(cluster *management.Cluster, client *rancher.Client, updateMonitoringValue, updateLoggingValue string) {
 	var err error
-	cluster, err = helper.UpdateMonitoringAndLoggingService(cluster, ctx.RancherAdminClient, updateMonitoringValue, updateLoggingValue, true, true)
+	cluster, err = helper.UpdateMonitoringAndLoggingService(cluster, client, updateMonitoringValue, updateLoggingValue, true, true)
 	Expect(err).To(BeNil())
 }
 
 // updateAutoScaling tests updating `autoscaling` for GKE node pools
-func updateAutoScaling(ctx helpers.Context, cluster *management.Cluster, autoscale bool) {
+func updateAutoScaling(cluster *management.Cluster, client *rancher.Client, autoscale bool) {
 	for _, np := range cluster.GKEConfig.NodePools {
 		if np.Autoscaling != nil {
 			Expect(np.Autoscaling.Enabled).ToNot(BeEquivalentTo(autoscale))
@@ -80,7 +81,7 @@ func updateAutoScaling(ctx helpers.Context, cluster *management.Cluster, autosca
 	}
 
 	var err error
-	cluster, err = helper.UpdateAutoScaling(cluster, ctx.RancherAdminClient, autoscale, true, true)
+	cluster, err = helper.UpdateAutoScaling(cluster, client, autoscale, true, true)
 	Expect(err).To(BeNil())
 }
 
@@ -227,4 +228,34 @@ func syncNodepoolsCheck(cluster *management.Cluster, client *rancher.Client) {
 			}()).To(BeFalse(), "GKEConfig.NodePools decrease check failed")
 		}
 	})
+}
+
+// updateClusterInUpdatingState runs checks to ensure cluster in an updating state can be updated
+func updateClusterInUpdatingState(cluster *management.Cluster, client *rancher.Client) {
+	availableVersions, err := helper.ListGKEAvailableVersions(client, cluster.ID)
+	Expect(err).To(BeNil())
+	upgradeK8sVersion := availableVersions[0]
+
+	currentNodePoolCount := len(cluster.GKEConfig.NodePools)
+	cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeK8sVersion, client, false, false, false)
+	Expect(err).To(BeNil())
+	Expect(*cluster.GKEConfig.KubernetesVersion).To(Equal(upgradeK8sVersion))
+
+	err = clusters.WaitClusterToBeInUpgrade(client, cluster.ID)
+	Expect(err).To(BeNil())
+
+	cluster, err = helper.AddNodePool(cluster, client, 1, "", false, false)
+	Expect(err).To(BeNil())
+
+	Expect(len(cluster.GKEConfig.NodePools)).Should(BeNumerically("==", currentNodePoolCount+1))
+
+	err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+	Expect(err).To(BeNil())
+
+	Eventually(func() bool {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).To(BeNil())
+		return len(cluster.GKEStatus.UpstreamSpec.NodePools) == currentNodePoolCount+1 && *cluster.GKEStatus.UpstreamSpec.KubernetesVersion == upgradeK8sVersion
+	}, "5m", "5s").Should(BeTrue())
+
 }

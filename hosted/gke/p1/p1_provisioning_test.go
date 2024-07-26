@@ -21,19 +21,19 @@ var _ = Describe("P1Provisioning", func() {
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", false)
 		Expect(err).To(BeNil())
-		GinkgoLogr.Info(fmt.Sprintf("Using kubernetes version %s for cluster %s", k8sVersion, clusterName))
+		GinkgoLogr.Info(fmt.Sprintf("While provisioning, using kubernetes version %s for cluster %s", k8sVersion, clusterName))
+	})
+
+	AfterEach(func() {
+		if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
+			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+		} else {
+			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+		}
 	})
 
 	Context("Provisioning a cluster with invalid config", func() {
-
-		AfterEach(func() {
-			if ctx.ClusterCleanup && cluster != nil {
-				if cluster != nil {
-					err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
-					Expect(err).To(BeNil())
-				}
-			}
-		})
 
 		It("should fail to provision a cluster when creating cluster with invalid name", func() {
 			testCaseID = 36
@@ -101,7 +101,7 @@ var _ = Describe("P1Provisioning", func() {
 		})
 	})
 
-	It("deleting a cluster while it is in creation state should delete the it from rancher and cloud console", func() {
+	It("deleting a cluster while it is in creation state should delete it from rancher and cloud console", func() {
 		testCaseID = 25
 		var err error
 		cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, 1)
@@ -124,10 +124,10 @@ var _ = Describe("P1Provisioning", func() {
 			return exists
 		}, "10m", "10s").Should(BeFalse())
 
-		_, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+		// Keep the cluster variable as is so that there is no error in AfterEach; failed delete operation will return an empty cluster
+		cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("not found"))
-
 	})
 
 	When("a cluster is created", func() {
@@ -138,15 +138,6 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
-		})
-
-		AfterEach(func() {
-			if ctx.ClusterCleanup && cluster != nil {
-				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
-				Expect(err).To(BeNil())
-			} else {
-				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
-			}
 		})
 
 		It("recreating a cluster while it is being deleted should recreate the cluster", func() {
@@ -179,20 +170,20 @@ var _ = Describe("P1Provisioning", func() {
 		It("should be able to update mutable parameter loggingService and monitoringService", func() {
 			testCaseID = 28
 			By("disabling the services", func() {
-				updateLoggingAndMonitoringServiceCheck(ctx, cluster, "none", "none")
+				updateLoggingAndMonitoringServiceCheck(cluster, ctx.RancherAdminClient, "none", "none")
 			})
 			By("enabling the services", func() {
-				updateLoggingAndMonitoringServiceCheck(ctx, cluster, "monitoring.googleapis.com/kubernetes", "logging.googleapis.com/kubernetes")
+				updateLoggingAndMonitoringServiceCheck(cluster, ctx.RancherAdminClient, "monitoring.googleapis.com/kubernetes", "logging.googleapis.com/kubernetes")
 			})
 		})
 
 		It("should be able to update autoscaling", func() {
 			testCaseID = 29
 			By("enabling autoscaling", func() {
-				updateAutoScaling(ctx, cluster, true)
+				updateAutoScaling(cluster, ctx.RancherAdminClient, true)
 			})
 			By("disabling autoscaling", func() {
-				updateAutoScaling(ctx, cluster, false)
+				updateAutoScaling(cluster, ctx.RancherAdminClient, false)
 			})
 		})
 
@@ -217,6 +208,7 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("at least 1 Linux node pool is required"))
 		})
+
 	})
 
 	When("creating a cluster with at least 2 nodepools", func() {
@@ -226,15 +218,6 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
-		})
-
-		AfterEach(func() {
-			if ctx.ClusterCleanup && cluster != nil {
-				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
-				Expect(err).To(BeNil())
-			} else {
-				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
-			}
 		})
 
 		It("for a given NodePool with a non-windows imageType, updating it to a windows imageType should fail", func() {
@@ -255,4 +238,23 @@ var _ = Describe("P1Provisioning", func() {
 		})
 	})
 
+	When("a cluster is created for upgrade scenarios", func() {
+
+		BeforeEach(func() {
+			var err error
+			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", true)
+			Expect(err).To(BeNil())
+			GinkgoLogr.Info(fmt.Sprintf("Using kubernetes version %s for cluster %s", k8sVersion, clusterName))
+
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, 1)
+			Expect(err).To(BeNil())
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+		})
+
+		It("should successfully update a cluster while it is still in updating state", func() {
+			testCaseID = 35
+			updateClusterInUpdatingState(cluster, ctx.RancherAdminClient)
+		})
+	})
 })

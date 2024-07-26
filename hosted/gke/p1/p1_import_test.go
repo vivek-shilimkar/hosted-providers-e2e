@@ -13,16 +13,27 @@ import (
 )
 
 var _ = Describe("P1Import", func() {
+	var cluster *management.Cluster
 
 	var _ = BeforeEach(func() {
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", false)
 		Expect(err).To(BeNil())
-		GinkgoLogr.Info(fmt.Sprintf("Using kubernetes version %s for cluster %s", k8sVersion, clusterName))
+		GinkgoLogr.Info(fmt.Sprintf("While importing, using kubernetes version %s for cluster %s", k8sVersion, clusterName))
+	})
+
+	AfterEach(func() {
+		if ctx.ClusterCleanup && cluster != nil {
+			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+			err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
+			Expect(err).To(BeNil())
+		} else {
+			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+		}
 	})
 
 	When("a cluster is created", func() {
-		var cluster *management.Cluster
 
 		BeforeEach(func() {
 			var err error
@@ -37,17 +48,6 @@ var _ = Describe("P1Import", func() {
 			cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
 		})
 
-		AfterEach(func() {
-			if ctx.ClusterCleanup && cluster != nil {
-				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
-				Expect(err).To(BeNil())
-				err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
-				Expect(err).To(BeNil())
-			} else {
-				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
-			}
-		})
-
 		It("should fail to reimport an imported cluster", func() {
 			testCaseID = 49
 			_, err := helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
@@ -58,20 +58,20 @@ var _ = Describe("P1Import", func() {
 		It("should be able to update mutable parameter", func() {
 			testCaseID = 52
 			By("disabling the services", func() {
-				updateLoggingAndMonitoringServiceCheck(ctx, cluster, "none", "none")
+				updateLoggingAndMonitoringServiceCheck(cluster, ctx.RancherAdminClient, "none", "none")
 			})
 			By("enabling the services", func() {
-				updateLoggingAndMonitoringServiceCheck(ctx, cluster, "monitoring.googleapis.com/kubernetes", "logging.googleapis.com/kubernetes")
+				updateLoggingAndMonitoringServiceCheck(cluster, ctx.RancherAdminClient, "monitoring.googleapis.com/kubernetes", "logging.googleapis.com/kubernetes")
 			})
 		})
 
 		It("should be able to update autoscaling", func() {
 			testCaseID = 53
 			By("enabling autoscaling", func() {
-				updateAutoScaling(ctx, cluster, true)
+				updateAutoScaling(cluster, ctx.RancherAdminClient, true)
 			})
 			By("disabling autoscalling", func() {
-				updateAutoScaling(ctx, cluster, false)
+				updateAutoScaling(cluster, ctx.RancherAdminClient, false)
 			})
 		})
 
@@ -113,7 +113,6 @@ var _ = Describe("P1Import", func() {
 	})
 
 	When("a cluster is created with at least 2 node pools", func() {
-		var cluster *management.Cluster
 
 		BeforeEach(func() {
 			var err error
@@ -131,17 +130,6 @@ var _ = Describe("P1Import", func() {
 			cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
 		})
 
-		AfterEach(func() {
-			if ctx.ClusterCleanup && cluster != nil {
-				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
-				Expect(err).To(BeNil())
-				err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
-				Expect(err).To(BeNil())
-			} else {
-				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
-			}
-		})
-
 		It("for a given NodePool with a non-windows imageType, updating it to a windows imageType should fail", func() {
 			testCaseID = 55
 			var err error
@@ -151,6 +139,7 @@ var _ = Describe("P1Import", func() {
 
 				upgradedCluster.GKEConfig.NodePools = updateNodePoolsList
 			})
+			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
 				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
@@ -158,6 +147,32 @@ var _ = Describe("P1Import", func() {
 				return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "Node pools cannot be upgraded between Windows and non-Windows image families")
 			}, "30s", "2s").Should(BeTrue())
 		})
+	})
+
+	When("a cluster is created for upgrade scenario", func() {
+
+		BeforeEach(func() {
+			var err error
+			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", true)
+			Expect(err).To(BeNil())
+			GinkgoLogr.Info(fmt.Sprintf("Using kubernetes version %s for cluster %s", k8sVersion, clusterName))
+
+			err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, k8sVersion)
+			Expect(err).To(BeNil())
+
+			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
+			Expect(err).To(BeNil())
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+			// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
+			cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
+		})
+
+		It("should successfully update a cluster while it is still in updating state", func() {
+			testCaseID = 265
+			updateClusterInUpdatingState(cluster, ctx.RancherAdminClient)
+		})
+
 	})
 
 })

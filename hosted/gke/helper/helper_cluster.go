@@ -108,6 +108,8 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 		}
 	}
 
+	ginkgo.GinkgoLogr.Info(fmt.Sprintf("Kubernetes version for cluster %s will be upgraded to %s", cluster.Name, upgradeToVersion))
+
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
 	if err != nil {
 		return nil, err
@@ -187,7 +189,7 @@ func AddNodePool(cluster *management.Cluster, client *rancher.Client, increaseBy
 			Autoscaling:       npTemplate.Autoscaling,
 			Management:        npTemplate.Management,
 			MaxPodsConstraint: npTemplate.MaxPodsConstraint,
-			Name:              pointer.String(namegen.RandStringLower(5)),
+			Name:              pointer.String(namegen.AppendRandomString("np")),
 		}
 		updateNodePoolsList = append(updateNodePoolsList, newNodepool)
 	}
