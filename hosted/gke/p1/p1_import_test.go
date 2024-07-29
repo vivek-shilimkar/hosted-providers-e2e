@@ -110,6 +110,11 @@ var _ = Describe("P1Import", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("at least 1 Linux node pool is required"))
 		})
+
+		It("should be able to update combination mutable parameter", func() {
+			testCaseID = 56
+			combinationMutableParameterUpdate(cluster, ctx.RancherAdminClient)
+		})
 	})
 
 	When("a cluster is created with at least 2 node pools", func() {

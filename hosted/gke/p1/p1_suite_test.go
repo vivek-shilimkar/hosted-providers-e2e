@@ -26,6 +26,7 @@ import (
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	"github.com/rancher/shepherd/extensions/clusters"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
+	"k8s.io/utils/pointer"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
@@ -253,9 +254,73 @@ func updateClusterInUpdatingState(cluster *management.Cluster, client *rancher.C
 	Expect(err).To(BeNil())
 
 	Eventually(func() bool {
+		GinkgoLogr.Info("Waiting for the changes to appear in GKEStatus.UpstreamSpec ...")
 		cluster, err = client.Management.Cluster.ByID(cluster.ID)
 		Expect(err).To(BeNil())
 		return len(cluster.GKEStatus.UpstreamSpec.NodePools) == currentNodePoolCount+1 && *cluster.GKEStatus.UpstreamSpec.KubernetesVersion == upgradeK8sVersion
 	}, "5m", "5s").Should(BeTrue())
+}
 
+// combinationMutableParameterUpdate runs checks to test if mutable parameters can be updated in combination
+func combinationMutableParameterUpdate(cluster *management.Cluster, client *rancher.Client) {
+	const (
+		disableService = "none"
+		maxCount       = int64(5)
+		minCount       = int64(2)
+	)
+	var err error
+	cluster, err = helper.UpdateCluster(cluster, client, func(upgradedCluster *management.Cluster) {
+		updatedNp := upgradedCluster.GKEConfig.NodePools
+		for i := range updatedNp {
+			np := updatedNp[i]
+			// update autoscaling and initial node count
+			updatedNp[i] = management.GKENodePoolConfig{
+				Autoscaling: &management.GKENodePoolAutoscaling{
+					Enabled:      true,
+					MaxNodeCount: maxCount,
+					MinNodeCount: minCount,
+				},
+				Config:            np.Config,
+				InitialNodeCount:  pointer.Int64(minCount),
+				Management:        np.Management,
+				MaxPodsConstraint: np.MaxPodsConstraint,
+				Name:              np.Name,
+				Version:           np.Version,
+			}
+		}
+
+		upgradedCluster.GKEConfig.NodePools = updatedNp
+		upgradedCluster.GKEConfig.LoggingService = pointer.String(disableService)
+		upgradedCluster.GKEConfig.MonitoringService = pointer.String(disableService)
+	})
+	Expect(err).To(BeNil())
+
+	Expect(*cluster.GKEConfig.LoggingService).To(Equal(disableService))
+	Expect(*cluster.GKEConfig.MonitoringService).To(Equal(disableService))
+	for _, np := range cluster.GKEConfig.NodePools {
+		Expect(*np.InitialNodeCount).Should(Equal(minCount))
+		Expect(np.Autoscaling.Enabled).Should(BeTrue())
+		Expect(np.Autoscaling.MaxNodeCount).Should(Equal(maxCount))
+		Expect(np.Autoscaling.MinNodeCount).Should(Equal(minCount))
+	}
+
+	err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+	Expect(err).To(BeNil())
+
+	Eventually(func() bool {
+		GinkgoLogr.Info("Waiting for the combination changes to appear in GKEStatus.UpstreamSpec...")
+		var clusterState *management.Cluster
+		clusterState, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).To(BeNil())
+		if !(*clusterState.GKEStatus.UpstreamSpec.LoggingService == disableService && *clusterState.GKEStatus.UpstreamSpec.MonitoringService == disableService) {
+			return false
+		}
+
+		for _, np := range clusterState.GKEStatus.UpstreamSpec.NodePools {
+			if np.Autoscaling != nil && !(np.Autoscaling.Enabled && np.Autoscaling.MinNodeCount == minCount && np.Autoscaling.MaxNodeCount == maxCount && *np.InitialNodeCount == minCount) {
+				return false
+			}
+		}
+		return true
+	}, "5m", "5s").Should(BeTrue())
 }
