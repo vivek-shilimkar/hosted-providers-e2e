@@ -24,9 +24,6 @@ var _ = Describe("K8sChartSupportImport", func() {
 		Expect(err).To(BeNil())
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
-
-		// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
-		cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
 	})
 
 	AfterEach(func() {

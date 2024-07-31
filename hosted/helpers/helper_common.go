@@ -151,6 +151,7 @@ func CreateStdUserClient(ctx *Context) {
 // WaitUntilClusterIsReady waits until the cluster is in a Ready state,
 // fetch the cluster again once it's ready so that it has everything up to date and then return it.
 // For e.g. once the cluster has been updated, it contains information such as Version.GitVersion which it does not have before it's ready
+// If the cluster is imported; it also updates the ProviderConfig with ProviderStatus.UpstreamSpec data
 func WaitUntilClusterIsReady(cluster *management.Cluster, client *rancher.Client) (*management.Cluster, error) {
 	opts := metav1.ListOptions{FieldSelector: "metadata.name=" + cluster.ID, TimeoutSeconds: &defaults.WatchTimeoutSeconds}
 	watchInterface, err := client.GetManagementWatchInterface(management.ClusterType, opts)
@@ -164,7 +165,27 @@ func WaitUntilClusterIsReady(cluster *management.Cluster, client *rancher.Client
 	if err != nil {
 		return nil, err
 	}
-	return client.Management.Cluster.ByID(cluster.ID)
+	var updatedCluster *management.Cluster
+	updatedCluster, err = client.Management.Cluster.ByID(cluster.ID)
+	if err != nil {
+		// returning the value as returned via ByID().
+		return updatedCluster, err
+	}
+
+	// Workaround to null values in ProviderConfig for an imported cluster
+	// Ref: https://github.com/rancher/aks-operator/issues/251 (won't fix)
+	if IsImport {
+		switch Provider {
+		case "aks":
+			updatedCluster.AKSConfig = updatedCluster.AKSStatus.UpstreamSpec
+		case "gke":
+			updatedCluster.GKEConfig = updatedCluster.GKEStatus.UpstreamSpec
+		case "eks":
+			updatedCluster.EKSConfig = updatedCluster.EKSStatus.UpstreamSpec
+		}
+	}
+	return updatedCluster, nil
+
 }
 
 // ClusterIsReadyChecks runs the basic checks on a cluster such as cluster name, service account, nodes and pods check

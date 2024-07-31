@@ -44,8 +44,6 @@ var _ = Describe("P1Import", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
-			// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
-			cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
 		})
 
 		It("should fail to reimport an imported cluster", func() {
@@ -131,8 +129,6 @@ var _ = Describe("P1Import", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
-			// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
-			cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
 		})
 
 		It("for a given NodePool with a non-windows imageType, updating it to a windows imageType should fail", func() {
@@ -169,8 +165,6 @@ var _ = Describe("P1Import", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
-			// Workaround to add new Nodegroup till https://github.com/rancher/aks-operator/issues/251 is fixed
-			cluster.GKEConfig = cluster.GKEStatus.UpstreamSpec
 		})
 
 		It("should successfully update a cluster while it is still in updating state", func() {
