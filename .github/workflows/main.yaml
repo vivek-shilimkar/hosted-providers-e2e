@@ -157,12 +157,6 @@ jobs:
           else
             make prepare-e2e-ci-rancher
           fi
-
-      - name: Install Azure cli
-        run: |
-          sudo zypper clean --all
-          sudo zypper install -y azure-cli
-          pip install azure-cli
             
       - name: Login to Azure
         uses: azure/login@v2.1.1
