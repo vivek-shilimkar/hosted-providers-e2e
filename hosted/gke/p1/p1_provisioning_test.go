@@ -8,7 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	"github.com/rancher/shepherd/extensions/clusters/gke"
-	"github.com/rancher/shepherd/pkg/config"
+	namegen "github.com/rancher/shepherd/pkg/namegenerator"
+	"k8s.io/utils/pointer"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
@@ -38,7 +39,7 @@ var _ = Describe("P1Provisioning", func() {
 		It("should fail to provision a cluster when creating cluster with invalid name", func() {
 			testCaseID = 36
 			var err error
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, "@!invalid-gke-name-@#", ctx.CloudCred.ID, k8sVersion, zone, project, 1)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, "@!invalid-gke-name-@#", ctx.CloudCred.ID, k8sVersion, zone, project, nil)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring("InvalidFormat"))
 		})
@@ -46,18 +47,14 @@ var _ = Describe("P1Provisioning", func() {
 		It("should fail to provision a cluster with invalid nodepool name", func() {
 			testCaseID = 37
 
-			var gkeClusterConfig gke.ClusterConfig
-			config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeClusterConfig)
-			gkeClusterConfig.ProjectID = project
-			gkeClusterConfig.Zone = zone
-			gkeClusterConfig.Labels = helpers.GetCommonMetadataLabels()
-			gkeClusterConfig.KubernetesVersion = &k8sVersion
-			for _, np := range gkeClusterConfig.NodePools {
-				*np.Name = "#@invalid-nodepoolname-$$$$"
+			updateFunc := func(clusterConfig *gke.ClusterConfig) {
+				for _, np := range clusterConfig.NodePools {
+					*np.Name = "#@invalid-nodepoolname-$$$$"
+				}
 			}
 
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, gkeClusterConfig, false, false, false, false, map[string]string{})
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, updateFunc)
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
@@ -75,16 +72,13 @@ var _ = Describe("P1Provisioning", func() {
 
 		It("should fail to provision a cluster with no nodepools", func() {
 			testCaseID = 27
-			var gkeClusterConfig gke.ClusterConfig
-			config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeClusterConfig)
-			gkeClusterConfig.ProjectID = project
-			gkeClusterConfig.Zone = zone
-			gkeClusterConfig.Labels = helpers.GetCommonMetadataLabels()
-			gkeClusterConfig.KubernetesVersion = &k8sVersion
-			gkeClusterConfig.NodePools = nil
+
+			updateFunc := func(clusterConfig *gke.ClusterConfig) {
+				clusterConfig.NodePools = nil
+			}
 
 			var err error
-			cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, gkeClusterConfig, false, false, false, false, map[string]string{})
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, updateFunc)
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
@@ -104,7 +98,7 @@ var _ = Describe("P1Provisioning", func() {
 	It("deleting a cluster while it is in creation state should delete it from rancher and cloud console", func() {
 		testCaseID = 25
 		var err error
-		cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, 1)
+		cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, nil)
 		Expect(err).To(BeNil())
 
 		// Wait for the cluster to appear on cloud console before deleting it
@@ -139,17 +133,13 @@ var _ = Describe("P1Provisioning", func() {
 		npK8sVersion := k8sVersions[0]
 		cpK8sVersion := k8sVersions[1]
 
-		var gkeClusterConfig gke.ClusterConfig
-		config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeClusterConfig)
-		gkeClusterConfig.ProjectID = project
-		gkeClusterConfig.Zone = zone
-		gkeClusterConfig.Labels = helpers.GetCommonMetadataLabels()
-		gkeClusterConfig.KubernetesVersion = &cpK8sVersion
-		for _, np := range gkeClusterConfig.NodePools {
-			*np.Version = npK8sVersion
+		updateFunc := func(clusterConfig *gke.ClusterConfig) {
+			for _, np := range clusterConfig.NodePools {
+				*np.Version = npK8sVersion
+			}
 		}
 
-		cluster, err = gke.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, gkeClusterConfig, false, false, false, false, map[string]string{})
+		cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, cpK8sVersion, zone, project, updateFunc)
 		Expect(err).To(BeNil())
 
 		Expect(*cluster.GKEConfig.KubernetesVersion).To(Equal(cpK8sVersion))
@@ -181,7 +171,7 @@ var _ = Describe("P1Provisioning", func() {
 
 		BeforeEach(func() {
 			var err error
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, 1)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -200,7 +190,7 @@ var _ = Describe("P1Provisioning", func() {
 				return exists
 			}, "1m", "5s").Should(BeFalse())
 
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, 1)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, nil)
 			Expect(err).To(BeNil())
 
 			// wait until the error is visible on the provisioned cluster
@@ -265,7 +255,25 @@ var _ = Describe("P1Provisioning", func() {
 	When("creating a cluster with at least 2 nodepools", func() {
 		BeforeEach(func() {
 			var err error
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, 2)
+			updateFunc := func(clusterConfig *gke.ClusterConfig) {
+				var updateNodePoolsList []gke.NodePool
+				npTemplate := clusterConfig.NodePools[0]
+
+				for i := 0; i < 2; i++ {
+					newNodePool := gke.NodePool{
+						Autoscaling:       npTemplate.Autoscaling,
+						Config:            npTemplate.Config,
+						InitialNodeCount:  npTemplate.InitialNodeCount,
+						Management:        npTemplate.Management,
+						MaxPodsConstraint: npTemplate.MaxPodsConstraint,
+						Name:              pointer.String(namegen.AppendRandomString(*npTemplate.Name)),
+						Version:           pointer.String(k8sVersion),
+					}
+					updateNodePoolsList = append(updateNodePoolsList, newNodePool)
+				}
+				clusterConfig.NodePools = updateNodePoolsList
+			}
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, updateFunc)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -297,7 +305,7 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			GinkgoLogr.Info(fmt.Sprintf("Using kubernetes version %s for cluster %s", k8sVersion, clusterName))
 
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, 1)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, zone, project, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())

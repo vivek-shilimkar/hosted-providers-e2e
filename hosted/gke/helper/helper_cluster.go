@@ -31,7 +31,7 @@ import (
 )
 
 // CreateGKEHostedCluster creates the GKE cluster
-func CreateGKEHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, zone, project string, npSize int) (*management.Cluster, error) {
+func CreateGKEHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, zone, project string, updateFunc func(clusterConfig *gke.ClusterConfig)) (*management.Cluster, error) {
 	var gkeClusterConfig gke.ClusterConfig
 	config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeClusterConfig)
 
@@ -40,23 +40,8 @@ func CreateGKEHostedCluster(client *rancher.Client, displayName, cloudCredential
 	gkeClusterConfig.Labels = helpers.GetCommonMetadataLabels()
 	gkeClusterConfig.KubernetesVersion = &k8sVersion
 
-	if npSize > 1 {
-		var updateNodePoolsList []gke.NodePool
-		npTemplate := gkeClusterConfig.NodePools[0]
-
-		for i := 0; i < npSize; i++ {
-			newNodePool := gke.NodePool{
-				Autoscaling:       npTemplate.Autoscaling,
-				Config:            npTemplate.Config,
-				InitialNodeCount:  npTemplate.InitialNodeCount,
-				Management:        npTemplate.Management,
-				MaxPodsConstraint: npTemplate.MaxPodsConstraint,
-				Name:              pointer.String(namegen.AppendRandomString(*npTemplate.Name)),
-				Version:           pointer.String(k8sVersion),
-			}
-			updateNodePoolsList = append(updateNodePoolsList, newNodePool)
-		}
-		gkeClusterConfig.NodePools = updateNodePoolsList
+	if updateFunc != nil {
+		updateFunc(&gkeClusterConfig)
 	}
 
 	return gke.CreateGKEHostedCluster(client, displayName, cloudCredentialID, gkeClusterConfig, false, false, false, false, nil)
