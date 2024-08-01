@@ -28,7 +28,7 @@ azureCredentials:
   environment: AzurePublicCloud
 eksClusterConfig:
   kmsKey: ""
-  kubernetesVersion: "1.26"
+  kubernetesVersion: "1.29"
   loggingTypes: []
   nodeGroups:
   - desiredSize: 1
@@ -41,7 +41,7 @@ eksClusterConfig:
     maxSize: 1
     minSize: 1
     nodeRole: ""
-    nodegroupName: test1
+    nodegroupName: ng
     requestSpotInstances: false
     resourceTags: {}
     spotInstanceTypes: []

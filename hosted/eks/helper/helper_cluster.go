@@ -26,13 +26,16 @@ import (
 )
 
 // CreateEKSHostedCluster is a helper function that creates an EKS hosted cluster
-func CreateEKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, kubernetesVersion, region string) (*management.Cluster, error) {
+func CreateEKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, kubernetesVersion, region string, updateFunc func(clusterConfig *eks.ClusterConfig)) (*management.Cluster, error) {
 	var eksClusterConfig eks.ClusterConfig
 	config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, &eksClusterConfig)
 	eksClusterConfig.Region = region
 	eksClusterConfig.Tags = helpers.GetCommonMetadataLabels()
 	eksClusterConfig.KubernetesVersion = &kubernetesVersion
 
+	if updateFunc != nil {
+		updateFunc(&eksClusterConfig)
+	}
 	return eks.CreateEKSHostedCluster(client, displayName, cloudCredentialID, eksClusterConfig, false, false, false, false, nil)
 }
 
@@ -190,6 +193,22 @@ func AddNodeGroup(cluster *management.Cluster, increaseBy int, client *rancher.C
 	}
 
 	return cluster, nil
+}
+
+// AddNodeGroupToConfig adds a nodegroup to the config; it uses the nodegroup template defined in CATTLE_TEST_CONFIG file
+func AddNodeGroupToConfig(eksClusterConfig eks.ClusterConfig, ngCount int) (eks.ClusterConfig, error) {
+
+	var updateNodeGroupsList []eks.NodeGroupConfig
+	ngTemplate := *eksClusterConfig.NodeGroupsConfig
+
+	for i := 1; i <= ngCount; i++ {
+		newNodeGroup := ngTemplate[0]
+		newNodeGroup.NodegroupName = pointer.String(namegen.AppendRandomString(*ngTemplate[0].NodegroupName))
+		updateNodeGroupsList = append([]eks.NodeGroupConfig{newNodeGroup}, updateNodeGroupsList...)
+	}
+	eksClusterConfig.NodeGroupsConfig = &updateNodeGroupsList
+
+	return eksClusterConfig, nil
 }
 
 // DeleteNodeGroup deletes a nodegroup from the list
