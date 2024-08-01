@@ -34,7 +34,7 @@ var (
 )
 
 // CreateAKSHostedCluster creates the AKS cluster on Rancher
-func CreateAKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, location string) (*management.Cluster, error) {
+func CreateAKSHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, location string, updateFunc func(clusterConfig *aks.ClusterConfig)) (*management.Cluster, error) {
 	var aksClusterConfig aks.ClusterConfig
 	config.LoadConfig(aks.AKSClusterConfigConfigurationFileKey, &aksClusterConfig)
 
@@ -44,6 +44,10 @@ func CreateAKSHostedCluster(client *rancher.Client, displayName, cloudCredential
 	aksClusterConfig.ResourceLocation = location
 	aksClusterConfig.Tags = helpers.GetCommonMetadataLabels()
 	aksClusterConfig.KubernetesVersion = &k8sVersion
+
+	if updateFunc != nil {
+		updateFunc(&aksClusterConfig)
+	}
 
 	return aks.CreateAKSHostedCluster(client, displayName, cloudCredentialID, aksClusterConfig, false, false, false, false, nil)
 }
@@ -341,6 +345,108 @@ func ListAKSAvailableVersions(client *rancher.Client, clusterID string) ([]strin
 	return helpers.FilterUIUnsupportedVersions(allAvailableVersions, client), nil
 }
 
+// UpdateAutoScaling updates the management.AKSNodePool Autoscaling for all the node pools of an AKS cluster
+// if checkClusterConfig is true, it validates the update
+func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enabled bool, maxCount, minCount int64, checkClusterConfig bool) (*management.Cluster, error) {
+	if enabled {
+		if minCount == 0 && maxCount == 0 {
+			return nil, fmt.Errorf("minCount and maxCount cannot be zero when enabling autoscaling")
+		}
+		if maxCount <= minCount {
+			return nil, fmt.Errorf("maxCount must be greater than minCount")
+		}
+	}
+
+	var npCount int64
+	upgradedCluster := new(management.Cluster)
+	upgradedCluster.Name = cluster.Name
+	upgradedCluster.AKSConfig = cluster.AKSConfig
+	for i := range upgradedCluster.AKSConfig.NodePools {
+		np := upgradedCluster.AKSConfig.NodePools[i]
+		np.EnableAutoScaling = &enabled
+		if enabled {
+			np.MaxCount = &maxCount
+			np.MinCount = &minCount
+			// if nodepool count is less than minimum count, the value must be changed; here we change it to minCount
+			if *np.Count < minCount {
+				npCount = minCount
+				np.Count = &npCount
+			}
+		} else {
+			// if this is not set, error will be raised by the API
+			np.MaxCount = nil
+			np.MinCount = nil
+		}
+		upgradedCluster.AKSConfig.NodePools[i] = np
+	}
+
+	var err error
+	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
+	if err != nil {
+		return nil, err
+	}
+
+	if checkClusterConfig {
+		for _, np := range cluster.AKSConfig.NodePools {
+			Expect(*np.EnableAutoScaling).To(BeEquivalentTo(enabled))
+			if enabled {
+				if np.MaxCount != nil {
+					Expect(*np.MaxCount).To(BeEquivalentTo(maxCount))
+				}
+
+				if np.MinCount != nil {
+					Expect(*np.MinCount).To(BeEquivalentTo(minCount))
+				}
+
+				if npCount != 0 {
+					Expect(*np.Count).To(BeEquivalentTo(npCount))
+				}
+			} else {
+				Expect(np.MaxCount).To(BeNil())
+				Expect(np.MinCount).To(BeNil())
+			}
+		}
+	}
+
+	if checkClusterConfig {
+		Eventually(func() bool {
+			ginkgo.GinkgoLogr.Info(fmt.Sprintf("Waiting for the autoscaling update (enable: %v) to appear in AKSStatus.UpstreamSpec ...", enabled))
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			for _, np := range cluster.AKSStatus.UpstreamSpec.NodePools {
+				if enabled {
+					if np.EnableAutoScaling != nil && !*np.EnableAutoScaling {
+						return false
+					}
+					if np.MaxCount != nil && *np.MaxCount != maxCount {
+						return false
+
+					}
+					if np.MinCount != nil && *np.MinCount != minCount {
+						return false
+
+					}
+					if npCount != 0 {
+						if *np.Count != npCount {
+							return false
+						}
+					}
+				} else {
+					if *np.EnableAutoScaling {
+						return false
+					}
+					if np.MaxCount != nil && np.MinCount != nil {
+						return false
+					}
+				}
+			}
+			return true
+		}, tools.SetTimeout(7*time.Minute), 5*time.Second).Should(BeTrue())
+	}
+	return cluster, nil
+}
+
+// ====================================================================Azure CLI (start)=================================
 // Create Azure AKS cluster using AZ CLI
 func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string, tags map[string]string) error {
 	formattedTags := convertMapToAKSString(tags)
@@ -392,6 +498,8 @@ func DeleteAKSClusteronAzure(clusterName string) error {
 
 	return nil
 }
+
+//====================================================================Azure CLI (end)=================================
 
 // defaultAKS returns the default AKS version used by Rancher; if forUpgrade is true, it returns the second-highest minor k8s version
 func defaultAKS(client *rancher.Client, cloudCredentialID, region string, forUpgrade bool) (defaultAKS string, err error) {

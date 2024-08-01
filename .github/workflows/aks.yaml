@@ -41,7 +41,7 @@ on:
         default: 'hostname/password'
         type: string
       tests_to_run:
-        description: Tests to run (p0_provisioning/p0_import/support_matrix_provisioning/support_matrix_import/k8s_chart_support_provisioning/k8s_chart_support_import)
+        description: Tests to run (p0_provisioning/p0_import/support_matrix_provisioning/support_matrix_import/k8s_chart_support_provisioning/k8s_chart_support_import/p1_provisioning/p1_import)
         type: string
         required: true
         default: p0_provisioning/p0_import

@@ -40,7 +40,7 @@ var _ = Describe("SupportMatrixProvisioning", func() {
 			BeforeEach(func() {
 				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				var err error
-				cluster, err = helper.CreateAKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, version, location)
+				cluster, err = helper.CreateAKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, version, location, nil)
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
