@@ -331,3 +331,11 @@ func FilterUIUnsupportedVersions(versions []string, client *rancher.Client) (fil
 	}
 	return
 }
+
+// CheckMapElements checks if map1 keys are subset of map2
+func CheckMapKeys(map1, map2 map[string]string) (exists bool) {
+	for key := range map1 {
+		_, exists = map2[key]
+	}
+	return
+}

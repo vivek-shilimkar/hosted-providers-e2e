@@ -2,6 +2,7 @@ package helper
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 	"time"
@@ -88,7 +89,7 @@ func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersi
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
 			return *cluster.EKSStatus.UpstreamSpec.KubernetesVersion
-		}, tools.SetTimeout(15*time.Minute), 10*time.Second).Should(Equal(upgradeToVersion))
+		}, tools.SetTimeout(15*time.Minute), 30*time.Second).Should(Equal(upgradeToVersion))
 		// ensure nodegroup version is same in Rancher
 		for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
 			Expect(*ng.Version).To(Equal(currentVersion))
@@ -131,7 +132,7 @@ func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion 
 				}
 			}
 			return true
-		}, tools.SetTimeout(15*time.Minute), 10*time.Second).Should(BeTrue())
+		}, tools.SetTimeout(15*time.Minute), 30*time.Second).Should(BeTrue())
 	}
 	return cluster, nil
 }
@@ -195,7 +196,7 @@ func AddNodeGroup(cluster *management.Cluster, increaseBy int, client *rancher.C
 	return cluster, nil
 }
 
-// AddNodeGroupToConfig adds a nodegroup to the config; it uses the nodegroup template defined in CATTLE_TEST_CONFIG file
+// AddNodeGroupToConfig adds a nodegroup to the list; it uses the nodegroup template defined in CATTLE_TEST_CONFIG file
 func AddNodeGroupToConfig(eksClusterConfig eks.ClusterConfig, ngCount int) (eks.ClusterConfig, error) {
 
 	var updateNodeGroupsList []eks.NodeGroupConfig
@@ -290,6 +291,142 @@ func ScaleNodeGroup(cluster *management.Cluster, client *rancher.Client, nodeCou
 		}, tools.SetTimeout(15*time.Minute), 10*time.Second).Should(BeTrue())
 	}
 
+	return cluster, nil
+}
+
+// UpdateLogging updates the logging of a EKS cluster, Types: api, audit, authenticator, controllerManager, scheduler
+// if checkClusterConfig is true, it validates the update
+func UpdateLogging(cluster *management.Cluster, client *rancher.Client, loggingTypes []string, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	*upgradedCluster.EKSConfig.LoggingTypes = loggingTypes
+
+	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	Expect(err).To(BeNil())
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		Expect(*upgradedCluster.EKSConfig.LoggingTypes).Should(HaveExactElements(loggingTypes))
+
+		Eventually(func() []string {
+			ginkgo.GinkgoLogr.Info("Waiting for the logging changes to appear in EKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			fmt.Println(*cluster.EKSStatus.UpstreamSpec.LoggingTypes)
+			return *cluster.EKSStatus.UpstreamSpec.LoggingTypes
+		}, tools.SetTimeout(10*time.Minute), 15*time.Second).Should(HaveExactElements(loggingTypes))
+	}
+	return cluster, nil
+}
+
+// UpdateAccess updates the network access of a EKS cluster, Types: publicAccess, privateAccess
+// if checkClusterConfig is true, it validates the update
+func UpdateAccess(cluster *management.Cluster, client *rancher.Client, publicAccess, privateAccess bool, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	*upgradedCluster.EKSConfig.PublicAccess = publicAccess
+	*upgradedCluster.EKSConfig.PrivateAccess = privateAccess
+
+	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+
+	if checkClusterConfig {
+		Eventually(func() bool {
+			// Check if the desired config is set correctly
+			Expect(*upgradedCluster.EKSConfig.PublicAccess).Should(Equal(publicAccess))
+			Expect(*upgradedCluster.EKSConfig.PrivateAccess).Should(Equal(privateAccess))
+
+			ginkgo.GinkgoLogr.Info("Waiting for the access changes to appear in EKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return *cluster.EKSStatus.UpstreamSpec.PublicAccess == publicAccess && *cluster.EKSStatus.UpstreamSpec.PrivateAccess == privateAccess
+		}, tools.SetTimeout(10*time.Minute), 15*time.Second).Should(BeTrue())
+	}
+	return cluster, err
+}
+
+// UpdatePublicAccessSources updates the network access sources of a EKS cluster
+// if checkClusterConfig is true, it validates the update
+func UpdatePublicAccessSources(cluster *management.Cluster, client *rancher.Client, publicAccessSources []string, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	*upgradedCluster.EKSConfig.PublicAccessSources = append(*upgradedCluster.EKSConfig.PublicAccessSources, publicAccessSources...)
+
+	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	Expect(err).To(BeNil())
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		Expect(*upgradedCluster.EKSConfig.PublicAccessSources).Should(ContainElements(publicAccessSources))
+
+		Eventually(func() []string {
+			ginkgo.GinkgoLogr.Info("Waiting for the publicaccess sources changes to appear in EKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return *cluster.EKSStatus.UpstreamSpec.PublicAccessSources
+		}, tools.SetTimeout(10*time.Minute), 15*time.Second).Should(ContainElements(publicAccessSources))
+	}
+	return cluster, nil
+}
+
+// UpdateClusterTags updates the tags of a EKS cluster
+// if wait is set to true, it waits until the update is complete; if checkClusterConfig is true, it validates the update
+func UpdateClusterTags(cluster *management.Cluster, client *rancher.Client, tags map[string]string, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	maps.Copy(*upgradedCluster.EKSConfig.Tags, tags)
+
+	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
+	Expect(err).To(BeNil())
+
+	if checkClusterConfig {
+		Eventually(func() bool {
+			// Check if the desired config is set correctly
+			for key, value := range tags {
+				Expect(*cluster.EKSConfig.Tags).Should(HaveKeyWithValue(key, value))
+			}
+
+			ginkgo.GinkgoLogr.Info("Waiting for the cluster tag changes to appear in EKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return helpers.CheckMapKeys(tags, *cluster.EKSStatus.UpstreamSpec.Tags)
+		}, tools.SetTimeout(10*time.Minute), 15*time.Second).Should(BeTrue())
+	}
+	return cluster, nil
+}
+
+// UpdateNodegroupMetadata updates the tags & labels of a EKS Node groups
+// if wait is set to true, it waits until the update is complete; if checkClusterConfig is true, it validates the update
+func UpdateNodegroupMetadata(cluster *management.Cluster, client *rancher.Client, tags, labels map[string]string, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	for i := range upgradedCluster.EKSConfig.NodeGroups {
+		*upgradedCluster.EKSConfig.NodeGroups[i].Tags = tags
+		*upgradedCluster.EKSConfig.NodeGroups[i].Labels = labels
+	}
+
+	var err error
+	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
+	Expect(err).To(BeNil())
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		for _, ng := range cluster.EKSConfig.NodeGroups {
+			for key, value := range tags {
+				Expect(*ng.Tags).Should(HaveKeyWithValue(key, value))
+			}
+			for key, value := range labels {
+				Expect(*ng.Labels).Should(HaveKeyWithValue(key, value))
+			}
+		}
+
+		Eventually(func() bool {
+			ginkgo.GinkgoLogr.Info("Waiting for the nodegroup metadata changes to appear in EKSStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+
+			for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+				if helpers.CheckMapKeys(tags, *ng.Tags) && helpers.CheckMapKeys(labels, *ng.Labels) {
+					return true
+				}
+			}
+			return false
+		}, tools.SetTimeout(10*time.Minute), 15*time.Second).Should(BeTrue())
+	}
 	return cluster, nil
 }
 
