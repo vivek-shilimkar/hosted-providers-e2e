@@ -472,6 +472,22 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 	return nil
 }
 
+// ClusterExistsOnAzure gets a list of cluster based on the name filter and returns true if the cluster is not in Deleting state;
+// it returns false if the cluster does not exist or is in Deleting state.
+func ClusterExistsOnAzure(clusterName, resourceGroup string) (bool, error) {
+	fmt.Println("Showing AKS cluster ...")
+	args := []string{"aks", "show", "--subscription", subscriptionID, "--name", clusterName, "--resource-group", resourceGroup}
+	fmt.Printf("Running command: az %v\n", args)
+	out, err := proc.RunW("az", args...)
+	if err != nil {
+		return false, errors.Wrap(err, "Failed to show cluster: "+out)
+	}
+	if !strings.Contains(out, "Deleting") {
+		return true, nil
+	}
+	return false, nil
+}
+
 // convertMapToAKSString converts the map of labels to a string format acceptable by azure CLI
 // acceptable format: `--tags "owner=hostedproviders" "testname=sometest"`
 func convertMapToAKSString(tags map[string]string) string {

@@ -475,7 +475,6 @@ func ClusterExistsOnGCloud(clusterName, project, zone string) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "Failed to list cluster: "+out)
 	}
-	fmt.Println(out)
 	if strings.Contains(out, "RUNNING") || strings.Contains(out, "PROVISIONING") {
 		return true, nil
 	}

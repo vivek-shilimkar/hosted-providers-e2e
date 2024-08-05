@@ -60,12 +60,7 @@ var _ = Describe("P1Provisioning", func() {
 			Eventually(func() bool {
 				clusterState, err := ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
-				for _, condition := range clusterState.Conditions {
-					if strings.Contains(condition.Message, "Invalid value for field \"node_pool.name\"") {
-						return true
-					}
-				}
-				return false
+				return clusterState.Transitioning == "error" && strings.Contains(clusterState.TransitioningMessage, "Invalid value for field \"node_pool.name\"")
 			}, "60s", "2s").Should(BeTrue())
 
 		})
@@ -84,12 +79,7 @@ var _ = Describe("P1Provisioning", func() {
 			Eventually(func() bool {
 				clusterState, err := ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
-				for _, condition := range clusterState.Conditions {
-					if strings.Contains(condition.Message, "Cluster.initial_node_count must be greater than zero") {
-						return true
-					}
-				}
-				return false
+				return clusterState.Transitioning == "error" && strings.Contains(clusterState.TransitioningMessage, "Cluster.initial_node_count must be greater than zero")
 			}, "60s", "2s").Should(BeTrue())
 
 		})
