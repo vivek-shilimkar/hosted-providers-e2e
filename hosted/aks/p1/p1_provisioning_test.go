@@ -109,6 +109,25 @@ var _ = Describe("P1Provisioning", func() {
 
 	})
 
+	When("a cluster is created for upgrade", func() {
+		BeforeEach(func() {
+			var err error
+			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location, true)
+			Expect(err).NotTo(HaveOccurred())
+			GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
+
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, nil)
+			Expect(err).To(BeNil())
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("NP cannot be upgraded to k8s version greater than CP k8s version", func() {
+			testCaseID = 183
+			npUpgradeToVersionGTCPCheck(cluster, ctx.RancherAdminClient)
+		})
+	})
+
 	It("deleting a cluster while it is in creation state should delete it from rancher and cloud console", func() {
 		testCaseID = 218
 		var err error
@@ -196,6 +215,59 @@ var _ = Describe("P1Provisioning", func() {
 			}
 			return true
 		}, "5m", "5s").Should(BeTrue(), "Failed while waiting for k8s upgrade.")
+	})
+
+	When("a cluster is created for with user and system mode nodepool", func() {
+		BeforeEach(func() {
+			updateFunc := func(clusterConfig *aks.ClusterConfig) {
+				nodePools := *clusterConfig.NodePools
+				npTemplate := nodePools[0]
+				var updatedNodePools []aks.NodePool
+				for _, mode := range []string{"User", "System"} {
+					np := aks.NodePool{
+						AvailabilityZones:   npTemplate.AvailabilityZones,
+						EnableAutoScaling:   npTemplate.EnableAutoScaling,
+						MaxPods:             npTemplate.MaxPods,
+						MaxCount:            npTemplate.MaxCount,
+						MinCount:            npTemplate.MinCount,
+						Mode:                mode,
+						Name:                pointer.String(fmt.Sprintf("%spool", strings.ToLower(mode))),
+						NodeCount:           npTemplate.NodeCount,
+						OrchestratorVersion: &k8sVersion,
+						OsDiskSizeGB:        npTemplate.OsDiskSizeGB,
+						OsDiskType:          npTemplate.OsDiskType,
+						OsType:              npTemplate.OsType,
+						VMSize:              npTemplate.VMSize,
+					}
+					updatedNodePools = append(updatedNodePools, np)
+
+				}
+				*clusterConfig.NodePools = updatedNodePools
+			}
+			var err error
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+			Expect(err).To(BeNil())
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+		})
+
+		It("should successfully create the cluster", func() {
+			testCaseID = 189
+			helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+
+			Expect(len(cluster.AKSConfig.NodePools)).To(Equal(2))
+			Expect(len(cluster.AKSStatus.UpstreamSpec.NodePools)).To(Equal(2))
+		})
+
+		It("should to able to delete a nodepool and add a new one", func() {
+			testCaseID = 190
+			deleteAndAddNpCheck(cluster, ctx.RancherAdminClient)
+		})
+
+		It("should not be able to remove system nodepool", func() {
+			testCaseID = 191
+			removeSystemNpCheck(cluster, ctx.RancherAdminClient)
+		})
 	})
 
 })

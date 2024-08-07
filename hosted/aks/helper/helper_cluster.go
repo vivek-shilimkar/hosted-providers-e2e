@@ -446,6 +446,15 @@ func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enab
 	return cluster, nil
 }
 
+// UpdateCluster is a generic function to update a cluster
+func UpdateCluster(cluster *management.Cluster, client *rancher.Client, updateFunc func(*management.Cluster)) (*management.Cluster, error) {
+	upgradedCluster := cluster
+
+	updateFunc(upgradedCluster)
+
+	return client.Management.Cluster.Update(cluster, &upgradedCluster)
+}
+
 // ====================================================================Azure CLI (start)=================================
 // Create Azure AKS cluster using AZ CLI
 func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string, tags map[string]string) error {
@@ -469,6 +478,22 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 
 	fmt.Println("Created AKS cluster: ", clusterName)
 
+	return nil
+}
+
+// AddNodePoolOnAzure adds nodepool to an AKS cluster via CLI; helpful when creating a cluster with multiple nodepools
+func AddNodePoolOnAzure(npName, clusterName, resourceGroupName, nodeCount string, extraArgs ...string) error {
+	fmt.Println("Adding node pool ...")
+	args := []string{"aks", "nodepool", "add", "--resource-group", resourceGroupName, "--cluster-name", clusterName, "--name", npName, "--node-count", nodeCount, "--subscription", subscriptionID}
+	if len(extraArgs) > 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: az %v\n", args)
+	out, err := proc.RunW("az", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to add node pool: "+out)
+	}
+	fmt.Println("Added node pool: ", npName)
 	return nil
 }
 
