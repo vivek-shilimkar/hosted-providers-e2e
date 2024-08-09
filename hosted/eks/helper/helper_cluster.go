@@ -121,13 +121,14 @@ func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion 
 		Expect(err).To(BeNil())
 	}
 
-	// TODO: Fix flaky check
 	if checkClusterConfig {
 		Eventually(func() bool {
+			// Check if the desired config has been applied in
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
 			ginkgo.GinkgoLogr.Info("waiting for the nodegroup upgrade to appear in EKSStatus.UpstreamSpec ...")
-			// Check if the desired config has been applied in Rancher
 			for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
-				if *ng.Version != upgradeToVersion {
+				if ng.Version == nil || *ng.Version != upgradeToVersion {
 					return false
 				}
 			}
@@ -441,6 +442,8 @@ func ListEKSAvailableVersions(client *rancher.Client, clusterID string) (availab
 	return helpers.FilterUIUnsupportedVersions(allAvailableVersions, client), nil
 }
 
+// <==============================EKS CLI==============================>
+
 // Create AWS EKS cluster using EKS CLI
 func CreateEKSClusterOnAWS(eks_region string, clusterName string, k8sVersion string, nodes string, tags map[string]string) error {
 	currentKubeconfig := os.Getenv("KUBECONFIG")
@@ -459,6 +462,51 @@ func CreateEKSClusterOnAWS(eks_region string, clusterName string, k8sVersion str
 	fmt.Println("Created EKS cluster: ", clusterName)
 
 	return nil
+}
+
+// Upgrade EKS cluster using EKS CLI
+func UpgradeEKSClusterOnAWS(eks_region string, clusterName string, upgradeToVersion string) error {
+
+	fmt.Println("Upgrading EKS cluster controlplane ...")
+	args := []string{"upgrade", "cluster", "--region=" + eks_region, "--name=" + clusterName, "--version=" + upgradeToVersion, "--approve"}
+	fmt.Printf("Running command: eksctl %v\n", args)
+	out, err := proc.RunW("eksctl", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to upgrade cluster: "+out)
+	}
+
+	fmt.Println("Upgraded EKS cluster controlplane: ", clusterName)
+	return nil
+}
+
+// Upgrade EKS cluster nodegroup using EKS CLI
+func UpgradeEKSNodegroupOnAWS(eks_region string, clusterName string, ngName string, upgradeToVersion string) error {
+	fmt.Println("Upgrading EKS cluster nodegroup ...")
+	args := []string{"upgrade", "nodegroup", "--region=" + eks_region, "--name=" + ngName, "--cluster=" + clusterName, "--kubernetes-version=" + upgradeToVersion}
+	fmt.Printf("Running command: eksctl %v\n", args)
+	out, err := proc.RunW("eksctl", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to upgrade nodegroup: "+out)
+	}
+
+	fmt.Println("Upgraded EKS cluster nodegroup: ", clusterName)
+	return nil
+}
+
+func GetFromEKS(region string, clusterName string, cmd string, query string) (out string, err error) {
+	clusterArgs := []string{"eksctl", "get", "cluster", "--region=" + region, "--name=" + clusterName, "-ojson", "|", "jq", "-r"}
+	ngArgs := []string{"eksctl", "get", "nodegroup", "--region=" + region, "--cluster=" + clusterName, "-ojson", "|", "jq", "-r"}
+
+	if cmd == "cluster" {
+		clusterArgs = append(clusterArgs, query)
+		cmd = strings.Join(clusterArgs, " ")
+	} else {
+		ngArgs = append(ngArgs, query)
+		cmd = strings.Join(ngArgs, " ")
+	}
+	fmt.Printf("Running command: %s\n", cmd)
+	out, err = proc.RunW("bash", "-c", cmd)
+	return strings.TrimSpace(out), err
 }
 
 // Complete cleanup steps for Amazon EKS
@@ -484,6 +532,8 @@ func DeleteEKSClusterOnAWS(eks_region string, clusterName string) error {
 
 	return nil
 }
+
+// <==============================EKS CLI(end)==============================>
 
 // defaultEKS returns a version less than the highest version or K8S_UPGRADE_MINOR_VERSION if it is set.
 // Note: It does not return the default version used by UI which is the highest supported version.

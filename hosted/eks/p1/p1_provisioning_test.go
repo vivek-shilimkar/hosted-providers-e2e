@@ -28,7 +28,7 @@ var _ = Describe("P1Provisioning", func() {
 	Context("Provisioning/Editing a cluster with invalid config", func() {
 
 		AfterEach(func() {
-			if ctx.ClusterCleanup && cluster != nil {
+			if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
 				if cluster != nil {
 					err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
 					Expect(err).To(BeNil())
@@ -142,7 +142,7 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		AfterEach(func() {
-			if ctx.ClusterCleanup && cluster != nil {
+			if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
 				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			} else {
@@ -217,6 +217,15 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
+		})
+
+		AfterEach(func() {
+			if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
+				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+			} else {
+				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+			}
 		})
 
 		It("Update cluster logging types", func() {
