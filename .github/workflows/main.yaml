@@ -320,6 +320,8 @@ jobs:
         run: go run ${{ env.QASE_HELPER }} -delete
 
       - name: Collect logs
+        env:
+          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
         if: ${{ !cancelled() }}
         run: |
           chmod +x ${{ env.RANCHER_LOG_COLLECTOR }}
