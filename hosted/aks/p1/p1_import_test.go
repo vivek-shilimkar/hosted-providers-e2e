@@ -51,6 +51,11 @@ var _ = Describe("P1Import", func() {
 			testCaseID = 266
 			updateAutoScaling(cluster, ctx.RancherAdminClient)
 		})
+
+		It("should be able to update tags", func() {
+			testCaseID = 270
+			updateTagsCheck(cluster, ctx.RancherAdminClient)
+		})
 	})
 
 	When("a cluster is created with multiple nodepools", func() {

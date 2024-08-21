@@ -162,3 +162,59 @@ func npUpgradeToVersionGTCPCheck(cluster *management.Cluster, client *rancher.Cl
 		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, fmt.Sprintf("Node pool version %s and control plane version %s are incompatible.", upgradeK8sVersion, k8sVersion))
 	}, "1m", "2s").Should(BeTrue())
 }
+
+// updateTagsCheck runs checks to add and delete the cluster with a new tag and an empty tag
+func updateTagsCheck(cluster *management.Cluster, client *rancher.Client) {
+
+	By("adding new tags", func() {
+		updateFunc := func(cluster *management.Cluster) {
+			cluster.AKSConfig.Tags["empty-tag"] = ""
+			cluster.AKSConfig.Tags["new"] = "tag"
+		}
+		var err error
+		cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
+		Expect(err).To(BeNil())
+		Expect(cluster.AKSConfig.Tags).To(HaveKeyWithValue("empty-tag", ""))
+		Expect(cluster.AKSConfig.Tags).To(HaveKeyWithValue("new", "tag"))
+
+		Eventually(func() int {
+			GinkgoLogr.Info("Waiting for the tags to be added ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+
+			var count int
+			for key, value := range cluster.AKSStatus.UpstreamSpec.Tags {
+				if (key == "empty-tag" && value == "") || (key == "new" && value == "tag") {
+					count++
+				}
+			}
+			return count
+		}, "5m", "5s").Should(Equal(2))
+	})
+
+	By("removing the tags", func() {
+		updateFunc := func(cluster *management.Cluster) {
+			delete(cluster.AKSConfig.Tags, "empty-tag")
+			delete(cluster.AKSConfig.Tags, "new")
+		}
+		var err error
+		cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
+		Expect(err).To(BeNil())
+
+		Expect(cluster.AKSConfig.Tags).ToNot(HaveKeyWithValue("empty-tag", ""))
+		Expect(cluster.AKSConfig.Tags).ToNot(HaveKeyWithValue("new", "tag"))
+
+		Eventually(func() int {
+			GinkgoLogr.Info("Waiting for the tags to be removed ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			var count int
+			for key, value := range cluster.AKSStatus.UpstreamSpec.Tags {
+				if (key == "empty-tag" && value == "") || (key == "new" && value == "tag") {
+					count++
+				}
+			}
+			return count
+		}, "7m", "5s").Should(Equal(0))
+	})
+}
