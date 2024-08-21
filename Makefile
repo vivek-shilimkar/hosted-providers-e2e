@@ -74,7 +74,11 @@ e2e-provisioning-tests: deps ## Run the 'P0Provisioning' test suite for a given 
 	ginkgo ${STANDARD_TEST_OPTIONS} --nodes 2 --focus "P0Provisioning" ./hosted/${PROVIDER}/p0/
 
 e2e-p1-import-tests: deps	## Run the 'P1Import' test suite for a given ${PROVIDER}
+ifeq (${PROVIDER}, eks)
+	ginkgo ${STANDARD_TEST_OPTIONS} --nodes 2 --focus "P1Import" ./hosted/${PROVIDER}/p1/
+else
 	ginkgo ${STANDARD_TEST_OPTIONS} --focus "P1Import" ./hosted/${PROVIDER}/p1/
+endif
 
 e2e-p1-provisioning-tests: deps ## Run the 'P1Provisioning' test suite for a given ${PROVIDER}
 	ginkgo ${STANDARD_TEST_OPTIONS} --focus "P1Provisioning" ./hosted/${PROVIDER}/p1/

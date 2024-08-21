@@ -16,6 +16,7 @@ package p1_test
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,7 +28,10 @@ import (
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	"github.com/rancher/shepherd/extensions/clusters"
+	"github.com/rancher/shepherd/extensions/clusters/eks"
+	"github.com/rancher/shepherd/pkg/config"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
+	"k8s.io/utils/pointer"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
@@ -222,4 +226,98 @@ func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client) 
 		Expect(out).ShouldNot(HaveExactElements(loggingTypes))
 	})
 
+}
+
+// upgradeNodeKubernetesVersionGTCP upgrades Nodegroup version greater than Controlplane's
+func upgradeNodeKubernetesVersionGTCPCheck(cluster *management.Cluster, client *rancher.Client) {
+	var err error
+	upgradeToVersion, err = helper.GetK8sVersion(client, false)
+	Expect(err).To(BeNil())
+	GinkgoLogr.Info("Upgrading only Nodegroup's EKS version to: " + upgradeToVersion)
+	cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, false, false)
+	Expect(err).To(BeNil())
+
+	// wait until the error is visible on the cluster
+	Eventually(func() bool {
+		cluster, err := client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).To(BeNil())
+		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "all nodegroup kubernetes versionsmust be equal to or one minor version lower than the cluster kubernetes version")
+	}, "1m", "3s").Should(BeTrue())
+}
+
+// deleteAllEKSNodegroupOnAWS removes cluster's nodegroups on EKS
+func deleteAllEKSNodegroupOnAWS(cluster *management.Cluster) {
+	for _, ng := range cluster.EKSConfig.NodeGroups {
+		err := helper.ModifyEKSNodegroupOnAWS(cluster.EKSConfig.Region, cluster.EKSConfig.DisplayName, *ng.NodegroupName, "delete")
+		Expect(err).To(BeNil())
+	}
+}
+
+// invalidEndpointCheck updates PublicAccess Sources
+func invalidEndpointCheck(cluster *management.Cluster, client *rancher.Client) {
+	var err error
+	cidr := []string{namegen.AppendRandomString("invalid")}
+	cluster, _ = helper.UpdatePublicAccessSources(cluster, client, cidr, false)
+
+	Eventually(func() bool {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).To(BeNil())
+		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "InvalidParameterException: The following CIDRs are invalid in publicAccessCidrs")
+	}, "2m", "3s").Should(BeTrue())
+}
+
+// invalidAccessCheck disbales both PublicAccess & PrivateAccess
+func invalidAccessValuesCheck(cluster *management.Cluster, client *rancher.Client) {
+	var err error
+	_, err = helper.UpdateAccess(cluster, client, false, false, false)
+	Expect(err).To(MatchError(ContainSubstring("public access, private access, or both must be enabled")))
+}
+
+func upgradeCPAndAddNgCheck(cluster *management.Cluster, client *rancher.Client) {
+
+	var err error
+	originalLen := len(cluster.EKSConfig.NodeGroups)
+	newNodeGroupName := pointer.String(namegen.AppendRandomString("ng"))
+	upgradeToVersion, err = helper.GetK8sVersion(client, false)
+	Expect(err).To(BeNil())
+	GinkgoLogr.Info("Upgrading control plane to version:" + upgradeToVersion)
+
+	By("upgrading the ControlPlane", func() {
+		cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, ctx.RancherAdminClient, true)
+		Expect(err).To(BeNil())
+	})
+
+	var eksClusterConfig management.EKSClusterConfigSpec
+	config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, &eksClusterConfig)
+
+	updateFunc := func(cluster *management.Cluster) {
+		var updatedNodeGroupsList []management.NodeGroup
+		newNodeGroup := eksClusterConfig.NodeGroups[0]
+		newNodeGroup.NodegroupName = newNodeGroupName
+		updatedNodeGroupsList = append(updatedNodeGroupsList, newNodeGroup)
+		cluster.EKSConfig.NodeGroups = updatedNodeGroupsList
+	}
+
+	cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
+	Expect(err).To(BeNil())
+	Expect(len(cluster.EKSConfig.NodeGroups)).To(BeEquivalentTo(originalLen))
+	for _, ng := range cluster.EKSConfig.NodeGroups {
+		Expect(ng.NodegroupName).To(Equal(newNodeGroupName))
+	}
+
+	err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+	Expect(err).To(BeNil())
+
+	// wait until the update is visible on the cluster
+	Eventually(func() bool {
+		GinkgoLogr.Info("Waiting for the version of new nodegroup to appear in EKSStatus.UpstreamSpec ...")
+		cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+		Expect(err).To(BeNil())
+		for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+			if ng.Version == nil || *ng.Version != upgradeToVersion {
+				return false
+			}
+		}
+		return true
+	}, "5m", "15s").Should(BeTrue())
 }

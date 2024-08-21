@@ -153,7 +153,7 @@ func AddNodeGroup(cluster *management.Cluster, increaseBy int, client *rancher.C
 	updateNodeGroupsList := cluster.EKSConfig.NodeGroups
 	for i := 1; i <= increaseBy; i++ {
 		newNodeGroup := management.NodeGroup{
-			NodegroupName: pointer.String(namegen.AppendRandomString("nodegroup")),
+			NodegroupName: pointer.String(namegen.AppendRandomString("ng")),
 			DesiredSize:   ngTemplate.DesiredSize,
 			DiskSize:      ngTemplate.DiskSize,
 			InstanceType:  ngTemplate.InstanceType,
@@ -348,9 +348,7 @@ func UpdateAccess(cluster *management.Cluster, client *rancher.Client, publicAcc
 func UpdatePublicAccessSources(cluster *management.Cluster, client *rancher.Client, publicAccessSources []string, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := cluster
 	*upgradedCluster.EKSConfig.PublicAccessSources = append(*upgradedCluster.EKSConfig.PublicAccessSources, publicAccessSources...)
-
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
-	Expect(err).To(BeNil())
 
 	if checkClusterConfig {
 		// Check if the desired config is set correctly
@@ -431,6 +429,15 @@ func UpdateNodegroupMetadata(cluster *management.Cluster, client *rancher.Client
 	return cluster, nil
 }
 
+// UpdateCluster is a generic function to update a cluster
+func UpdateCluster(cluster *management.Cluster, client *rancher.Client, updateFunc func(*management.Cluster)) (*management.Cluster, error) {
+	upgradedCluster := cluster
+
+	updateFunc(upgradedCluster)
+
+	return client.Management.Cluster.Update(cluster, &upgradedCluster)
+}
+
 // ListEKSAvailableVersions is a function to list and return only available EKS versions for a specific cluster.
 func ListEKSAvailableVersions(client *rancher.Client, clusterID string) (availableVersions []string, err error) {
 
@@ -507,6 +514,20 @@ func GetFromEKS(region string, clusterName string, cmd string, query string) (ou
 	fmt.Printf("Running command: %s\n", cmd)
 	out, err = proc.RunW("bash", "-c", cmd)
 	return strings.TrimSpace(out), err
+}
+
+// Creates/Deletes EKS cluster nodegroup using EKS CLI
+func ModifyEKSNodegroupOnAWS(eks_region string, clusterName string, ngName string, operation string) error {
+	args := []string{operation, "nodegroup", "--region=" + eks_region, "--name=" + ngName, "--cluster=" + clusterName}
+	if operation == "delete" {
+		args = append(args, "--disable-eviction")
+	}
+	fmt.Printf("Running command: eksctl %v\n", args)
+	out, err := proc.RunW("eksctl", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to modify nodegroup: "+out)
+	}
+	return nil
 }
 
 // Complete cleanup steps for Amazon EKS

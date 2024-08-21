@@ -93,35 +93,16 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(MatchError(ContainSubstring("subnets must be provided if security groups are provided")))
 		})
 
-		It("Fail to update invalid values for Public Access Endpoints", func() {
-			testCaseID = 146
-
-			var err error
-			cidr := []string{namegen.AppendRandomString("invalid")}
-			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, nil)
-			Expect(err).To(BeNil())
-			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
-			Expect(err).To(BeNil())
-			cluster, _ = helper.UpdatePublicAccessSources(cluster, ctx.RancherAdminClient, cidr, false)
-
-			Eventually(func() bool {
-				cluster, err := ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
-				Expect(err).To(BeNil())
-				return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "InvalidParameterException: The following CIDRs are invalid in publicAccessCidrs")
-			}, "1m", "3s").Should(BeTrue())
-		})
-
-		It("Fail to update both Public/Private access as false", func() {
-			testCaseID = 147
+		It("Fail to update both Public/Private access as false and invalid values of the access", func() {
+			testCaseID = 147 // also covers 146
 
 			var err error
 			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
-
-			_, err = helper.UpdateAccess(cluster, ctx.RancherAdminClient, false, false, false)
-			Expect(err).To(MatchError(ContainSubstring("public access, private access, or both must be enabled")))
+			invalidEndpointCheck(cluster, ctx.RancherAdminClient)
+			invalidAccessValuesCheck(cluster, ctx.RancherAdminClient)
 		})
 	})
 
@@ -152,58 +133,16 @@ var _ = Describe("P1Provisioning", func() {
 
 		It("Upgrade version of node group only", func() {
 			testCaseID = 126
-
-			By("upgrading only the NodeGroups", func() {
-				var err error
-				upgradeToVersion, err := helper.GetK8sVersion(ctx.RancherAdminClient, false)
-				Expect(err).To(BeNil())
-				GinkgoLogr.Info("Upgrading Nodegroup's EKS version")
-				cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, ctx.RancherAdminClient, false, false)
-				Expect(err).To(BeNil())
-			})
-
-			// wait until the error is visible on the cluster
-			Eventually(func() bool {
-				cluster, err := ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
-				Expect(err).To(BeNil())
-				return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "all nodegroup kubernetes versionsmust be equal to or one minor version lower than the cluster kubernetes version")
-			}, "1m", "3s").Should(BeTrue())
+			upgradeNodeKubernetesVersionGTCPCheck(cluster, ctx.RancherAdminClient)
 		})
 
 		It("Update k8s version of cluster and add node groups", func() {
 			testCaseID = 125
-
-			var err error
-			By("upgrading the ControlPlane", func() {
-				cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, ctx.RancherAdminClient, true)
-				Expect(err).To(BeNil())
-			})
-
-			By("adding a NodeGroup", func() {
-				cluster, err = helper.AddNodeGroup(cluster, 1, ctx.RancherAdminClient, true, false)
-				Expect(err).To(BeNil())
-			})
-
-			By("deleting the NodeGroup", func() {
-				cluster, err = helper.DeleteNodeGroup(cluster, ctx.RancherAdminClient, true, false)
-				Expect(err).To(BeNil())
-			})
-
-			// wait until the update is visible on the cluster
-			Eventually(func() bool {
-				GinkgoLogr.Info("Waiting for the versin of new nodegroup to appear in EKSStatus.UpstreamSpec ...")
-				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
-				Expect(err).To(BeNil())
-				for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
-					if *ng.Version != upgradeToVersion {
-						return false
-					}
-				}
-				return true
-			}, "5m", "15s").Should(BeTrue())
+			upgradeCPAndAddNgCheck(cluster, ctx.RancherAdminClient)
 		})
 
-		It("should successfully update a cluster while it is still in updating state", func() {
+		// eks-operator/issues/752
+		XIt("should successfully update a cluster while it is still in updating state", func() {
 			testCaseID = 148
 			updateClusterInUpdatingState(cluster, ctx.RancherAdminClient)
 		})

@@ -55,6 +55,7 @@ var _ = Describe("SyncImport", func() {
 		It("Sync from Rancher to AWS console after a sync from AWS console to Rancher", func() {
 			testCaseID = 112
 			syncRancherToAWSCheck(cluster, ctx.RancherAdminClient)
+			deleteAllEKSNodegroupOnAWS(cluster) // Clean-up for eksctl
 		})
 	})
 })
