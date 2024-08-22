@@ -291,7 +291,7 @@ func GetCommonMetadataLabels() map[string]string {
 
 	if !clusterCleanup {
 		metadataLabels["janitor-ignore"] = "true"
-	} else {
+	} else if Provider == "eks" {
 		metadataLabels["aws-janitor/marked-for-deletion"] = "true"
 	}
 	return metadataLabels
