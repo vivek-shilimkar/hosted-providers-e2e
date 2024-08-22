@@ -45,6 +45,10 @@ on:
         type: string
         required: true
         default: p0_provisioning/p0_import
+      proxy:
+        description: Install Rancher behind proxy
+        type: boolean
+        default: false
 
 jobs:
   gke-e2e:
@@ -61,3 +65,4 @@ jobs:
       downstream_k8s_minor_version: ${{ inputs.downstream_k8s_minor_version }}
       rancher_installed: ${{ inputs.rancher_installed || 'hostname/password' }}
       downstream_cluster_cleanup: ${{ inputs.downstream_cluster_cleanup == true || (github.event_name == 'schedule' && true) }}
+      proxy: ${{ inputs.proxy == true }}

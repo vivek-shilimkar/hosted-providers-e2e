@@ -39,6 +39,9 @@ on:
       downstream_cluster_cleanup:
         description: Cleanup downstream clusters after test
         type: boolean
+      proxy:
+        description: Install Rancher behind proxy
+        type: boolean
 
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -142,6 +145,13 @@ jobs:
             echo RANCHER_PASSWORD=${{ secrets.RANCHER_PASSWORD }} >> $GITHUB_ENV
           fi
 
+      - name: Install Proxy
+        if: ${{ inputs.rancher_installed == 'hostname/password' && inputs.proxy == true }}
+        run: |
+          docker run -d --name squid_proxy -v $(pwd)/.github/scripts/squid.conf:/etc/squid/squid.conf -p 3128:3128 wernight/squid
+          echo "PROXY_HOST=$(gcloud compute instances describe ${{ needs.create-runner.outputs.runner }} \
+            --format='get(networkInterfaces[0].networkIP)' --zone ${{ env.GCP_RUNNER_ZONE }}):3128" >> ${GITHUB_ENV}
+
       - name: Install K3s / Helm / Rancher
         if: ${{ inputs.rancher_installed == 'hostname/password' }}
         env:
@@ -151,9 +161,16 @@ jobs:
           RANCHER_VERSION: ${{ inputs.rancher_version }}
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
+          PROXY_HOST: ${{ env.PROXY_HOST }}
         run: |
           if [ ${{ inputs.operator_nightly_chart }} == true ]; then
-            make prepare-e2e-ci-rancher-hosted-nightly-chart
+            if [ ${{ inputs.proxy }} == true ]; then
+              make prepare-e2e-ci-rancher-hosted-nightly-chart-behind-proxy
+            else
+              make prepare-e2e-ci-rancher-hosted-nightly-chart
+            fi
+          elif [ ${{ inputs.proxy }} == true ]; then
+            make prepare-e2e-ci-rancher-behind-proxy
           else
             make prepare-e2e-ci-rancher
           fi
@@ -322,6 +339,7 @@ jobs:
       - name: Collect logs
         env:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+          RANCHER_BEHIND_PROXY: ${{ inputs.proxy == true }}
         if: ${{ !cancelled() }}
         run: |
           chmod +x ${{ env.RANCHER_LOG_COLLECTOR }}

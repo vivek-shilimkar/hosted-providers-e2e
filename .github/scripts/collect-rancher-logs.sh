@@ -44,6 +44,14 @@ To use crust-gather; do the following:
 Ref: https://github.com/crust-gather/crust-gather
 EOF
 
+# Move back to logs dir
+cd ..
 
+# Check if proxy has been implemented then fetch proxy logs
+if [[ $RANCHER_BEHIND_PROXY = true ]]; then
+  mkdir -p -m 755 proxy-logs
+  cd proxy-logs
+  docker cp squid_proxy:/var/log/squid/access.log ./squid-access.log
+fi
 # Done!
 exit 0

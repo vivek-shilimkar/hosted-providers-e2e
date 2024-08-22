@@ -8,7 +8,14 @@ BUILD_DATE= $(shell date +'%Y%m%d')
 install-k3s: ## Install K3s with default options; installed on the local machine
 	curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=${K3S_VERSION} sh -s - --write-kubeconfig-mode 644
 	## Wait for K3s to start
-	timeout 2m bash -c "until ! kubectl get pod -A 2>/dev/null | grep -Eq 'ContainerCreating|CrashLoopBackOff'; do sleep 1; done"
+	timeout 2m bash -c "until kubectl get pod -A 2>/dev/null | grep -Eq 'Running|Completed'; do sleep 1; done"
+
+install-k3s-behind-proxy:
+	curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=${K3S_VERSION} sh -s - --write-kubeconfig-mode 644
+	## Wait for K3s to start
+	timeout 2m bash -c "until kubectl get pod -A 2>/dev/null | grep -Eq 'Running|Completed'; do sleep 1; done"
+	echo "HTTP_PROXY=http://${PROXY_HOST}\nHTTPS_PROXY=https://${PROXY_HOST}\nNO_PROXY=127.0.0.0/8,10.0.0.0/8,cattle-system.svc,172.16.0.0/12,192.168.0.0/16,.svc,.cluster.local" > k3s
+	sudo mv k3s /etc/default/k3s
 
 install-helm: ## Install Helm on the local machine
 	curl --silent --location https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz | tar xz -C .
@@ -23,6 +30,19 @@ install-cert-manager: ## Install cert-manager via Helm on the k8s cluster
 	helm install cert-manager --namespace cert-manager jetstack/cert-manager \
 		--set installCRDs=true \
 		--set extraArgs[0]=--enable-certificate-owner-ref=true
+	kubectl rollout status deployment cert-manager -n cert-manager --timeout=120s
+
+install-cert-manager-behind-proxy:
+	kubectl create namespace cert-manager
+	helm repo add jetstack https://charts.jetstack.io
+	helm repo update
+	helm install cert-manager --namespace cert-manager jetstack/cert-manager \
+		--set installCRDs=true \
+		--set extraArgs[0]=--enable-certificate-owner-ref=true \
+		--set http_proxy=http://${PROXY_HOST} \
+		--set https_proxy=https://${PROXY_HOST} \
+		--set no_proxy=127.0.0.0/8\\,10.0.0.0/8\\,cattle-system.svc\\,172.16.0.0/12\\,192.168.0.0/16\\,.svc\\,.cluster.local
+
 	kubectl rollout status deployment cert-manager -n cert-manager --timeout=120s
 
 install-rancher: ## Install Rancher via Helm on the k8s cluster
@@ -59,6 +79,50 @@ install-rancher-hosted-nightly-chart: ## Install Rancher via Helm with hosted pr
 	helm install ${PROVIDER}-operator-crds  oci://ttl.sh/${PROVIDER}-operator/rancher-${PROVIDER}-operator-crd --version ${BUILD_DATE}
 	helm install ${PROVIDER}-operator oci://ttl.sh/${PROVIDER}-operator/rancher-${PROVIDER}-operator --version ${BUILD_DATE} --namespace cattle-system
 
+install-rancher-behind-proxy:  ## Setup Rancher behind proxy on the local machine
+	helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+	helm repo update
+	helm install rancher --devel rancher-latest/rancher \
+		--namespace cattle-system \
+		--create-namespace \
+		--version ${RANCHER_VERSION} \
+		--set global.cattle.psp.enabled=false \
+		--set hostname=${RANCHER_HOSTNAME} \
+		--set bootstrapPassword=${RANCHER_PASSWORD} \
+		--set replicas=1 \
+		--set rancherImageTag=v${RANCHER_VERSION} \
+		--set proxy=http://${PROXY_HOST} \
+		--set noProxy=127.0.0.0/8\\,10.0.0.0/8\\,cattle-system.svc\\,172.16.0.0/12\\,192.168.0.0/16\\,.svc\\,.cluster.local \
+		--wait
+	kubectl rollout status deployment rancher -n cattle-system --timeout=300s
+
+install-rancher-hosted-nightly-chart-behind-proxy:  ## Setup Rancher with nightly hosted provider charts behind proxy on the local machine
+	helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+	helm repo update
+	helm install rancher --devel rancher-latest/rancher \
+		--namespace cattle-system \
+		--create-namespace \
+		--version ${RANCHER_VERSION} \
+		--set global.cattle.psp.enabled=false \
+		--set hostname=${RANCHER_HOSTNAME} \
+		--set bootstrapPassword=${RANCHER_PASSWORD} \
+		--set replicas=1 \
+		--set rancherImageTag=v${RANCHER_VERSION} \
+		--set proxy=http://${PROXY_HOST} \
+		--set noProxy=127.0.0.0/8\\,10.0.0.0/8\\,cattle-system.svc\\,172.16.0.0/12\\,192.168.0.0/16\\,.svc\\,.cluster.local \
+		--set 'extraEnv[0].name=CATTLE_SKIP_HOSTED_CLUSTER_CHART_INSTALLATION' \
+		--set-string 'extraEnv[0].value=true' \
+		--wait
+	kubectl rollout status deployment rancher -n cattle-system --timeout=300s
+	helm install ${PROVIDER}-operator-crds  oci://ttl.sh/${PROVIDER}-operator/rancher-${PROVIDER}-operator-crd --version ${BUILD_DATE} \
+		--set proxy=http://${PROXY_HOST} \
+		--set noProxy=127.0.0.0/8\\,10.0.0.0/8\\,cattle-system.svc\\,172.16.0.0/12\\,192.168.0.0/16\\,.svc\\,.cluster.local
+	helm install ${PROVIDER}-operator oci://ttl.sh/${PROVIDER}-operator/rancher-${PROVIDER}-operator --version ${BUILD_DATE} \
+ 		--namespace cattle-system \
+ 		--set proxy=http://${PROXY_HOST} \
+		--set noProxy=127.0.0.0/8\\,10.0.0.0/8\\,cattle-system.svc\\,172.16.0.0/12\\,192.168.0.0/16\\,.svc\\,.cluster.local
+
+
 deps: ## Install the Go dependencies
 	go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
 	go install -mod=mod github.com/onsi/gomega
@@ -66,6 +130,8 @@ deps: ## Install the Go dependencies
 
 prepare-e2e-ci-rancher-hosted-nightly-chart: install-k3s install-helm install-cert-manager install-rancher-hosted-nightly-chart ## Setup Rancher with nightly hosted provider charts on the local machine
 prepare-e2e-ci-rancher: install-k3s install-helm install-cert-manager install-rancher ## Setup Rancher on the local machine
+prepare-e2e-ci-rancher-behind-proxy: install-k3s-behind-proxy install-helm install-cert-manager-behind-proxy install-rancher-behind-proxy ## Setup Rancher behind proxy on the local machine
+prepare-e2e-ci-rancher-hosted-nightly-chart-behind-proxy: install-k3s-behind-proxy install-helm install-cert-manager-behind-proxy install-rancher-hosted-nightly-chart-behind-proxy ## Setup Rancher with nightly hosted provider charts behind proxy on the local machine
 
 e2e-import-tests: deps	## Run the 'P0Import' test suite for a given ${PROVIDER}
 	ginkgo ${STANDARD_TEST_OPTIONS} --nodes 2 --focus "P0Import" ./hosted/${PROVIDER}/p0/
