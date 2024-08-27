@@ -245,14 +245,6 @@ func upgradeNodeKubernetesVersionGTCPCheck(cluster *management.Cluster, client *
 	}, "1m", "3s").Should(BeTrue())
 }
 
-// deleteAllEKSNodegroupOnAWS removes cluster's nodegroups on EKS
-func deleteAllEKSNodegroupOnAWS(cluster *management.Cluster) {
-	for _, ng := range cluster.EKSConfig.NodeGroups {
-		err := helper.ModifyEKSNodegroupOnAWS(cluster.EKSConfig.Region, cluster.EKSConfig.DisplayName, *ng.NodegroupName, "delete")
-		Expect(err).To(BeNil())
-	}
-}
-
 // invalidEndpointCheck updates PublicAccess Sources
 func invalidEndpointCheck(cluster *management.Cluster, client *rancher.Client) {
 	var err error

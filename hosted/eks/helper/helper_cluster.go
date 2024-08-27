@@ -452,7 +452,7 @@ func ListEKSAvailableVersions(client *rancher.Client, clusterID string) (availab
 // <==============================EKS CLI==============================>
 
 // Create AWS EKS cluster using EKS CLI
-func CreateEKSClusterOnAWS(eks_region string, clusterName string, k8sVersion string, nodes string, tags map[string]string) error {
+func CreateEKSClusterOnAWS(region string, clusterName string, k8sVersion string, nodes string, tags map[string]string) error {
 	currentKubeconfig := os.Getenv("KUBECONFIG")
 	defer os.Setenv("KUBECONFIG", currentKubeconfig)
 
@@ -460,7 +460,7 @@ func CreateEKSClusterOnAWS(eks_region string, clusterName string, k8sVersion str
 
 	formattedTags := k8slabels.SelectorFromSet(tags).String()
 	fmt.Println("Creating EKS cluster ...")
-	args := []string{"create", "cluster", "--region=" + eks_region, "--name=" + clusterName, "--version=" + k8sVersion, "--nodegroup-name", "ranchernodes", "--nodes", nodes, "--managed", "--tags", formattedTags}
+	args := []string{"create", "cluster", "--region=" + region, "--name=" + clusterName, "--version=" + k8sVersion, "--nodegroup-name", "ranchernodes", "--nodes", nodes, "--managed", "--tags", formattedTags}
 	fmt.Printf("Running command: eksctl %v\n", args)
 	out, err := proc.RunW("eksctl", args...)
 	if err != nil {
@@ -472,10 +472,10 @@ func CreateEKSClusterOnAWS(eks_region string, clusterName string, k8sVersion str
 }
 
 // Upgrade EKS cluster using EKS CLI
-func UpgradeEKSClusterOnAWS(eks_region string, clusterName string, upgradeToVersion string) error {
+func UpgradeEKSClusterOnAWS(region string, clusterName string, upgradeToVersion string) error {
 
 	fmt.Println("Upgrading EKS cluster controlplane ...")
-	args := []string{"upgrade", "cluster", "--region=" + eks_region, "--name=" + clusterName, "--version=" + upgradeToVersion, "--approve"}
+	args := []string{"upgrade", "cluster", "--region=" + region, "--name=" + clusterName, "--version=" + upgradeToVersion, "--approve"}
 	fmt.Printf("Running command: eksctl %v\n", args)
 	out, err := proc.RunW("eksctl", args...)
 	if err != nil {
@@ -487,9 +487,9 @@ func UpgradeEKSClusterOnAWS(eks_region string, clusterName string, upgradeToVers
 }
 
 // Upgrade EKS cluster nodegroup using EKS CLI
-func UpgradeEKSNodegroupOnAWS(eks_region string, clusterName string, ngName string, upgradeToVersion string) error {
+func UpgradeEKSNodegroupOnAWS(region string, clusterName string, ngName string, upgradeToVersion string) error {
 	fmt.Println("Upgrading EKS cluster nodegroup ...")
-	args := []string{"upgrade", "nodegroup", "--region=" + eks_region, "--name=" + ngName, "--cluster=" + clusterName, "--kubernetes-version=" + upgradeToVersion}
+	args := []string{"upgrade", "nodegroup", "--region=" + region, "--name=" + ngName, "--cluster=" + clusterName, "--kubernetes-version=" + upgradeToVersion}
 	fmt.Printf("Running command: eksctl %v\n", args)
 	out, err := proc.RunW("eksctl", args...)
 	if err != nil {
@@ -517,11 +517,12 @@ func GetFromEKS(region string, clusterName string, cmd string, query string) (ou
 }
 
 // Creates/Deletes EKS cluster nodegroup using EKS CLI
-func ModifyEKSNodegroupOnAWS(eks_region string, clusterName string, ngName string, operation string) error {
-	args := []string{operation, "nodegroup", "--region=" + eks_region, "--name=" + ngName, "--cluster=" + clusterName}
+func ModifyEKSNodegroupOnAWS(region string, clusterName string, ngName string, operation string, extraArgs ...string) error {
+	args := []string{operation, "nodegroup", "--region=" + region, "--name=" + ngName, "--cluster=" + clusterName}
 	if operation == "delete" {
 		args = append(args, "--disable-eviction")
 	}
+	args = append(args, extraArgs...)
 	fmt.Printf("Running command: eksctl %v\n", args)
 	out, err := proc.RunW("eksctl", args...)
 	if err != nil {
@@ -531,7 +532,7 @@ func ModifyEKSNodegroupOnAWS(eks_region string, clusterName string, ngName strin
 }
 
 // Complete cleanup steps for Amazon EKS
-func DeleteEKSClusterOnAWS(eks_region string, clusterName string) error {
+func DeleteEKSClusterOnAWS(region string, clusterName string) error {
 	currentKubeconfig := os.Getenv("KUBECONFIG")
 	downstreamKubeconfig := os.Getenv(helpers.DownstreamKubeconfig(clusterName))
 	defer func() {
@@ -540,9 +541,24 @@ func DeleteEKSClusterOnAWS(eks_region string, clusterName string) error {
 	}()
 	_ = os.Setenv("KUBECONFIG", downstreamKubeconfig)
 
+	fmt.Println("Deleting all nodegroups ...")
+	ngNames, err := GetFromEKS(region, clusterName, "nodegroup", ".[].Name")
+	if err != nil {
+		return errors.Wrap(err, "Failed to list nodegroup for deletion")
+	}
+
+	if ngNames != "" {
+		for _, ngName := range strings.Split(ngNames, "\n") {
+			err = ModifyEKSNodegroupOnAWS(region, clusterName, ngName, "delete", "--wait")
+			if err != nil {
+				return errors.Wrap(err, "Failed to delete nodegroup")
+			}
+		}
+	}
+
 	fmt.Println("Deleting EKS cluster ...")
-	// TODO: Fix and wait for cluster deletion
-	args := []string{"delete", "cluster", "--region=" + eks_region, "--name=" + clusterName, "--disable-nodegroup-eviction"}
+
+	args := []string{"delete", "cluster", "--region=" + region, "--name=" + clusterName}
 	fmt.Printf("Running command: eksctl %v\n", args)
 	out, err := proc.RunW("eksctl", args...)
 	if err != nil {
