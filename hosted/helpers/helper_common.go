@@ -341,3 +341,16 @@ func CheckMapKeys(map1, map2 map[string]string) (exists bool) {
 	}
 	return
 }
+
+// DefaultK8sVersion receives a list of version sorted in descending order (1.29, 1.28, 1.27, etc.);
+// it returns the k8s version to be used by the test depending on forUpgrade param
+func DefaultK8sVersion(descVersions []string, forUpgrade bool) (string, error) {
+	if !forUpgrade {
+		return descVersions[0], nil
+	}
+
+	if len(descVersions) < 2 {
+		return "", fmt.Errorf("no versions available for upgrade; available versions: %s; try changing the location/region", strings.Join(descVersions, ", "))
+	}
+	return descVersions[1], nil
+}

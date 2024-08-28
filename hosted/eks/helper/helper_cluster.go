@@ -438,15 +438,24 @@ func UpdateCluster(cluster *management.Cluster, client *rancher.Client, updateFu
 	return client.Management.Cluster.Update(cluster, &upgradedCluster)
 }
 
-// ListEKSAvailableVersions is a function to list and return only available EKS versions for a specific cluster.
-func ListEKSAvailableVersions(client *rancher.Client, clusterID string) (availableVersions []string, err error) {
-
-	allAvailableVersions, err := kubernetesversions.ListEKSAllVersions(client)
+// ListEKSAvailableVersions lists all the available and UI supported EKS versions for cluster upgrade.
+func ListEKSAvailableVersions(client *rancher.Client, cluster *management.Cluster) (availableVersions []string, err error) {
+	allAvailableVersions, err := kubernetesversions.ListEKSAvailableVersions(client, cluster)
 	if err != nil {
 		return nil, err
 	}
 
 	return helpers.FilterUIUnsupportedVersions(allAvailableVersions, client), nil
+}
+
+// ListEKSAllVersions lists all the versions supported by UI
+func ListEKSAllVersions(client *rancher.Client) (allVersions []string, err error) {
+	allVersions, err = kubernetesversions.ListEKSAllVersions(client)
+	if err != nil {
+		return
+	}
+
+	return helpers.FilterUIUnsupportedVersions(allVersions, client), nil
 }
 
 // <==============================EKS CLI==============================>
@@ -572,44 +581,17 @@ func DeleteEKSClusterOnAWS(region string, clusterName string) error {
 
 // <==============================EKS CLI(end)==============================>
 
-// defaultEKS returns a version less than the highest version or K8S_UPGRADE_MINOR_VERSION if it is set.
-// Note: It does not return the default version used by UI which is the highest supported version.
-func defaultEKS(client *rancher.Client, forUpgrade bool) (defaultEKS string, err error) {
-
-	var allVersions []string
-	allVersions, err = kubernetesversions.ListEKSAllVersions(client)
-	if err != nil {
-		return
-	}
-
-	versions := helpers.FilterUIUnsupportedVersions(allVersions, client)
-	maxValue := helpers.HighestK8sMinorVersionSupportedByUI(client)
-
-	for i := 0; i < len(versions); i++ {
-		version := versions[i]
-		// If UI maxValue not yet supported by operator
-		if !strings.Contains(version, maxValue) {
-			maxValue = versions[0]
-		}
-
-		if forUpgrade {
-			if result := helpers.VersionCompare(version, maxValue); result == -1 {
-				return version, nil
-			}
-		} else {
-			if strings.Contains(version, maxValue) {
-				return version, nil
-			}
-		}
-	}
-	return
-}
-
 // GetK8sVersion returns the k8s version to be used by the test;
-// this value can either be envvar DOWNSTREAM_K8S_MINOR_VERSION or the default UI value returned by DefaultEKS.
+// this value can either be a variant of envvar DOWNSTREAM_K8S_MINOR_VERSION or the highest available version
+// or second-highest minor version in case of upgrade scenarios
 func GetK8sVersion(client *rancher.Client, forUpgrade bool) (string, error) {
 	if k8sVersion := helpers.DownstreamK8sMinorVersion; k8sVersion != "" {
 		return k8sVersion, nil
 	}
-	return defaultEKS(client, forUpgrade)
+	allVariants, err := ListEKSAllVersions(client)
+	if err != nil {
+		return "", err
+	}
+
+	return helpers.DefaultK8sVersion(allVariants, forUpgrade)
 }

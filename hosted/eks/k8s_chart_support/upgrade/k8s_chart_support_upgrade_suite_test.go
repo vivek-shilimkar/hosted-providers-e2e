@@ -162,7 +162,7 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName
 
 	var latestVersion *string
 	By(fmt.Sprintf("fetching a list of available k8s versions and ensure the v%s is present in the list and upgrading the cluster to it", k8sUpgradedVersion), func() {
-		versions, err := helper.ListEKSAvailableVersions(ctx.RancherAdminClient, cluster.ID)
+		versions, err := helper.ListEKSAvailableVersions(ctx.RancherAdminClient, cluster)
 		Expect(err).To(BeNil())
 		Expect(versions).ToNot(BeEmpty())
 

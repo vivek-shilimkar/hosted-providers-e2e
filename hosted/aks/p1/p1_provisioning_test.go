@@ -245,11 +245,12 @@ var _ = Describe("P1Provisioning", func() {
 	It("should not be able to select NP K8s version; CP K8s version should take precedence", func() {
 		testCaseID = 182
 
-		k8sVersions, err := helper.ListSingleVariantAKSAvailableVersions(ctx.RancherAdminClient, ctx.CloudCred.ID, location)
+		k8sVersions, err := helper.ListSingleVariantAKSAllVersions(ctx.RancherAdminClient, ctx.CloudCred.ID, location)
 		Expect(err).To(BeNil())
 		Expect(len(k8sVersions)).To(BeNumerically(">=", 2))
-		cpK8sVersion := k8sVersions[0]
-		npK8sVersion := k8sVersions[1]
+		// CP > NP
+		cpK8sVersion := k8sVersions[1]
+		npK8sVersion := k8sVersions[0]
 
 		GinkgoLogr.Info(fmt.Sprintf("Using NP K8s version: %s and CP K8s version: %s", npK8sVersion, cpK8sVersion))
 

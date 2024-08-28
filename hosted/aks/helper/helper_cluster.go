@@ -1,10 +1,7 @@
 package helper
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -154,16 +151,17 @@ func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion 
 	return cluster, nil
 }
 
-// ListSingleVariantAKSAvailableVersions returns a list of single variants of minor versions
+// ListSingleVariantAKSAllVersions returns a list of single variants of minor versions in descending order
 // For e.g 1.27.5, 1.26.6, 1.25.8
-func ListSingleVariantAKSAvailableVersions(client *rancher.Client, cloudCredentialID, region string) (availableVersions []string, err error) {
+func ListSingleVariantAKSAllVersions(client *rancher.Client, cloudCredentialID, region string) (availableVersions []string, err error) {
 	availableVersions, err = kubernetesversions.ListAKSAllVersions(client, cloudCredentialID, region)
 	if err != nil {
 		return nil, err
 	}
 	var singleVersionList []string
 	var oldMinor uint64
-	for _, version := range availableVersions {
+	for i := len(availableVersions) - 1; i >= 0; i-- {
+		version := availableVersions[i]
 		semVersion := semver.MustParse(version)
 		if currentMinor := semVersion.Minor(); oldMinor != currentMinor {
 			singleVersionList = append(singleVersionList, version)
@@ -175,7 +173,7 @@ func ListSingleVariantAKSAvailableVersions(client *rancher.Client, cloudCredenti
 
 // GetK8sVersionVariantAKS returns a variant of a given minor K8s version
 func GetK8sVersionVariantAKS(minorVersion string, client *rancher.Client, cloudCredentialID, region string) (string, error) {
-	versions, err := ListSingleVariantAKSAvailableVersions(client, cloudCredentialID, region)
+	versions, err := ListSingleVariantAKSAllVersions(client, cloudCredentialID, region)
 	if err != nil {
 		return "", err
 	}
@@ -331,7 +329,7 @@ func ScaleNodePool(cluster *management.Cluster, client *rancher.Client, nodeCoun
 	return cluster, nil
 }
 
-// ListAKSAvailableVersions is a function to list and return only available AKS versions for a specific cluster.
+// ListAKSAvailableVersions lists all the available and UI supported AKS versions for cluster upgrade; in ascending order: 1.28.0, 1.28.3, etc.
 func ListAKSAvailableVersions(client *rancher.Client, clusterID string) ([]string, error) {
 	// kubernetesversions.ListAKSAvailableVersions expects cluster.Version.GitVersion to be available, which it is not sometimes, so we fetch the cluster again to ensure it has all the available data
 	cluster, err := client.Management.Cluster.ByID(clusterID)
@@ -469,7 +467,7 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 	}
 
 	fmt.Println("Creating AKS cluster ...")
-	args := []string{"aks", "create", "--resource-group", clusterName, "--generate-ssh-keys", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--subscription", subscriptionID, "--node-count", nodes, "--tags", formattedTags}
+	args := []string{"aks", "create", "--resource-group", clusterName, "--generate-ssh-keys", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--subscription", subscriptionID, "--node-count", nodes, "--tags", formattedTags, "--location", location}
 	fmt.Printf("Running command: az %v\n", args)
 	out, err = proc.RunW("az", args...)
 	if err != nil {
@@ -542,65 +540,17 @@ func DeleteAKSClusteronAzure(clusterName string) error {
 
 //====================================================================Azure CLI (end)=================================
 
-// defaultAKS returns the default AKS version used by Rancher; if forUpgrade is true, it returns the second-highest minor k8s version
-func defaultAKS(client *rancher.Client, cloudCredentialID, region string, forUpgrade bool) (defaultAKS string, err error) {
-	url := fmt.Sprintf("%s://%s/meta/aksVersions", "https", client.RancherConfig.Host)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Add("Authorization", "Bearer "+client.RancherConfig.AdminToken)
-
-	q := req.URL.Query()
-	q.Add("cloudCredentialId", cloudCredentialID)
-	q.Add("region", region)
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := client.Management.APIBaseClient.Ops.Client.Do(req)
-	if err != nil {
-		return
-	}
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-
-	var versions []string
-	if err = json.Unmarshal(bodyBytes, &versions); err != nil {
-		return
-	}
-
-	maxValue := helpers.HighestK8sMinorVersionSupportedByUI(client)
-
-	// Iterate in the reverse order to get the highest version
-	// We obtain the value similar to UI; ref: https://github.com/rancher/ui/blob/master/lib/shared/addon/components/cluster-driver/driver-azureaks/component.js#L140
-	// For upgrade tests, it returns a variant of the second-highest minor version
-	for i := len(versions) - 1; i >= 0; i-- {
-		version := versions[i]
-		// If UI maxValue not yet supported by operator
-		if !strings.Contains(version, maxValue) {
-			maxValue = versions[len(versions)-1]
-		}
-
-		if forUpgrade {
-			if result := helpers.VersionCompare(version, maxValue); result == -1 {
-				return version, nil
-			}
-		} else {
-			if strings.Contains(version, maxValue) {
-				return version, nil
-			}
-		}
-	}
-
-	return
-}
-
 // GetK8sVersion returns the k8s version to be used by the test;
-// this value can either be a variant of envvar DOWNSTREAM_K8S_MINOR_VERSION or the default UI value returned by defaultAKS.
+// this value can either be a variant of envvar DOWNSTREAM_K8S_MINOR_VERSION or the highest available version
+// or second-highest minor version in case of upgrade scenarios
 func GetK8sVersion(client *rancher.Client, cloudCredentialID, region string, forUpgrade bool) (string, error) {
 	if k8sMinorVersion := helpers.DownstreamK8sMinorVersion; k8sMinorVersion != "" {
 		return GetK8sVersionVariantAKS(k8sMinorVersion, client, cloudCredentialID, region)
 	}
-	return defaultAKS(client, cloudCredentialID, region, forUpgrade)
+	allVariants, err := ListSingleVariantAKSAllVersions(client, cloudCredentialID, region)
+	if err != nil {
+		return "", err
+	}
+
+	return helpers.DefaultK8sVersion(allVariants, forUpgrade)
 }
