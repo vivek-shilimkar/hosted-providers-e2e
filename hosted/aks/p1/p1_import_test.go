@@ -56,6 +56,24 @@ var _ = Describe("P1Import", func() {
 			testCaseID = 270
 			updateTagsCheck(cluster, ctx.RancherAdminClient)
 		})
+
+		It("should be able to update cluster monitoring", func() {
+			testCaseID = 271
+			updateMonitoringCheck(cluster, ctx.RancherAdminClient)
+		})
+
+	})
+
+	It("should be able to register a cluster with no rbac", func() {
+		testCaseID = 237
+		err := helper.CreateAKSClusterOnAzure(location, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels(), "--disable-rbac")
+		Expect(err).To(BeNil())
+
+		cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, location, helpers.GetCommonMetadataLabels())
+		Expect(err).To(BeNil())
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
 	})
 
 	When("a cluster is created with multiple nodepools", func() {

@@ -96,6 +96,24 @@ var _ = Describe("P1Provisioning", func() {
 		Expect(cluster.AKSStatus.UpstreamSpec.Tags).To(HaveKeyWithValue("empty-tag", ""))
 	})
 
+	XIt("should be able to create cluster with container monitoring enabled", func() {
+		// blocked by https://github.com/rancher/shepherd/issues/274
+		testCaseID = 199
+		updateFunc := func(aksConfig *aks.ClusterConfig) {
+			aksConfig.Monitoring = pointer.Bool(true)
+		}
+		var err error
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+		Expect(err).To(BeNil())
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+
+		Expect(*cluster.AKSConfig.Monitoring).To(Equal(true))
+		Expect(*cluster.AKSStatus.UpstreamSpec.Monitoring).To(Equal(true))
+	})
+
 	When("a cluster with invalid config is created", func() {
 		It("should fail to create a cluster with 0 nodecount", func() {
 			testCaseID = 186
@@ -131,6 +149,26 @@ var _ = Describe("P1Provisioning", func() {
 				return cluster.Transitioning == "error" && cluster.TransitioningMessage == "at least one NodePool with mode System is required"
 			}, "1m", "2s").Should(BeTrue())
 		})
+
+		It("should fail to create cluster with Nodepool Max pods per node 9", func() {
+			testCaseID = 203
+			updateFunc := func(aksConfig *aks.ClusterConfig) {
+				nodepools := *aksConfig.NodePools
+				for i := range nodepools {
+					nodepools[i].MaxPods = pointer.Int64(9)
+				}
+				aksConfig.NodePools = &nodepools
+			}
+			var err error
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() bool {
+				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+				Expect(err).NotTo(HaveOccurred())
+				return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "InsufficientMaxPods")
+			}, "1m", "2s").Should(BeTrue())
+
+		})
 	})
 
 	When("a cluster is created", func() {
@@ -150,6 +188,11 @@ var _ = Describe("P1Provisioning", func() {
 		It("should be able to update tags", func() {
 			testCaseID = 177
 			updateTagsCheck(cluster, ctx.RancherAdminClient)
+		})
+
+		It("should be able to update cluster monitoring", func() {
+			testCaseID = 200
+			updateMonitoringCheck(cluster, ctx.RancherAdminClient)
 		})
 
 		It("recreating a cluster while it is being deleted should recreate the cluster", func() {

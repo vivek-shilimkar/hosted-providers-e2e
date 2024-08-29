@@ -455,7 +455,7 @@ func UpdateCluster(cluster *management.Cluster, client *rancher.Client, updateFu
 
 // ====================================================================Azure CLI (start)=================================
 // Create Azure AKS cluster using AZ CLI
-func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string, tags map[string]string) error {
+func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string, tags map[string]string, clusterCreateArgs ...string) error {
 	formattedTags := convertMapToAKSString(tags)
 	fmt.Println("Creating AKS resource group ...")
 	rgargs := []string{"group", "create", "--location", location, "--resource-group", clusterName, "--subscription", subscriptionID}
@@ -468,6 +468,7 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 
 	fmt.Println("Creating AKS cluster ...")
 	args := []string{"aks", "create", "--resource-group", clusterName, "--generate-ssh-keys", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--subscription", subscriptionID, "--node-count", nodes, "--tags", formattedTags, "--location", location}
+	args = append(args, clusterCreateArgs...)
 	fmt.Printf("Running command: az %v\n", args)
 	out, err = proc.RunW("az", args...)
 	if err != nil {
