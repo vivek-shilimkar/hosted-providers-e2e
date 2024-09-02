@@ -3,7 +3,7 @@ module github.com/rancher/hosted-providers-e2e
 go 1.22
 
 require (
-	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/epinio/epinio v1.11.0
 	github.com/onsi/ginkgo/v2 v2.19.0
@@ -16,6 +16,8 @@ require (
 	k8s.io/apimachinery v0.29.4
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 )
+
+require github.com/rancher/norman v0.0.0-20240503193601-9f5f6586bb5b
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
@@ -73,7 +75,6 @@ require (
 	github.com/rancher/fleet/pkg/apis v0.0.0-20231017140638-93432f288e79 // indirect
 	github.com/rancher/gke-operator v1.9.0-rc.1 // indirect
 	github.com/rancher/lasso v0.0.0-20240424194130-d87ec407d941 // indirect
-	github.com/rancher/norman v0.0.0-20240503193601-9f5f6586bb5b // indirect
 	github.com/rancher/rancher/pkg/apis v0.0.0-20240529155832-64dbde013b4c // indirect
 	github.com/rancher/rke v1.6.0-rc4 // indirect
 	github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20210727200656-10b094e30007 // indirect
