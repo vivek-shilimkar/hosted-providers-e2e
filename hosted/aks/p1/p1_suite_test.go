@@ -236,21 +236,20 @@ func updateMonitoringCheck(cluster *management.Cluster, client *rancher.Client) 
 		}, "7m", "5s").Should(BeTrue())
 	})
 
-	// TODO: uncomment this once https://github.com/rancher/aks-operator/issues/584 is fixed.
-	/*	By("disabling the monitoring", func() {
-			updateFunc := func(cluster *management.Cluster) {
-				cluster.AKSConfig.Monitoring = pointer.Bool(false)
-			}
-			var err error
-			cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
-			Expect(err).To(BeNil())
+	By("disabling the monitoring", func() {
+		updateFunc := func(cluster *management.Cluster) {
+			cluster.AKSConfig.Monitoring = pointer.Bool(false)
+		}
+		var err error
+		cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
+		Expect(err).To(BeNil())
 
-			Expect(*cluster.AKSConfig.Monitoring).To(BeFalse())
-			Eventually(func() bool {
-				cluster, err = client.Management.Cluster.ByID(cluster.ID)
-				Expect(err).To(BeNil())
-				return cluster.AKSStatus.UpstreamSpec.Monitoring != nil && *cluster.AKSStatus.UpstreamSpec.Monitoring
-			}, "7m", "5s").Should(BeFalse())
-		})
-	*/
+		Expect(*cluster.AKSConfig.Monitoring).To(BeFalse())
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return cluster.AKSStatus.UpstreamSpec.Monitoring != nil && *cluster.AKSStatus.UpstreamSpec.Monitoring
+		}, "7m", "5s").Should(BeFalse())
+	})
+
 }
