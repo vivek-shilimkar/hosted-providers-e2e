@@ -24,7 +24,7 @@ var _ = Describe("P1Import", func() {
 
 			err = helper.CreateEKSClusterOnAWS(region, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels())
 			Expect(err).To(BeNil())
-			cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, region)
+			cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, region)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -68,7 +68,7 @@ var _ = Describe("P1Import", func() {
 
 			err = helper.CreateEKSClusterOnAWS(region, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels())
 			Expect(err).To(BeNil())
-			cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, region)
+			cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, region)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -97,7 +97,7 @@ var _ = Describe("P1Import", func() {
 				return cluster.ID
 			}, "30s", "3s").Should(BeEmpty())
 
-			cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, region)
+			cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, region)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -147,7 +147,7 @@ var _ = Describe("P1Import", func() {
 				testCaseID = 101
 
 				// We do not assign the cluster returned by import function to `cluster` since it will be nil and the cluster won't be deleted in AfterEach
-				_, err := helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, region)
+				_, err := helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, region)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(ContainSubstring("cluster already exists for EKS cluster")))
 			})
@@ -161,7 +161,7 @@ var _ = Describe("P1Import", func() {
 				err = helper.ModifyEKSNodegroupOnAWS(region, clusterName, "ranchernodes", "delete", "--wait")
 				Expect(err).To(BeNil())
 
-				cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, region)
+				cluster, err = helper.ImportEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, region)
 				Expect(err).To(BeNil())
 				Eventually(func() bool {
 					cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)

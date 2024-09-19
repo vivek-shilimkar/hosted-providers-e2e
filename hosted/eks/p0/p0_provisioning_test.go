@@ -55,7 +55,7 @@ var _ = Describe("P0Provisioning", func() {
 				k8sVersion, err := helper.GetK8sVersion(ctx.RancherAdminClient, testData.isUpgrade)
 				Expect(err).To(BeNil())
 				GinkgoLogr.Info(fmt.Sprintf("While provisioning, using K8s version %s for cluster %s", k8sVersion, clusterName))
-				cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, nil)
+				cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, nil)
 				Expect(err).To(BeNil())
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())

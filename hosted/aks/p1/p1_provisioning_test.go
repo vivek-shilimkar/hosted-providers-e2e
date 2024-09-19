@@ -20,7 +20,7 @@ var _ = Describe("P1Provisioning", func() {
 	var k8sVersion string
 	BeforeEach(func() {
 		var err error
-		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location, false)
+		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, false)
 		Expect(err).NotTo(HaveOccurred())
 		GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
 	})
@@ -62,7 +62,7 @@ var _ = Describe("P1Provisioning", func() {
 			aksConfig.NodePools = &updatedNodePools
 		}
 		var err error
-		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
 		Expect(err).To(BeNil())
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
@@ -80,7 +80,7 @@ var _ = Describe("P1Provisioning", func() {
 			aksConfig.Tags["empty-tag"] = ""
 		}
 		var err error
-		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
 		Expect(err).To(BeNil())
 		Expect(cluster.AKSConfig.Tags).To(HaveKeyWithValue("empty-tag", ""))
 
@@ -103,7 +103,7 @@ var _ = Describe("P1Provisioning", func() {
 			aksConfig.Monitoring = pointer.Bool(true)
 		}
 		var err error
-		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
 		Expect(err).To(BeNil())
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
@@ -125,7 +125,7 @@ var _ = Describe("P1Provisioning", func() {
 				aksConfig.NodePools = &nodepools
 			}
 			var err error
-			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() bool {
@@ -141,7 +141,7 @@ var _ = Describe("P1Provisioning", func() {
 				aksConfig.NodePools = &[]aks.NodePool{}
 			}
 			var err error
-			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() bool {
 				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
@@ -160,7 +160,7 @@ var _ = Describe("P1Provisioning", func() {
 				aksConfig.NodePools = &nodepools
 			}
 			var err error
-			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() bool {
 				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
@@ -174,7 +174,7 @@ var _ = Describe("P1Provisioning", func() {
 	When("a cluster is created", func() {
 		BeforeEach(func() {
 			var err error
-			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, nil)
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).NotTo(HaveOccurred())
@@ -208,7 +208,7 @@ var _ = Describe("P1Provisioning", func() {
 				return exists
 			}, "1m", "5s").Should(BeFalse())
 
-			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, nil)
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
 			Expect(err).To(BeNil())
 
 			// wait until the error is visible on the provisioned cluster
@@ -227,11 +227,11 @@ var _ = Describe("P1Provisioning", func() {
 	When("a cluster is created for upgrade", func() {
 		BeforeEach(func() {
 			var err error
-			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCred.ID, location, true)
+			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
 			Expect(err).NotTo(HaveOccurred())
 			GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
 
-			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, nil)
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).NotTo(HaveOccurred())
@@ -246,7 +246,7 @@ var _ = Describe("P1Provisioning", func() {
 	It("deleting a cluster while it is in creation state should delete it from rancher and cloud console", func() {
 		testCaseID = 218
 		var err error
-		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, nil)
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
 		Expect(err).To(BeNil())
 
 		// Wait for the cluster to appear on cloud console before deleting it
@@ -288,7 +288,7 @@ var _ = Describe("P1Provisioning", func() {
 	It("should not be able to select NP K8s version; CP K8s version should take precedence", func() {
 		testCaseID = 182
 
-		k8sVersions, err := helper.ListSingleVariantAKSAllVersions(ctx.RancherAdminClient, ctx.CloudCred.ID, location)
+		k8sVersions, err := helper.ListSingleVariantAKSAllVersions(ctx.RancherAdminClient, ctx.CloudCredID, location)
 		Expect(err).To(BeNil())
 		Expect(len(k8sVersions)).To(BeNumerically(">=", 2))
 		// CP > NP
@@ -305,7 +305,7 @@ var _ = Describe("P1Provisioning", func() {
 			*clusterConfig.NodePools = nodePools
 		}
 
-		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, cpK8sVersion, location, updateFunc)
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, cpK8sVersion, location, updateFunc)
 		Expect(err).To(BeNil())
 
 		Expect(*cluster.AKSConfig.KubernetesVersion).To(Equal(cpK8sVersion))
@@ -361,7 +361,7 @@ var _ = Describe("P1Provisioning", func() {
 				*clusterConfig.NodePools = updatedNodePools
 			}
 			var err error
-			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, location, updateFunc)
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())

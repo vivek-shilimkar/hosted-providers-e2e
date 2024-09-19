@@ -1,7 +1,7 @@
 aksClusterConfig:
   azureCredentialSecret: ""
   dnsPrefix: ""
-  kubernetesVersion: 1.26.10
+  kubernetesVersion: 1.29.7
   linuxAdminUsername: azureuser
   loadBalancerSku: Standard
   networkPlugin: kubenet
@@ -58,6 +58,8 @@ eksClusterConfig:
   subnets: []
   tags: {}
 gkeClusterConfig:
+  autopilotConfig:
+    enabled: false
   clusterAddons:
     horizontalPodAutoscaling: true
     httpLoadBalancing: true
@@ -112,7 +114,7 @@ gkeClusterConfig:
       autoUpgrade: true
     maxPodsConstraint: 110
     name: np
-    version: 1.27.3-gke.100
+    version: 1.29.8-gke.1211000
   privateClusterConfig:
     enablePrivateEndpoint: false
     enablePrivateNodes: false

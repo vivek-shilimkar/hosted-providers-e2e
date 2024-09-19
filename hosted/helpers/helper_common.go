@@ -8,16 +8,18 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher/rancher/tests/v2/actions/clusters"
+	"github.com/rancher/rancher/tests/v2/actions/pipeline"
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
+	v1 "github.com/rancher/shepherd/clients/rancher/v1"
 	"github.com/rancher/shepherd/extensions/cloudcredentials"
 	"github.com/rancher/shepherd/extensions/cloudcredentials/aws"
 	"github.com/rancher/shepherd/extensions/cloudcredentials/azure"
 	"github.com/rancher/shepherd/extensions/cloudcredentials/google"
-	"github.com/rancher/shepherd/extensions/clusters"
+	shepherdclusters "github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/defaults"
 	nodestat "github.com/rancher/shepherd/extensions/nodes"
-	"github.com/rancher/shepherd/extensions/pipeline"
 	"github.com/rancher/shepherd/extensions/users"
 	password "github.com/rancher/shepherd/extensions/users/passwordgenerator"
 	"github.com/rancher/shepherd/extensions/workloads/pods"
@@ -90,25 +92,14 @@ func CommonBeforeSuite() Context {
 	_, err = rancherAdminClient.Management.Setting.Update(resp, setting)
 	Expect(err).To(BeNil())
 
-	var cloudCredential *cloudcredentials.CloudCredential
-
-	switch Provider {
-	case "aks":
-		cloudCredential, err = azure.CreateAzureCloudCredentials(rancherAdminClient)
-		Expect(err).To(BeNil())
-	case "eks":
-		cloudCredential, err = aws.CreateAWSCloudCredentials(rancherAdminClient)
-		Expect(err).To(BeNil())
-	case "gke":
-		cloudCredential, err = google.CreateGoogleCloudCredentials(rancherAdminClient)
-		Expect(err).To(BeNil())
-	}
+	cloudCredID, err := CreateCloudCredentials(rancherAdminClient)
+	Expect(err).To(BeNil())
 
 	return Context{
-		CloudCred:          cloudCredential,
 		RancherAdminClient: rancherAdminClient,
 		Session:            testSession,
 		ClusterCleanup:     clusterCleanup,
+		CloudCredID:        cloudCredID,
 	}
 }
 
@@ -131,21 +122,11 @@ func CreateStdUserClient(ctx *Context) {
 	stdUserClient, err := ctx.RancherAdminClient.AsUser(stdUser)
 	Expect(err).To(BeNil())
 
-	var cloudCredential *cloudcredentials.CloudCredential
-	switch Provider {
-	case "aks":
-		cloudCredential, err = azure.CreateAzureCloudCredentials(stdUserClient)
-		Expect(err).To(BeNil())
-	case "eks":
-		cloudCredential, err = aws.CreateAWSCloudCredentials(stdUserClient)
-		Expect(err).To(BeNil())
-	case "gke":
-		cloudCredential, err = google.CreateGoogleCloudCredentials(stdUserClient)
-		Expect(err).To(BeNil())
-	}
+	cloudCredID, err := CreateCloudCredentials(stdUserClient)
+	Expect(err).To(BeNil())
 
-	ctx.CloudCred = cloudCredential
 	ctx.StdUserClient = stdUserClient
+	ctx.CloudCredID = cloudCredID
 }
 
 // WaitUntilClusterIsReady waits until the cluster is in a Ready state,
@@ -159,7 +140,7 @@ func WaitUntilClusterIsReady(cluster *management.Cluster, client *rancher.Client
 		return nil, err
 	}
 
-	watchFunc := clusters.IsHostedProvisioningClusterReady
+	watchFunc := shepherdclusters.IsHostedProvisioningClusterReady
 
 	err = wait.WatchWait(watchInterface, watchFunc)
 	if err != nil {
@@ -353,4 +334,28 @@ func DefaultK8sVersion(descVersions []string, forUpgrade bool) (string, error) {
 		return "", fmt.Errorf("no versions available for upgrade; available versions: %s; try changing the location/region", strings.Join(descVersions, ", "))
 	}
 	return descVersions[1], nil
+}
+
+func CreateCloudCredentials(client *rancher.Client) (string, error) {
+	var (
+		err                   error
+		cloudCredential       *v1.SteveAPIObject
+		cloudCredentialConfig cloudcredentials.CloudCredential
+	)
+
+	switch Provider {
+	case "aks":
+		cloudCredentialConfig = cloudcredentials.LoadCloudCredential("azure")
+		cloudCredential, err = azure.CreateAzureCloudCredentials(client, cloudCredentialConfig)
+		Expect(err).To(BeNil())
+	case "eks":
+		cloudCredentialConfig = cloudcredentials.LoadCloudCredential("aws")
+		cloudCredential, err = aws.CreateAWSCloudCredentials(client, cloudCredentialConfig)
+		Expect(err).To(BeNil())
+	case "gke":
+		cloudCredentialConfig = cloudcredentials.LoadCloudCredential("google")
+		cloudCredential, err = google.CreateGoogleCloudCredentials(client, cloudCredentialConfig)
+		Expect(err).To(BeNil())
+	}
+	return fmt.Sprintf("%s:%s", cloudCredential.Namespace, cloudCredential.Name), nil
 }

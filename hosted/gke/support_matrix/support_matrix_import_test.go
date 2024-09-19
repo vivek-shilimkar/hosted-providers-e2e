@@ -42,7 +42,7 @@ var _ = Describe("SupportMatrixImport", func() {
 				var err error
 				err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, version)
 				Expect(err).To(BeNil())
-				cluster, err = helper.ImportGKEHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, zone, project)
+				cluster, err = helper.ImportGKEHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCredID, zone, project)
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)

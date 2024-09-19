@@ -44,7 +44,7 @@ var _ = Describe("P1Provisioning", func() {
 			}
 
 			var err error
-			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, updateFunc)
+			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, updateFunc)
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
@@ -70,7 +70,7 @@ var _ = Describe("P1Provisioning", func() {
 				}
 				*clusterConfig.NodeGroupsConfig = updatedNodeGroupsList
 			}
-			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, updateFunc)
+			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, updateFunc)
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
@@ -88,7 +88,7 @@ var _ = Describe("P1Provisioning", func() {
 				clusterConfig.SecurityGroups = sg
 			}
 			var err error
-			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, updateFunc)
+			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, updateFunc)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("subnets must be provided if security groups are provided")))
 		})
@@ -97,7 +97,7 @@ var _ = Describe("P1Provisioning", func() {
 			testCaseID = 147 // also covers 146
 
 			var err error
-			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, nil)
+			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -116,7 +116,7 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			GinkgoLogr.Info(fmt.Sprintf("While provisioning, using kubernetes version %s for cluster %s", k8sVersion, clusterName))
 
-			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, nil)
+			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -152,7 +152,7 @@ var _ = Describe("P1Provisioning", func() {
 
 		BeforeEach(func() {
 			var err error
-			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, k8sVersion, region, nil)
+			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())

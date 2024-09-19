@@ -38,7 +38,7 @@ func TestSupportMatrix(t *testing.T) {
 	ctx = helpers.CommonBeforeSuite()
 	helpers.CreateStdUserClient(&ctx)
 	var err error
-	availableVersionList, err = helper.ListSingleVariantAKSAllVersions(ctx.StdUserClient, ctx.CloudCred.ID, location)
+	availableVersionList, err = helper.ListSingleVariantAKSAllVersions(ctx.StdUserClient, ctx.CloudCredID, location)
 	Expect(err).To(BeNil())
 	RunSpecs(t, "SupportMatrix Suite")
 }

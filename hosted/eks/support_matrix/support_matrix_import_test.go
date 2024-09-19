@@ -42,7 +42,7 @@ var _ = Describe("SupportMatrixImport", func() {
 				var err error
 				err = helper.CreateEKSClusterOnAWS(region, clusterName, version, "1", helpers.GetCommonMetadataLabels())
 				Expect(err).To(BeNil())
-				cluster, err = helper.ImportEKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, region)
+				cluster, err = helper.ImportEKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCredID, region)
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)

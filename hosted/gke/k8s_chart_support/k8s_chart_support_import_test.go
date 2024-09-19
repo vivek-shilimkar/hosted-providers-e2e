@@ -20,7 +20,7 @@ var _ = Describe("K8sChartSupportImport", func() {
 		err := helper.CreateGKEClusterOnGCloud(zone, clusterName, project, k8sVersion)
 		Expect(err).To(BeNil())
 
-		cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
+		cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, zone, project)
 		Expect(err).To(BeNil())
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())

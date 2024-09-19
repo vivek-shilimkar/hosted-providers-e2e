@@ -312,7 +312,6 @@ func UpdateLogging(cluster *management.Cluster, client *rancher.Client, loggingT
 			ginkgo.GinkgoLogr.Info("Waiting for the logging changes to appear in EKSStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			fmt.Println(*cluster.EKSStatus.UpstreamSpec.LoggingTypes)
 			return *cluster.EKSStatus.UpstreamSpec.LoggingTypes
 		}, tools.SetTimeout(10*time.Minute), 15*time.Second).Should(HaveExactElements(loggingTypes))
 	}

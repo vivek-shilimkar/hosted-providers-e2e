@@ -17,7 +17,7 @@ var _ = Describe("P1Import", func() {
 
 	var _ = BeforeEach(func() {
 		var err error
-		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", false)
+		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "", false)
 		Expect(err).To(BeNil())
 		GinkgoLogr.Info(fmt.Sprintf("While importing, using kubernetes version %s for cluster %s", k8sVersion, clusterName))
 	})
@@ -40,7 +40,7 @@ var _ = Describe("P1Import", func() {
 			err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, k8sVersion)
 			Expect(err).To(BeNil())
 
-			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
+			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, zone, project)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -48,7 +48,7 @@ var _ = Describe("P1Import", func() {
 
 		It("should fail to reimport an imported cluster", func() {
 			testCaseID = 49
-			_, err := helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
+			_, err := helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, zone, project)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("cluster already exists for GKE cluster [%s] in zone [%s]", clusterName, zone)))
 		})
@@ -82,7 +82,7 @@ var _ = Describe("P1Import", func() {
 				_, err := ctx.RancherAdminClient.Management.Cluster.ByID(clusterID)
 				return err
 			}, "10s", "1s").ShouldNot(BeNil())
-			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
+			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, zone, project)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -125,7 +125,7 @@ var _ = Describe("P1Import", func() {
 			err = helper.AddNodePoolOnGCloud(clusterName, zone, project, "")
 			Expect(err).To(BeNil())
 
-			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
+			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, zone, project)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -154,14 +154,14 @@ var _ = Describe("P1Import", func() {
 
 		BeforeEach(func() {
 			var err error
-			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCred.ID, zone, "", true)
+			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "", true)
 			Expect(err).To(BeNil())
 			GinkgoLogr.Info(fmt.Sprintf("Using kubernetes version %s for cluster %s", k8sVersion, clusterName))
 
 			err = helper.CreateGKEClusterOnGCloud(zone, clusterName, project, k8sVersion)
 			Expect(err).To(BeNil())
 
-			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCred.ID, zone, project)
+			cluster, err = helper.ImportGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, zone, project)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())

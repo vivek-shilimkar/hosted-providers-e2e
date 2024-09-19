@@ -41,7 +41,7 @@ var _ = Describe("SupportMatrixImport", func() {
 				clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				err := helper.CreateAKSClusterOnAzure(location, clusterName, version, "1", helpers.GetCommonMetadataLabels())
 				Expect(err).To(BeNil())
-				cluster, err = helper.ImportAKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCred.ID, location, helpers.GetCommonMetadataLabels())
+				cluster, err = helper.ImportAKSHostedCluster(ctx.StdUserClient, clusterName, ctx.CloudCredID, location, helpers.GetCommonMetadataLabels())
 				Expect(err).To(BeNil())
 				// Requires RancherAdminClient
 				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
