@@ -27,3 +27,4 @@ updates:
       update-types: ["version-update:semver-major", "version-update:semver-minor"]
     - dependency-name: "github.com/rancher/client-go"
     - dependency-name: "github.com/rancher/shepherd"
+    - dependency-name: "github.com/rancher/rancher"
