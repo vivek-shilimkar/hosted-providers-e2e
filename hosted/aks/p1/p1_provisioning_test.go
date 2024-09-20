@@ -2,13 +2,17 @@ package p1_test
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/epinio/epinio/acceptance/helpers/proc"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	"github.com/rancher/shepherd/extensions/clusters/aks"
+	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 	"k8s.io/utils/pointer"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
@@ -96,8 +100,8 @@ var _ = Describe("P1Provisioning", func() {
 		Expect(cluster.AKSStatus.UpstreamSpec.Tags).To(HaveKeyWithValue("empty-tag", ""))
 	})
 
-	XIt("should be able to create cluster with container monitoring enabled", func() {
-		// blocked by https://github.com/rancher/shepherd/issues/274
+	It("should be able to create cluster with container monitoring enabled", func() {
+		// Refer: https://github.com/rancher/shepherd/issues/274
 		testCaseID = 199
 		updateFunc := func(aksConfig *aks.ClusterConfig) {
 			aksConfig.Monitoring = pointer.Bool(true)
@@ -105,13 +109,13 @@ var _ = Describe("P1Provisioning", func() {
 		var err error
 		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
 		Expect(err).To(BeNil())
+		Expect(*cluster.AKSConfig.Monitoring).To(BeTrue())
+
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 
 		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
-
-		Expect(*cluster.AKSConfig.Monitoring).To(Equal(true))
-		Expect(*cluster.AKSStatus.UpstreamSpec.Monitoring).To(Equal(true))
+		Expect(*cluster.AKSStatus.UpstreamSpec.Monitoring).To(BeTrue())
 	})
 
 	When("a cluster with invalid config is created", func() {
@@ -180,6 +184,27 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
+		It("should not delete the resource group when cluster is deleted", func() {
+			testCaseID = 207
+			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+			// marking as nil so that AfterEach does not raise an error
+			cluster = nil
+
+			// wait until the cluster is deleted from cloud console
+			Eventually(func() (exists bool) {
+				exists, err = helper.ClusterExistsOnAzure(clusterName, clusterName)
+				Expect(err).To(BeNil())
+				return exists
+			}, "5m", "5s").Should(BeFalse())
+
+			// check that the resource group still exists
+			var out string
+			out, err = proc.RunW("az", "group", "show", "--subscription", os.Getenv("AKS_SUBSCRIPTION_ID"), "--name", clusterName)
+			Expect(err).To(BeNil())
+			Expect(out).To(ContainSubstring(fmt.Sprintf("\"name\": \"%s\"", clusterName)))
+		})
+
 		It("should be able to update autoscaling", func() {
 			testCaseID = 176
 			updateAutoScaling(cluster, ctx.RancherAdminClient)
@@ -188,6 +213,17 @@ var _ = Describe("P1Provisioning", func() {
 		It("should be able to update tags", func() {
 			testCaseID = 177
 			updateTagsCheck(cluster, ctx.RancherAdminClient)
+		})
+
+		It("should have cluster monitoring disabled by default", func() {
+			testCaseID = 198
+			Expect(cluster.AKSConfig.Monitoring).To(BeNil())
+			Expect(cluster.AKSStatus.UpstreamSpec.Monitoring).To(BeNil())
+		})
+
+		It("should fail to change system nodepool count to 0", func() {
+			testCaseID = 202
+			updateSystemNodePoolCountToZeroCheck(cluster, ctx.RancherAdminClient)
 		})
 
 		It("should be able to update cluster monitoring", func() {
@@ -222,6 +258,29 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 		})
 
+	})
+
+	It("should successfully create 2 clusters in the same RG", func() {
+		testCaseID = 217
+		rgName := namegen.AppendRandomString("custom-aks-rg")
+		updateFunc := func(aksConfig *aks.ClusterConfig) {
+			aksConfig.ResourceGroup = rgName
+		}
+		var wg sync.WaitGroup
+		for i := 1; i <= 2; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				clusterName := namegen.AppendRandomString(helpers.ClusterNamePrefix)
+				cluster1, err := helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
+				Expect(err).To(BeNil())
+				cluster1, err = helpers.WaitUntilClusterIsReady(cluster1, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+				err = helper.DeleteAKSHostCluster(cluster1, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+			}()
+		}
+		wg.Wait()
 	})
 
 	When("a cluster is created for upgrade", func() {
@@ -384,6 +443,10 @@ var _ = Describe("P1Provisioning", func() {
 			testCaseID = 191
 			removeSystemNpCheck(cluster, ctx.RancherAdminClient)
 		})
-	})
 
+		It("should successfully edit System NodePool", func() {
+			testCaseID = 204
+			updateSystemNodePoolCheck(cluster, ctx.RancherAdminClient)
+		})
+	})
 })

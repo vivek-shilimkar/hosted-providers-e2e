@@ -253,3 +253,70 @@ func updateMonitoringCheck(cluster *management.Cluster, client *rancher.Client) 
 	})
 
 }
+
+func updateSystemNodePoolCountToZeroCheck(cluster *management.Cluster, client *rancher.Client) {
+	updateFunc := func(cluster *management.Cluster) {
+		nodepools := cluster.AKSConfig.NodePools
+		for i, nodepool := range nodepools {
+			if nodepool.Mode == "System" {
+				nodepools[i].Count = pointer.Int64(0)
+			}
+		}
+		cluster.AKSConfig.NodePools = nodepools
+	}
+	var err error
+	cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() bool {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).NotTo(HaveOccurred())
+		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "It must be greater or equal to minCount:1 and less than or equal to maxCount:1000")
+	}, "1m", "2s").Should(BeTrue())
+}
+
+func updateSystemNodePoolCheck(cluster *management.Cluster, client *rancher.Client) {
+	var (
+		count              int64 = 4
+		minCount           int64 = 2
+		maxCount           int64 = 10
+		autoscalingEnabled       = true
+	)
+	const systemMode = "System"
+	updateFunc := func(cluster *management.Cluster) {
+		nodepools := cluster.AKSConfig.NodePools
+		for i := range nodepools {
+			if nodepools[i].Mode == systemMode {
+				nodepools[i].Count = &count
+				nodepools[i].EnableAutoScaling = &autoscalingEnabled
+				nodepools[i].MinCount = &minCount
+				nodepools[i].MaxCount = &maxCount
+			}
+		}
+		cluster.AKSConfig.NodePools = nodepools
+	}
+	var err error
+	cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
+	Expect(err).To(BeNil())
+
+	for _, np := range cluster.AKSConfig.NodePools {
+		if np.Mode == systemMode {
+			Expect(*np.EnableAutoScaling).To(BeTrue())
+			Expect(*np.MinCount).To(BeNumerically("==", minCount))
+			Expect(*np.MaxCount).To(BeNumerically("==", maxCount))
+			Expect(*np.Count).To(BeNumerically("==", count))
+		}
+	}
+
+	Eventually(func() bool {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).To(BeNil())
+		for _, np := range cluster.AKSStatus.UpstreamSpec.NodePools {
+			if np.Mode == systemMode {
+				if !((np.EnableAutoScaling != nil && *np.EnableAutoScaling == true) && (*np.MaxCount == maxCount) && (*np.MinCount == minCount) && (*np.Count == count)) {
+					return false
+				}
+			}
+		}
+		return true
+	}, "5m", "5s").Should(BeTrue(), "Failed while upstream nodepool update")
+}

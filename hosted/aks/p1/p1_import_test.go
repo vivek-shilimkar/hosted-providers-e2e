@@ -2,6 +2,7 @@ package p1_test
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,7 +36,7 @@ var _ = Describe("P1Import", func() {
 		}
 	})
 
-	When("a cluster is created", func() {
+	When("a cluster is created and imported", func() {
 		BeforeEach(func() {
 			var err error
 			err = helper.CreateAKSClusterOnAzure(location, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels())
@@ -57,11 +58,39 @@ var _ = Describe("P1Import", func() {
 			updateTagsCheck(cluster, ctx.RancherAdminClient)
 		})
 
+		It("should fail to change system nodepool count to 0", func() {
+			testCaseID = 290
+			updateSystemNodePoolCountToZeroCheck(cluster, ctx.RancherAdminClient)
+		})
+
 		It("should be able to update cluster monitoring", func() {
 			testCaseID = 271
 			updateMonitoringCheck(cluster, ctx.RancherAdminClient)
 		})
 
+		It("should fail to reimport an imported cluster", func() {
+			testCaseID = 235
+			_, err := helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, location, helpers.GetCommonMetadataLabels())
+			Expect(err).To(HaveOccurred())
+
+			Expect(err.Error()).To(ContainSubstring("cluster already exists for AKS cluster"))
+		})
+
+		It("should be possible to re-import a deleted cluster", func() {
+			testCaseID = 239
+			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+			clusterID := cluster.ID
+			Eventually(func() error {
+				// Wait until the cluster no longer exists
+				_, err := ctx.RancherAdminClient.Management.Cluster.ByID(clusterID)
+				return err
+			}, "10s", "1s").ShouldNot(BeNil())
+			cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, location, helpers.GetCommonMetadataLabels())
+			Expect(err).To(BeNil())
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+		})
 	})
 
 	It("should be able to register a cluster with no rbac", func() {
@@ -74,6 +103,51 @@ var _ = Describe("P1Import", func() {
 		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 		Expect(err).To(BeNil())
 		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+	})
+
+	When("a cluster with custom kubelet and os config is created and imported for upgrade", func() {
+		var upgradeToVersion string
+		BeforeEach(func() {
+			kubeletConfigJsonData := `{"cpuManagerPolicy": "static", "cpuCfsQuota": true, "cpuCfsQuotaPeriod": "200ms", "imageGcHighThreshold": 90, "imageGcLowThreshold": 70, "topologyManagerPolicy": "best-effort", "allowedUnsafeSysctls": ["kernel.msg*","net.*"], "failSwapOn": false}`
+			kubeletConfigDotJson, err := os.CreateTemp("", "custom-kubelet-*.json")
+			Expect(err).ToNot(HaveOccurred())
+			err = os.WriteFile(kubeletConfigDotJson.Name(), []byte(kubeletConfigJsonData), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			osConfigJsonData := `{"transparentHugePageEnabled": "madvise", "transparentHugePageDefrag": "defer+madvise", "swapFileSizeMB": 1500, "sysctls": {"netCoreSomaxconn": 163849, "netIpv4TcpTwReuse": true, "netIpv4IpLocalPortRange": "32000 60000"}}`
+			osConfigDotJson, err := os.CreateTemp("", "custom-os-*.json")
+			Expect(err).ToNot(HaveOccurred())
+			err = os.WriteFile(osConfigDotJson.Name(), []byte(osConfigJsonData), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
+			Expect(err).NotTo(HaveOccurred())
+			GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
+
+			err = helper.CreateAKSClusterOnAzure(location, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels(), "--kubelet-config", kubeletConfigDotJson.Name(), "--linux-os-config", osConfigDotJson.Name())
+			Expect(err).To(BeNil())
+			cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, location, helpers.GetCommonMetadataLabels())
+			Expect(err).To(BeNil())
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+
+			availableVersions, err := helper.ListAKSAvailableVersions(ctx.RancherAdminClient, cluster.ID)
+			Expect(err).To(BeNil())
+			upgradeToVersion = availableVersions[0]
+		})
+
+		It("should successfully upgrade the cluster", func() {
+			testCaseID = 260
+			var err error
+			By("upgrading control plane version", func() {
+				cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, ctx.RancherAdminClient, true)
+				Expect(err).To(BeNil())
+			})
+			By("upgrading nodepool version", func() {
+				cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, ctx.RancherAdminClient, true, true)
+				Expect(err).To(BeNil())
+			})
+		})
 	})
 
 	When("a cluster is created with multiple nodepools", func() {
@@ -101,6 +175,11 @@ var _ = Describe("P1Import", func() {
 		It("should to able to delete a nodepool and add a new one", func() {
 			testCaseID = 268
 			deleteAndAddNpCheck(cluster, ctx.RancherAdminClient)
+		})
+
+		It("should successfully edit System NodePool", func() {
+			testCaseID = 289
+			updateSystemNodePoolCheck(cluster, ctx.RancherAdminClient)
 		})
 
 	})

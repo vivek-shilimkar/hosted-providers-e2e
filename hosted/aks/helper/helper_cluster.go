@@ -64,10 +64,7 @@ func ImportAKSHostedCluster(client *rancher.Client, clusterName, cloudCredential
 		Name: clusterName,
 	}
 
-	clusterResp, err := client.Management.Cluster.Create(cluster)
-	Expect(err).To(BeNil())
-
-	return clusterResp, err
+	return client.Management.Cluster.Create(cluster)
 }
 
 // DeleteAKSHostCluster deletes the AKS cluster
