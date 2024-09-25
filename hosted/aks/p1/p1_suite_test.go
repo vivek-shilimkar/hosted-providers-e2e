@@ -90,6 +90,8 @@ func deleteAndAddNpCheck(cluster *management.Cluster, client *rancher.Client) {
 	originalLen := len(cluster.AKSConfig.NodePools)
 	var npToBeDeleted management.AKSNodePool
 	newPoolName := fmt.Sprintf("newpool%s", namegen.RandStringLower(3))
+	newPoolAZ := []string{"2", "3"}
+
 	updateFunc := func(cluster *management.Cluster) {
 		var updatedNodePools []management.AKSNodePool
 		for _, np := range cluster.AKSConfig.NodePools {
@@ -102,6 +104,8 @@ func deleteAndAddNpCheck(cluster *management.Cluster, client *rancher.Client) {
 		}
 		newNodePool := npToBeDeleted
 		newNodePool.Name = &newPoolName
+		newNodePool.AvailabilityZones = &newPoolAZ
+		// testCaseID = 194
 		updatedNodePools = append(updatedNodePools, newNodePool)
 		cluster.AKSConfig.NodePools = updatedNodePools
 	}
@@ -118,6 +122,7 @@ func deleteAndAddNpCheck(cluster *management.Cluster, client *rancher.Client) {
 		}
 		if *np.Name == newPoolName {
 			npAdded = true
+			Expect(*np.AvailabilityZones).To(Equal(newPoolAZ))
 		}
 	}
 	Expect(npAdded).To(BeTrue())
@@ -139,6 +144,8 @@ func deleteAndAddNpCheck(cluster *management.Cluster, client *rancher.Client) {
 		for _, np := range cluster.AKSConfig.NodePools {
 			if *np.Name == newPoolName {
 				npAddedToUpstream = true
+				// testCaseID = 194
+				Expect(*np.AvailabilityZones).To(Equal(newPoolAZ))
 			}
 			if *np.Name == *npToBeDeleted.Name {
 				npDeletedFromUpstream = false
@@ -319,4 +326,38 @@ func updateSystemNodePoolCheck(cluster *management.Cluster, client *rancher.Clie
 		}
 		return true
 	}, "5m", "5s").Should(BeTrue(), "Failed while upstream nodepool update")
+}
+
+func updateNodePoolModeCheck(cluster *management.Cluster, client *rancher.Client) {
+	var originalModeMap = make(map[string]string)
+	updateFunc := func(cluster *management.Cluster) {
+		nodepools := cluster.AKSConfig.NodePools
+		for i := range nodepools {
+			originalModeMap[*nodepools[i].Name] = nodepools[i].Mode
+			if nodepools[i].Mode == "User" {
+				nodepools[i].Mode = "System"
+			} else if nodepools[i].Mode == "System" {
+				nodepools[i].Mode = "User"
+			}
+		}
+	}
+	var err error
+	cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
+	Expect(err).To(BeNil())
+	for _, np := range cluster.AKSConfig.NodePools {
+		Expect(np.Mode).ToNot(Equal(originalModeMap[*np.Name]))
+	}
+	err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+	Expect(err).To(BeNil())
+
+	Eventually(func() bool {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).NotTo(HaveOccurred())
+		for _, np := range cluster.AKSStatus.UpstreamSpec.NodePools {
+			if np.Mode == originalModeMap[*np.Name] {
+				return false
+			}
+		}
+		return true
+	}, "5m", "5s").Should(BeTrue(), "Failed while upstream nodepool mode update")
 }

@@ -182,6 +182,11 @@ var _ = Describe("P1Import", func() {
 			updateSystemNodePoolCheck(cluster, ctx.RancherAdminClient)
 		})
 
+		It("should successfully edit mode of the nodepool", func() {
+			testCaseID = 291
+			updateNodePoolModeCheck(cluster, ctx.RancherAdminClient)
+		})
+
 	})
 
 	When("a cluster is created and imported for upgrade", func() {

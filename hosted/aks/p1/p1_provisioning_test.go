@@ -3,6 +3,8 @@ package p1_test
 import (
 	"fmt"
 	"os"
+	"os/user"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -11,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
+	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/clusters/aks"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 	"k8s.io/utils/pointer"
@@ -118,7 +121,143 @@ var _ = Describe("P1Provisioning", func() {
 		Expect(*cluster.AKSStatus.UpstreamSpec.Monitoring).To(BeTrue())
 	})
 
+	// TODO: Discuss why only one nodepool is taken into account
+	XIt("updating a cluster while it is still provisioning", func() {
+		// Blocked by: https://github.com/rancher/aks-operator/issues/667
+		testCaseID = 222
+		var err error
+		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
+
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
+		Expect(err).To(BeNil())
+
+		Eventually(func() string {
+			cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+			Expect(err).NotTo(HaveOccurred())
+			return cluster.State
+		}, "1m", "1s").Should(ContainSubstring("provisioning"))
+
+		// Wait until the cluster appears on cloud before updating it
+		Eventually(func() bool {
+			var existsOnCloud bool
+			existsOnCloud, err = helper.ClusterExistsOnAzure(clusterName, clusterName)
+			if err != nil && strings.Contains(err.Error(), "NotFound") {
+				return false
+			}
+			return existsOnCloud
+		}, "1m", "2s").Should(BeTrue())
+
+		Expect(*cluster.AKSConfig.KubernetesVersion).To(Equal(k8sVersion))
+
+		initialNPCount := len(cluster.AKSConfig.NodePools)
+		cluster, err = helper.AddNodePool(cluster, 3, ctx.RancherAdminClient, false, false)
+		Expect(err).To(BeNil())
+		Expect(cluster.AKSConfig.NodePools).To(HaveLen(initialNPCount + 3))
+
+		var upgradeK8sVersion string
+		upgradeK8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, false)
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
+
+		cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeK8sVersion, ctx.RancherAdminClient, false)
+		Expect(err).To(BeNil())
+		Expect(*cluster.AKSConfig.KubernetesVersion).To(Equal(upgradeK8sVersion))
+
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+
+		err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
+		Expect(err).To(BeNil())
+
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+
+		cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cluster.AKSStatus.UpstreamSpec.NodePools).To(HaveLen(initialNPCount + 3))
+		Expect(cluster.AKSStatus.UpstreamSpec.KubernetesVersion).To(Equal(upgradeK8sVersion))
+	})
+
+	It("create cluster with network policy: calico and plugin: kubenet", func() {
+		testCaseID = 210
+		updateFunc := func(aksConfig *aks.ClusterConfig) {
+			aksConfig.NetworkPolicy = pointer.String("calico")
+			aksConfig.NetworkPlugin = pointer.String("kubenet")
+		}
+		var err error
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
+		Expect(err).To(BeNil())
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+
+		Expect(*cluster.AKSConfig.NetworkPolicy).To(Equal("calico"))
+		Expect(*cluster.AKSConfig.NetworkPlugin).To(Equal("kubenet"))
+		Expect(*cluster.AKSStatus.UpstreamSpec.NetworkPolicy).To(Equal("calico"))
+		Expect(*cluster.AKSStatus.UpstreamSpec.NetworkPlugin).To(Equal("kubenet"))
+
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+	})
+
+	XIt("should successfully create cluster with underscore in the name", func() {
+		// Blocked by https://github.com/rancher/dashboard/issues/9416
+		testCaseID = 261
+		if ctx.ClusterCleanup {
+			clusterName = namegen.AppendRandomString(fmt.Sprintf("%s_hp_ci", helpers.Provider))
+		} else {
+			testuser, _ := user.Current()
+			clusterName = namegen.AppendRandomString(fmt.Sprintf("%s_%s_hp_ci", helpers.Provider, testuser.Username))
+		}
+		var err error
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
+		Expect(err).To(BeNil())
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+	})
+
+	It("should successfully create cluster with custom nodepool parameters", func() {
+		testCaseID = 209
+		updateFunc := func(aksConfig *aks.ClusterConfig) {
+			nodepools := *aksConfig.NodePools
+			for i := range nodepools {
+				az := []string{"3"}
+				nodepools[i].AvailabilityZones = &az
+				nodepools[i].OsDiskSizeGB = pointer.Int64(64)
+				nodepools[i].NodeCount = pointer.Int64(3)
+				nodepools[i].OsDiskType = "Ephemeral"
+				nodepools[i].EnableAutoScaling = pointer.Bool(true)
+				nodepools[i].MinCount = pointer.Int64(2)
+				nodepools[i].MaxCount = pointer.Int64(6)
+				nodepools[i].VMSize = "Standard_DS3_v2"
+				nodepools[i].MaxPods = pointer.Int64(20)
+				nodepools[i].MaxSurge = "2"
+				nodepools[i].NodeLabels = map[string]string{"custom": "true"}
+			}
+		}
+		var err error
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
+		Expect(err).To(BeNil())
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+	})
+
 	When("a cluster with invalid config is created", func() {
+		It("should fail to create 2 clusters with same name in 2 different resource groups", func() {
+			testCaseID = 217
+			var err error
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
+			Expect(err).To(BeNil())
+			resourceGroup2 := namegen.AppendRandomString(helpers.ClusterNamePrefix)
+			updateFunc := func(aksConfig *aks.ClusterConfig) {
+				aksConfig.ResourceGroup = resourceGroup2
+			}
+			_, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("cluster already exists"))
+		})
+
 		It("should fail to create a cluster with 0 nodecount", func() {
 			testCaseID = 186
 			updateFunc := func(aksConfig *aks.ClusterConfig) {
@@ -182,6 +321,37 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should not be able to edit availability zone of a nodepool", func() {
+			// Refer: https://github.com/rancher/aks-operator/issues/669
+			testCaseID = 195
+			originalNPMap := make(map[string][]string)
+			newAZ := []string{"3"}
+			updateFunc := func(cluster *management.Cluster) {
+				nodepools := cluster.AKSConfig.NodePools
+				for i := range nodepools {
+					originalNPMap[*nodepools[i].Name] = *nodepools[i].AvailabilityZones
+					nodepools[i].AvailabilityZones = &newAZ
+				}
+			}
+			var err error
+			cluster, err = helper.UpdateCluster(cluster, ctx.RancherAdminClient, updateFunc)
+			Expect(err).To(BeNil())
+			for _, np := range cluster.AKSConfig.NodePools {
+				Expect(*np.AvailabilityZones).To(Equal(newAZ))
+			}
+
+			Eventually(func() bool {
+				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+				Expect(err).NotTo(HaveOccurred())
+				for _, np := range cluster.AKSConfig.NodePools {
+					if !reflect.DeepEqual(*np.AvailabilityZones, originalNPMap[*np.Name]) {
+						return false
+					}
+				}
+				return true
+			}, "5m", "5s").Should(BeTrue(), "Timed out while waiting for config to be restored")
 		})
 
 		It("should not delete the resource group when cluster is deleted", func() {
@@ -434,8 +604,10 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(len(cluster.AKSStatus.UpstreamSpec.NodePools)).To(Equal(2))
 		})
 
-		It("should to able to delete a nodepool and add a new one", func() {
+		XIt("should to able to delete a nodepool and add a new one with different availability zone", func() {
+			// Blocked by: https://github.com/rancher/aks-operator/issues/667#issuecomment-2370798904
 			testCaseID = 190
+			// also covers testCaseID = 194
 			deleteAndAddNpCheck(cluster, ctx.RancherAdminClient)
 		})
 
@@ -447,6 +619,11 @@ var _ = Describe("P1Provisioning", func() {
 		It("should successfully edit System NodePool", func() {
 			testCaseID = 204
 			updateSystemNodePoolCheck(cluster, ctx.RancherAdminClient)
+		})
+
+		It("should successfully edit mode of the nodepool", func() {
+			testCaseID = 230
+			updateNodePoolModeCheck(cluster, ctx.RancherAdminClient)
 		})
 	})
 })
