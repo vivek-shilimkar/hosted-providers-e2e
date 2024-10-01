@@ -519,6 +519,24 @@ func ClusterExistsOnAzure(clusterName, resourceGroup string) (bool, error) {
 	return false, nil
 }
 
+// UpgradeAKSOnAzure upgrade the AKS cluster using az CLI
+// `--control-plane-only` flag can be passed to only upgrade Control Plane version. If not specified, both control plane AND all node pools will be upgraded.
+// `--node-image-only` flag can be passed to only upgrade Node Pool version
+func UpgradeAKSOnAzure(clusterName, resourceGroup, upgradeToVersion string, additionalArgs ...string) error {
+	fmt.Println("Upgrading AKS cluster ...")
+	args := []string{"aks", "upgrade", "--subscription", subscriptionID, "--resource-group", resourceGroup, "--name", clusterName, "--kubernetes-version", upgradeToVersion, "--yes"}
+	if len(additionalArgs) > 0 {
+		args = append(args, additionalArgs...)
+	}
+	fmt.Printf("Running command: az %v\n", args)
+	out, err := proc.RunW("az", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to upgrade cluster: "+out)
+	}
+	fmt.Println("Upgraded AKS cluster: ", clusterName)
+	return nil
+}
+
 // convertMapToAKSString converts the map of labels to a string format acceptable by azure CLI
 // acceptable format: `--tags "owner=hostedproviders" "testname=sometest"`
 func convertMapToAKSString(tags map[string]string) string {

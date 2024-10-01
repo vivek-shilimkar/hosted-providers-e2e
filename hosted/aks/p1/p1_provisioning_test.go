@@ -40,6 +40,30 @@ var _ = Describe("P1Provisioning", func() {
 		}
 	})
 
+	It("should successfully Create a cluster in Region without AZ", func() {
+		location = "ukwest"
+		testCaseID = 275
+
+		var err error
+		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
+
+		updateFunc := func(aksConfig *aks.ClusterConfig) {
+			aksConfig.ResourceLocation = location
+			nodepools := *aksConfig.NodePools
+			for i := range nodepools {
+				nodepools[i].AvailabilityZones = nil
+			}
+		}
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
+		Expect(err).To(BeNil())
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+
+		noAvailabilityZoneP0Checks(cluster, ctx.RancherAdminClient)
+	})
+
 	It("should successfully create cluster with multiple nodepools in multiple AZs", func() {
 		testCaseID = 193
 		updateFunc := func(aksConfig *aks.ClusterConfig) {
@@ -321,6 +345,11 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should successfully update with new cloud credentials", func() {
+			testCaseID = 221
+			updateCloudCredentialsCheck(cluster, ctx.RancherAdminClient)
 		})
 
 		It("should not be able to edit availability zone of a nodepool", func() {
