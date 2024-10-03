@@ -15,7 +15,7 @@ require (
 	github.com/rancher-sandbox/qase-ginkgo v1.0.1
 	github.com/rancher/norman v0.0.0-20240708202514-a0127673d1b9
 	github.com/rancher/rancher v0.0.0-00010101000000-000000000000
-	github.com/rancher/shepherd v0.0.0-20240913161053-43e119d13724 // rancher/shepherd release/v2.9-HEAD commit
+	github.com/rancher/shepherd v0.0.0-20240927124745-2cec0756a561 // rancher/shepherd release/v2.9-HEAD commit
 	github.com/sirupsen/logrus v1.9.3
 	k8s.io/apimachinery v0.30.2
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e

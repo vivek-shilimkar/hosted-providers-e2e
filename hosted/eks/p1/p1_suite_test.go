@@ -241,7 +241,7 @@ func upgradeNodeKubernetesVersionGTCPCheck(cluster *management.Cluster, client *
 	Eventually(func() bool {
 		cluster, err := client.Management.Cluster.ByID(cluster.ID)
 		Expect(err).To(BeNil())
-		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "all nodegroup kubernetes versionsmust be equal to or one minor version lower than the cluster kubernetes version")
+		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "are not compatible: the node group version may only be up to three minor versions older than the cluster version")
 	}, "1m", "3s").Should(BeTrue())
 }
 
