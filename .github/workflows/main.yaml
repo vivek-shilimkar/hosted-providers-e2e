@@ -101,9 +101,9 @@ jobs:
       - name: Create GCP secrets
         run: |
           echo -n ${{ secrets.PAT_TOKEN }} \
-            | gcloud secrets create PAT_TOKEN_${{ steps.generator.outputs.uuid }} --data-file=-
+            | gcloud secrets create PAT_TOKEN_${{ steps.generator.outputs.uuid }} --ttl="36000s" --quiet --data-file=-
           echo -n ${{ github.repository }} \
-            | gcloud secrets create GH_REPO_${{ steps.generator.outputs.uuid }} --data-file=-
+            | gcloud secrets create GH_REPO_${{ steps.generator.outputs.uuid }} --ttl="36000s" --quiet --data-file=-
 
   installation-and-e2e-tests:
     runs-on: ${{ needs.create-runner.outputs.uuid }}
@@ -377,9 +377,10 @@ jobs:
           credentials_json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
-      - name: Delete PAT token secret
+      - name: Delete GCP secrets
         run: |
           gcloud --quiet secrets delete PAT_TOKEN_${{ needs.create-runner.outputs.uuid }}
+          gcloud --quiet secrets delete GH_REPO_${{ needs.create-runner.outputs.uuid }}
       - name: Delete runner
         run: |
           gcloud --quiet compute instances delete ${{ needs.create-runner.outputs.runner }} \
