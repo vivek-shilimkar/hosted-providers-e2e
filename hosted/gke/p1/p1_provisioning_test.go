@@ -2,6 +2,8 @@ package p1_test
 
 import (
 	"fmt"
+	"math/rand"
+	"net"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -240,6 +242,11 @@ var _ = Describe("P1Provisioning", func() {
 			testCaseID = 31
 			combinationMutableParameterUpdate(cluster, ctx.RancherAdminClient)
 		})
+
+		It("should successfully update with new cloud credentials", func() {
+			testCaseID = 5
+			updateCloudCredentialsCheck(cluster, ctx.RancherAdminClient)
+		})
 	})
 
 	When("creating a cluster with at least 2 nodepools", func() {
@@ -304,6 +311,60 @@ var _ = Describe("P1Provisioning", func() {
 		It("should successfully update a cluster while it is still in updating state", func() {
 			testCaseID = 35
 			updateClusterInUpdatingState(cluster, ctx.RancherAdminClient)
+		})
+	})
+
+	When("a private cluster is created", func() {
+		var err error
+
+		BeforeEach(func() {
+			updateFunc := func(clusterConfig *gke.ClusterConfig) {
+				network := pointer.String("hosted-providers-ci-private")
+				clusterConfig.Network = network
+				clusterConfig.Subnetwork = network
+				clusterConfig.PrivateClusterConfig.EnablePrivateNodes = true
+				clusterConfig.PrivateClusterConfig.MasterIpv4CidrBlock = fmt.Sprintf("172.16.%d.0/28", rand.Intn(10))
+
+				currentSpec := CurrentSpecReport().FullText()
+				if strings.Contains(currentSpec, "MasterAuthorizedNetworks") {
+					_, authorizedIP, err := net.ParseCIDR(helpers.GetRancherIP() + "/32")
+					Expect(err).To(BeNil())
+
+					newCidrBlock := gke.CidrBlock{
+						CidrBlock:   authorizedIP.String(),
+						DisplayName: "Rancher",
+					}
+					clusterConfig.MasterAuthorizedNetworksConfig.Enabled = true
+					clusterConfig.MasterAuthorizedNetworksConfig.CidrBlocks = append(clusterConfig.MasterAuthorizedNetworksConfig.CidrBlocks, newCidrBlock)
+				}
+			}
+
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, project, updateFunc)
+			Expect(err).To(BeNil())
+
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+
+			Expect(cluster.GKEConfig.PrivateClusterConfig.EnablePrivateNodes).To(BeTrue())
+			Expect(cluster.GKEStatus.UpstreamSpec.PrivateClusterConfig.EnablePrivateNodes).To(BeTrue())
+		})
+
+		It("should successfully create with public endpoint", func() {
+			testCaseID = 22
+
+			cluster, err = helper.AddNodePool(cluster, ctx.RancherAdminClient, 1, "", true, true)
+			Expect(err).To(BeNil())
+		})
+
+		It("should successfully create with public endpoint and MasterAuthorizedNetworks", func() {
+			testCaseID = 24
+
+			Expect(cluster.GKEConfig.MasterAuthorizedNetworksConfig.Enabled).To(BeTrue())
+			Expect(cluster.GKEStatus.UpstreamSpec.MasterAuthorizedNetworksConfig.Enabled).To(BeTrue())
+
+			cluster, err = helper.ScaleNodePool(cluster, ctx.RancherAdminClient, 1, false, true)
+			Expect(err).To(BeNil())
+
 		})
 	})
 })

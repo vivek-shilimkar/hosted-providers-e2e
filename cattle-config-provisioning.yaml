@@ -75,7 +75,7 @@ gkeClusterConfig:
     servicesSecondaryRangeName: ""
     subnetworkName: ""
     useIpAliases: true
-  kubernetesVersion: 1.27.3-gke.100
+  kubernetesVersion: 1.29.8-gke.1211000
   labels: {}
   locations: []
   loggingService: logging.googleapis.com/kubernetes
@@ -84,7 +84,7 @@ gkeClusterConfig:
     cidrBlocks: []
     enabled: false
   monitoringService: monitoring.googleapis.com/kubernetes
-  network: default
+  network: hosted-providers-ci
   networkPolicyEnabled: false
   nodePools:
   - autoscaling:
@@ -120,7 +120,7 @@ gkeClusterConfig:
     enablePrivateNodes: false
     masterIpv4CidrBlock: ""
   region: ""
-  subnetwork: default
+  subnetwork: hosted-providers-ci
   zone: asia-south2-c
   projectID: <project>
 googleCredentials:

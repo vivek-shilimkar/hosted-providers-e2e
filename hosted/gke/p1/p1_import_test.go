@@ -33,7 +33,7 @@ var _ = Describe("P1Import", func() {
 		}
 	})
 
-	When("a cluster is created", func() {
+	When("a cluster is created and imported", func() {
 
 		BeforeEach(func() {
 			var err error
@@ -112,6 +112,10 @@ var _ = Describe("P1Import", func() {
 		It("should be able to update combination mutable parameter", func() {
 			testCaseID = 56
 			combinationMutableParameterUpdate(cluster, ctx.RancherAdminClient)
+		})
+
+		It("should successfully update with new cloud credentials", func() {
+			updateCloudCredentialsCheck(cluster, ctx.RancherAdminClient)
 		})
 	})
 

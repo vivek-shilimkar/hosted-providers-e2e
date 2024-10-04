@@ -324,3 +324,22 @@ func combinationMutableParameterUpdate(cluster *management.Cluster, client *ranc
 		return true
 	}, "5m", "5s").Should(BeTrue())
 }
+
+func updateCloudCredentialsCheck(cluster *management.Cluster, client *rancher.Client) {
+	newCCID, err := helpers.CreateCloudCredentials(client)
+	Expect(err).To(BeNil())
+	updateFunc := func(cluster *management.Cluster) {
+		cluster.GKEConfig.GoogleCredentialSecret = newCCID
+	}
+	cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
+	Expect(err).To(BeNil())
+	Expect(cluster.GKEConfig.GoogleCredentialSecret).To(Equal(newCCID))
+	Eventually(func() bool {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).NotTo(HaveOccurred())
+		return cluster.GKEStatus.UpstreamSpec.GoogleCredentialSecret == newCCID
+	}, "5m", "5s").Should(BeTrue(), "Failed while upstream cloud credentials update")
+
+	cluster, err = helper.AddNodePool(cluster, client, 1, "", false, false)
+	Expect(err).To(BeNil())
+}

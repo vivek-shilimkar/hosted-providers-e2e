@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -358,4 +359,15 @@ func CreateCloudCredentials(client *rancher.Client) (string, error) {
 		Expect(err).To(BeNil())
 	}
 	return fmt.Sprintf("%s:%s", cloudCredential.Namespace, cloudCredential.Name), nil
+}
+
+// Returns Rancher ipv4 address based on hostname
+func GetRancherIP() (rancherIP string) {
+	ips, _ := net.LookupIP(RancherHostname)
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			rancherIP = ip.To4().String()
+		}
+	}
+	return
 }
