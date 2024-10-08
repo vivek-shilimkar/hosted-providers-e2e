@@ -474,7 +474,7 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 	}
 
 	fmt.Println("Creating AKS cluster ...")
-	args := []string{"aks", "create", "--resource-group", clusterName, "--generate-ssh-keys", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--subscription", subscriptionID, "--node-count", nodes, "--tags", formattedTags, "--location", location}
+	args := []string{"aks", "create", "--resource-group", clusterName, "--no-ssh-key", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--subscription", subscriptionID, "--node-count", nodes, "--tags", formattedTags, "--location", location}
 	args = append(args, clusterCreateArgs...)
 	fmt.Printf("Running command: az %v\n", args)
 	out, err = proc.RunW("az", args...)
