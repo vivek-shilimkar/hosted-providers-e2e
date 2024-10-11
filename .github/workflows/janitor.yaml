@@ -19,7 +19,7 @@ jobs:
         continue-on-error: true
         run: |
           # Get the AKS clusters by prefix
-          for rg in $(az group list --query "[?contains(name,'auto-aks-hp-ci')].{Name: name}" | jq -r ".[] | .Name" 2> /dev/null); do
+          for rg in $(az group list --query "[?starts_with(name,'auto-aks-hp-ci')].name" | jq -r ".[]" 2> /dev/null); do
             echo "Deleting AKS resource group: $rg"
             az group delete --name $rg --yes
           done
