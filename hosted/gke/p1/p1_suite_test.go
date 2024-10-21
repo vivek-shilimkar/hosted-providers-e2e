@@ -15,6 +15,7 @@ limitations under the License.
 package p1_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -342,4 +343,17 @@ func updateCloudCredentialsCheck(cluster *management.Cluster, client *rancher.Cl
 
 	cluster, err = helper.AddNodePool(cluster, client, 1, "", false, false)
 	Expect(err).To(BeNil())
+}
+
+func upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Client) {
+	versions, err := helper.ListGKEAvailableVersions(client, cluster.ID)
+	Expect(err).To(BeNil())
+	Expect(versions).ToNot(BeEmpty())
+	upgradeToVersion := versions[0]
+	GinkgoLogr.Info(fmt.Sprintf("Upgrading cluster to GKE version %s", upgradeToVersion))
+
+	By("upgrading the ControlPlane & Nodepools", func() {
+		cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, true, true, true)
+		Expect(err).To(BeNil())
+	})
 }

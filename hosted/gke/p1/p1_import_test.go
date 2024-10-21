@@ -176,6 +176,9 @@ var _ = Describe("P1Import", func() {
 			updateClusterInUpdatingState(cluster, ctx.RancherAdminClient)
 		})
 
+		It("should successfully upgrade CP & NP version simultaneously", func() {
+			upgradeK8sVersionChecks(cluster, ctx.RancherAdminClient)
+		})
 	})
 
 })

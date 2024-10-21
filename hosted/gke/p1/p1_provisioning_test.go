@@ -41,7 +41,7 @@ var _ = Describe("P1Provisioning", func() {
 		It("should fail to provision a cluster when creating cluster with invalid name", func() {
 			testCaseID = 36
 			var err error
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, "@!invalid-gke-name-@#", ctx.CloudCredID, k8sVersion, zone, project, nil)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, "@!invalid-gke-name-@#", ctx.CloudCredID, k8sVersion, zone, "", project, nil)
 			Expect(err).ToNot(BeNil())
 			Expect(err.Error()).To(ContainSubstring("InvalidFormat"))
 		})
@@ -56,7 +56,7 @@ var _ = Describe("P1Provisioning", func() {
 			}
 
 			var err error
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, project, updateFunc)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, "", project, updateFunc)
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
@@ -75,7 +75,7 @@ var _ = Describe("P1Provisioning", func() {
 			}
 
 			var err error
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, project, updateFunc)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, "", project, updateFunc)
 			Expect(err).To(BeNil())
 
 			Eventually(func() bool {
@@ -90,7 +90,7 @@ var _ = Describe("P1Provisioning", func() {
 	It("deleting a cluster while it is in creation state should delete it from rancher and cloud console", func() {
 		testCaseID = 25
 		var err error
-		cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, project, nil)
+		cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, "", project, nil)
 		Expect(err).To(BeNil())
 
 		// Wait for the cluster to appear on cloud console before deleting it
@@ -131,7 +131,7 @@ var _ = Describe("P1Provisioning", func() {
 			}
 		}
 
-		cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, cpK8sVersion, zone, project, updateFunc)
+		cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, cpK8sVersion, zone, "", project, updateFunc)
 		Expect(err).To(BeNil())
 
 		Expect(*cluster.GKEConfig.KubernetesVersion).To(Equal(cpK8sVersion))
@@ -163,7 +163,7 @@ var _ = Describe("P1Provisioning", func() {
 
 		BeforeEach(func() {
 			var err error
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, project, nil)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, "", project, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -182,7 +182,7 @@ var _ = Describe("P1Provisioning", func() {
 				return exists
 			}, "1m", "5s").Should(BeFalse())
 
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, project, nil)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, "", project, nil)
 			Expect(err).To(BeNil())
 
 			// wait until the error is visible on the provisioned cluster
@@ -270,7 +270,7 @@ var _ = Describe("P1Provisioning", func() {
 				}
 				clusterConfig.NodePools = updateNodePoolsList
 			}
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, project, updateFunc)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, "", project, updateFunc)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -302,7 +302,7 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			GinkgoLogr.Info(fmt.Sprintf("Using kubernetes version %s for cluster %s", k8sVersion, clusterName))
 
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, project, nil)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, "", project, nil)
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
@@ -311,6 +311,10 @@ var _ = Describe("P1Provisioning", func() {
 		It("should successfully update a cluster while it is still in updating state", func() {
 			testCaseID = 35
 			updateClusterInUpdatingState(cluster, ctx.RancherAdminClient)
+		})
+
+		It("should successfully upgrade CP & NP version simultaneously", func() {
+			upgradeK8sVersionChecks(cluster, ctx.RancherAdminClient)
 		})
 	})
 
@@ -339,7 +343,7 @@ var _ = Describe("P1Provisioning", func() {
 				}
 			}
 
-			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, project, updateFunc)
+			cluster, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, "", project, updateFunc)
 			Expect(err).To(BeNil())
 
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)

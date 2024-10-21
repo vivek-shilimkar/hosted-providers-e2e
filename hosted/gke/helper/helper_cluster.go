@@ -28,12 +28,13 @@ import (
 )
 
 // CreateGKEHostedCluster creates the GKE cluster
-func CreateGKEHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, zone, project string, updateFunc func(clusterConfig *gke.ClusterConfig)) (*management.Cluster, error) {
+func CreateGKEHostedCluster(client *rancher.Client, displayName, cloudCredentialID, k8sVersion, zone, region, project string, updateFunc func(clusterConfig *gke.ClusterConfig)) (*management.Cluster, error) {
 	var gkeClusterConfig gke.ClusterConfig
 	config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeClusterConfig)
 
 	gkeClusterConfig.ProjectID = project
 	gkeClusterConfig.Zone = zone
+	gkeClusterConfig.Region = region
 	gkeClusterConfig.Labels = helpers.GetCommonMetadataLabels()
 	gkeClusterConfig.KubernetesVersion = &k8sVersion
 
@@ -142,6 +143,47 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 		}
 
 		Expect(*cluster.GKEStatus.UpstreamSpec.KubernetesVersion).To(Equal(upgradeToVersion))
+	}
+	return cluster, nil
+}
+
+// UpgradeNodeKubernetesVersion upgrades the k8s version of nodepool to the value defined by upgradeToVersion;
+// if wait is set to true, it will wait until the cluster finishes upgrading;
+// if checkClusterConfig is set to true, it will validate that nodepool has been upgraded successfully
+func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion string, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
+	upgradedCluster := cluster
+	for i := range upgradedCluster.GKEConfig.NodePools {
+		upgradedCluster.GKEConfig.NodePools[i].Version = &upgradeToVersion
+	}
+	var err error
+	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
+	Expect(err).To(BeNil())
+
+	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		for _, np := range cluster.GKEConfig.NodePools {
+			Expect(*np.Version).To(Equal(upgradeToVersion))
+		}
+	}
+
+	if wait {
+		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		Expect(err).To(BeNil())
+	}
+
+	if checkClusterConfig {
+		// Check if the desired config has been applied in Rancher
+		Eventually(func() bool {
+			ginkgo.GinkgoLogr.Info("Waiting for the nodepool upgrade to appear in GKEStatus.UpstreamSpec ...")
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			for _, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
+				if *np.Version != upgradeToVersion {
+					return false
+				}
+			}
+			return true
+		}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(BeTrue())
 	}
 	return cluster, nil
 }

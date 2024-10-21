@@ -35,13 +35,13 @@ var _ = Describe("P0Import", func() {
 		testTitle string
 	}{
 		{
-			qaseID:    8,
+			qaseID:    9,
 			isUpgrade: false,
 			testBody:  p0NodesChecks,
 			testTitle: "should successfully import the cluster & add, delete, scale nodepool",
 		},
 		{
-			qaseID:    9,
+			qaseID:    10,
 			isUpgrade: true,
 			testBody:  p0upgradeK8sVersionChecks,
 			testTitle: "should be able to upgrade k8s version of the imported cluster",

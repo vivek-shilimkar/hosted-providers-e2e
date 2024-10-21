@@ -23,6 +23,7 @@ import (
 	. "github.com/rancher-sandbox/qase-ginkgo"
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
+	"github.com/rancher/shepherd/extensions/clusters/gke"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/gke/helper"
@@ -34,11 +35,10 @@ const (
 )
 
 var (
-	ctx         helpers.Context
-	clusterName string
-	testCaseID  int64
-	zone        = helpers.GetGKEZone()
-	project     = helpers.GetGKEProjectID()
+	ctx                                helpers.Context
+	clusterName, zone, region, project string
+	testCaseID                         int64
+	updateFunc                         func(clusterConfig *gke.ClusterConfig)
 )
 
 func TestP0(t *testing.T) {
@@ -55,6 +55,9 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 var _ = BeforeEach(func() {
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
+	zone = helpers.GetGKEZone()
+	region = helpers.GetGKERegion()
+	project = helpers.GetGKEProjectID()
 })
 
 var _ = ReportBeforeEach(func(report SpecReport) {
@@ -76,9 +79,14 @@ func p0upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Clie
 	upgradeToVersion := versions[0]
 	GinkgoLogr.Info(fmt.Sprintf("Upgrading cluster to GKE version %s", upgradeToVersion))
 
-	// TODO: v2.9 Check - NodePool getting upgraded by default
+	// Upgrading controlplane and nodepool sequentially
 	By("upgrading the ControlPlane", func() {
-		cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, true, true, true)
+		cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, false, true, true)
+		Expect(err).To(BeNil())
+	})
+
+	By("upgrading the Nodepools", func() {
+		cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, true, true)
 		Expect(err).To(BeNil())
 	})
 }

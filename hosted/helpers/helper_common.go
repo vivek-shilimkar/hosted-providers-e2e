@@ -212,6 +212,24 @@ func GetGKEZone() string {
 	return zone
 }
 
+// GetGKERegion fetches the value of GKE region;
+// it first obtains the value from env var GKE_REGION, if the value is empty, it fetches the information from config file(cattle_config-provisioning.yaml)
+// if none of the sources can provide a value, it returns the default value
+func GetGKERegion() string {
+	region := os.Getenv("GKE_REGION")
+	if region == "" {
+		gkeConfig := new(management.GKEClusterConfigSpec)
+		config.LoadConfig("gkeClusterConfig", gkeConfig)
+		if gkeConfig.Region != "" {
+			region = gkeConfig.Region
+		}
+		if region == "" {
+			region = "asia-south2"
+		}
+	}
+	return region
+}
+
 // GetAKSLocation fetches the value of AKS Region;
 // it first obtains the value from env var AKS_REGION, if the value is empty, it fetches the information from config file(cattle_config-import.yaml/cattle_config-provisioning.yaml)
 // if none of the sources can provide a value, it returns the default value
