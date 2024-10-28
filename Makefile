@@ -143,7 +143,7 @@ e2e-p1-import-tests: deps	## Run the 'P1Import' test suite for a given ${PROVIDE
 	ginkgo ${STANDARD_TEST_OPTIONS} --nodes 2 --focus "P1Import" ./hosted/${PROVIDER}/p1/
 
 e2e-p1-provisioning-tests: deps ## Run the 'P1Provisioning' test suite for a given ${PROVIDER}
-	ginkgo ${STANDARD_TEST_OPTIONS} --focus "P1Provisioning" ./hosted/${PROVIDER}/p1/
+	ginkgo ${STANDARD_TEST_OPTIONS} --nodes 2 --focus "P1Provisioning" ./hosted/${PROVIDER}/p1/
 
 e2e-sync-import-tests: deps ## Run "SyncImport" test suite for a given ${PROVIDER}
 	ginkgo ${STANDARD_TEST_OPTIONS} --nodes 2 --focus "SyncImport" ./hosted/${PROVIDER}/p1

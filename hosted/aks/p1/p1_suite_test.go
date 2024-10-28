@@ -19,10 +19,9 @@ import (
 )
 
 var (
-	ctx         helpers.Context
-	clusterName string
-	testCaseID  int64
-	location    = helpers.GetAKSLocation()
+	ctx                   helpers.Context
+	clusterName, location string
+	testCaseID            int64
 )
 
 func TestP1(t *testing.T) {
@@ -39,6 +38,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 
 var _ = BeforeEach(func() {
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
+	location = helpers.GetAKSLocation()
 })
 
 var _ = ReportBeforeEach(func(report SpecReport) {
@@ -494,7 +494,7 @@ func noAvailabilityZoneP0Checks(cluster *management.Cluster, client *rancher.Cli
 
 	By("Adding a nodepool", func() {
 		initialNPCount := len(cluster.AKSConfig.NodePools)
-		newNPName := fmt.Sprintf("newNPName%s", namegen.RandStringLower(3))
+		newNPName := fmt.Sprintf("newpool%s", namegen.RandStringLower(3))
 		updateFunc := func(cluster *management.Cluster) {
 			nodepools := cluster.AKSConfig.NodePools
 			npTemplate := nodepools[0]

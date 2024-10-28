@@ -459,7 +459,8 @@ var _ = Describe("P1Provisioning", func() {
 
 	})
 
-	It("should successfully create 2 clusters in the same RG", func() {
+	XIt("should successfully create 2 clusters in the same RG", func() {
+		// TODO: Refer https://github.com/rancher/hosted-providers-e2e/issues/192
 		testCaseID = 217
 		rgName := namegen.AppendRandomString("custom-aks-rg")
 		updateFunc := func(aksConfig *aks.ClusterConfig) {
