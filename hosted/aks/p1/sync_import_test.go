@@ -76,6 +76,11 @@ var _ = Describe("SyncImport", func() {
 			testCaseID = 294
 			upgradeCPK8sFromAzureAndNPFromRancherCheck(cluster, ctx.RancherAdminClient, k8sVersion, availableUpgradeVersions[0])
 		})
+
+		It("should sync changes from Azure console back to Rancher", func() {
+			testCaseID = 233
+			azureSyncCheck(cluster, ctx.RancherAdminClient, availableUpgradeVersions[0])
+		})
 	})
 
 })

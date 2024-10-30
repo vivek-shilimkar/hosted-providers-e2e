@@ -352,6 +352,11 @@ var _ = Describe("P1Provisioning", func() {
 			updateCloudCredentialsCheck(cluster, ctx.RancherAdminClient)
 		})
 
+		It("should fail to update with invalid (deleted) cloud credential and update when the cloud credentials becomes valid", func() {
+			testCaseID = 299
+			invalidateCloudCredentialsCheck(cluster, ctx.RancherAdminClient, ctx.CloudCredID)
+		})
+
 		It("should not be able to edit availability zone of a nodepool", func() {
 			// Refer: https://github.com/rancher/aks-operator/issues/669
 			testCaseID = 195
@@ -459,10 +464,9 @@ var _ = Describe("P1Provisioning", func() {
 
 	})
 
-	XIt("should successfully create 2 clusters in the same RG", func() {
-		// TODO: Refer https://github.com/rancher/hosted-providers-e2e/issues/192
+	It("should successfully create 2 clusters in the same RG", func() {
 		testCaseID = 217
-		rgName := namegen.AppendRandomString("custom-aks-rg")
+		rgName := namegen.AppendRandomString(helpers.ClusterNamePrefix + "-custom-rg")
 		updateFunc := func(aksConfig *aks.ClusterConfig) {
 			aksConfig.ResourceGroup = rgName
 		}
@@ -470,17 +474,27 @@ var _ = Describe("P1Provisioning", func() {
 		for i := 1; i <= 2; i++ {
 			wg.Add(1)
 			go func() {
+				defer GinkgoRecover()
 				defer wg.Done()
 				clusterName := namegen.AppendRandomString(helpers.ClusterNamePrefix)
 				cluster1, err := helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, updateFunc)
-				Expect(err).To(BeNil())
+				if err != nil {
+					Fail(err.Error())
+				}
 				cluster1, err = helpers.WaitUntilClusterIsReady(cluster1, ctx.RancherAdminClient)
-				Expect(err).To(BeNil())
+				if err != nil {
+					Fail(err.Error())
+				}
 				err = helper.DeleteAKSHostCluster(cluster1, ctx.RancherAdminClient)
-				Expect(err).To(BeNil())
+				if err != nil {
+					Fail(err.Error())
+				}
 			}()
 		}
 		wg.Wait()
+		// This is to delete the resource group
+		err := helper.DeleteAKSClusteronAzure(rgName)
+		Expect(err).To(BeNil())
 	})
 
 	When("a cluster is created for upgrade", func() {

@@ -48,7 +48,6 @@ var _ = Describe("SyncImport", func() {
 
 			By("upgrading the ControlPlane & NodeGroup", func() {
 				syncK8sVersionUpgradeCheck(cluster, ctx.RancherAdminClient, true)
-
 			})
 		})
 

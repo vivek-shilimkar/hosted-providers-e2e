@@ -462,8 +462,7 @@ func UpdateCluster(cluster *management.Cluster, client *rancher.Client, updateFu
 
 // ====================================================================Azure CLI (start)=================================
 // Create Azure AKS cluster using AZ CLI
-func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string, tags map[string]string, clusterCreateArgs ...string) error {
-	formattedTags := convertMapToAKSString(tags)
+func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string, tags map[string]string, extraArgs ...string) error {
 	fmt.Println("Creating AKS resource group ...")
 	rgargs := []string{"group", "create", "--location", location, "--resource-group", clusterName, "--subscription", subscriptionID}
 	fmt.Printf("Running command: az %v\n", rgargs)
@@ -474,8 +473,18 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 	}
 
 	fmt.Println("Creating AKS cluster ...")
-	args := []string{"aks", "create", "--resource-group", clusterName, "--no-ssh-key", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--subscription", subscriptionID, "--node-count", nodes, "--tags", formattedTags, "--location", location}
-	args = append(args, clusterCreateArgs...)
+	args := []string{"aks", "create", "--resource-group", clusterName, "--no-ssh-key", "--kubernetes-version", k8sVersion, "--enable-managed-identity", "--name", clusterName, "--subscription", subscriptionID, "--node-count", nodes, "--location", location}
+
+	// append tags
+	tagargs := []string{"--tags"}
+	tagargs = append(tagargs, convertMapToAKSString(tags)...)
+	args = append(args, tagargs...)
+
+	// append extra arguments
+	if len(extraArgs) > 0 {
+		args = append(args, extraArgs...)
+	}
+
 	fmt.Printf("Running command: az %v\n", args)
 	out, err = proc.RunW("az", args...)
 	if err != nil {
@@ -503,6 +512,61 @@ func AddNodePoolOnAzure(npName, clusterName, resourceGroupName, nodeCount string
 	return nil
 }
 
+// DeleteNodePoolOnAzure deletes nodepool from an AKS cluster via CLI
+func DeleteNodePoolOnAzure(npName, clusterName, resourceGroupName string, extraArgs ...string) error {
+	fmt.Println("Deleting node pool ...")
+	args := []string{"aks", "nodepool", "delete", "--resource-group", resourceGroupName, "--cluster-name", clusterName, "--name", npName, "--subscription", subscriptionID}
+	if len(extraArgs) > 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: az %v\n", args)
+	out, err := proc.RunW("az", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to delete node pool: "+out)
+	}
+	fmt.Println("Deleted node pool: ", npName)
+	return nil
+}
+
+// ScaleNodePoolOnAzure scales nodepool of an AKS cluster via CLI
+func ScaleNodePoolOnAzure(npName, clusterName, resourceGroupName, nodeCount string, extraArgs ...string) error {
+	fmt.Println("Scaling node pool ...")
+	args := []string{"aks", "nodepool", "scale", "--resource-group", resourceGroupName, "--cluster-name", clusterName, "--name", npName, "--node-count", nodeCount, "--subscription", subscriptionID}
+	if len(extraArgs) > 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: az %v\n", args)
+	out, err := proc.RunW("az", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to scale node pool: "+out)
+	}
+	fmt.Println("Scaled node pool: ", npName)
+	return nil
+}
+
+// UpdateClusterTagOnAzure updates the tags of an existing AKS cluster via CLI
+func UpdateClusterTagOnAzure(tags map[string]string, clusterName, resourceGroupName string, extraArgs ...string) error {
+	fmt.Println("Adding tags on Azure ...")
+	args := []string{"aks", "update", "--resource-group", resourceGroupName, "--name", clusterName, "--subscription", subscriptionID}
+
+	// append tags
+	tagsarg := []string{"--tags"}
+	tagsarg = append(tagsarg, convertMapToAKSString(tags)...)
+	args = append(args, tagsarg...)
+
+	// append extra args
+	if len(extraArgs) > 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: az %v\n", args)
+	out, err := proc.RunW("az", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to add tag on Azure: "+out)
+	}
+	fmt.Println("Added tags on Azure: ", clusterName)
+	return nil
+}
+
 // ClusterExistsOnAzure gets a list of cluster based on the name filter and returns true if the cluster is not in Deleting state;
 // it returns false if the cluster does not exist or is in Deleting state.
 func ClusterExistsOnAzure(clusterName, resourceGroup string) (bool, error) {
@@ -520,7 +584,7 @@ func ClusterExistsOnAzure(clusterName, resourceGroup string) (bool, error) {
 }
 
 // UpgradeAKSOnAzure upgrade the AKS cluster using az CLI
-// `--control-plane-only` flag can be passed to only upgrade Control Plane version. If not specified, both control plane AND all node pools will be upgraded.
+// `--control-plane-only` flag can be passed to only upgrade Control Plane version. (Default) If not specified, both control plane AND all node pools will be upgraded.
 // `--node-image-only` flag can be passed to only upgrade Node Pool version
 func UpgradeAKSOnAzure(clusterName, resourceGroup, upgradeToVersion string, additionalArgs ...string) error {
 	fmt.Println("Upgrading AKS cluster ...")
@@ -538,11 +602,10 @@ func UpgradeAKSOnAzure(clusterName, resourceGroup, upgradeToVersion string, addi
 }
 
 // convertMapToAKSString converts the map of labels to a string format acceptable by azure CLI
-// acceptable format: `--tags "owner=hostedproviders" "testname=sometest"`
-func convertMapToAKSString(tags map[string]string) string {
-	var convertedString string
+func convertMapToAKSString(tags map[string]string) []string {
+	var convertedString []string
 	for key, value := range tags {
-		convertedString += fmt.Sprintf("\"%s=%s\" ", key, value)
+		convertedString = append(convertedString, fmt.Sprintf("%s=%s", key, value))
 	}
 	return convertedString
 }
