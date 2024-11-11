@@ -670,4 +670,67 @@ var _ = Describe("P1Provisioning", func() {
 			updateNodePoolModeCheck(cluster, ctx.RancherAdminClient)
 		})
 	})
+	Context("Network Policy and plugin", func() {
+		var (
+			calicoPolicy  = "calico"
+			kubenetPlugin = "kubenet"
+			azure         = "azure"
+			none          = "null"
+			vnet          = os.Getenv("AKS_VNET")
+			vnetRG        = os.Getenv("AKS_VNET_RG")
+			subnet        = "default"
+		)
+
+		for _, data := range []struct {
+			networkPlugin, networkPolicy, vnet string
+			testCaseID                         int64
+		}{
+			{
+				networkPlugin: kubenetPlugin,
+				networkPolicy: calicoPolicy,
+				testCaseID:    210,
+			},
+			{
+				networkPlugin: azure,
+				networkPolicy: calicoPolicy,
+				vnet:          vnet,
+				testCaseID:    211,
+			},
+			{
+				networkPlugin: azure,
+				networkPolicy: none,
+				testCaseID:    212,
+				vnet:          vnet,
+			},
+			{
+				networkPlugin: azure,
+				networkPolicy: azure,
+				vnet:          vnet,
+				testCaseID:    213,
+			},
+		} {
+			data := data
+			It(fmt.Sprintf("Create cluster with NetworkPolicy %s & Network plugin %s", data.networkPolicy, data.networkPlugin), func() {
+				testCaseID = data.testCaseID
+				createFunc := func(clusterConfig *aks.ClusterConfig) {
+					clusterConfig.NetworkPlugin = &data.networkPlugin
+					if data.networkPolicy != none {
+						clusterConfig.NetworkPolicy = &data.networkPolicy
+					}
+					if data.vnet != "" {
+						clusterConfig.VirtualNetwork = &data.vnet
+						clusterConfig.Subnet = &subnet
+						clusterConfig.VirtualNetworkResourceGroup = pointer.String(vnetRG)
+					}
+				}
+				var err error
+				cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, createFunc)
+				Expect(err).To(BeNil())
+				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+				helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+			})
+		}
+	})
+
 })

@@ -1,10 +1,14 @@
 aksClusterConfig:
   azureCredentialSecret: ""
   dnsPrefix: ""
+  dnsServiceIp: 10.0.0.10
+  dockerBridgeCidr: 172.17.0.1/16
+  serviceCidr: 10.0.0.0/16
   kubernetesVersion: 1.29.7
   linuxAdminUsername: azureuser
   loadBalancerSku: Standard
   networkPlugin: kubenet
+  outboundType: LoadBalancer
   nodePools:
   - availabilityZones:
     - "1"

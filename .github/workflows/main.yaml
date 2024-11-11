@@ -52,6 +52,8 @@ env:
   AKS_CLIENT_SECRET: ${{ secrets.AKS_CLIENT_SECRET }}
   AKS_SUBSCRIPTION_ID: ${{ secrets.AKS_SUBSCRIPTION_ID }}
   AKS_TENANT_ID: ${{ secrets.AKS_TENANT_ID }}
+  AKS_VNET: ${{ secrets.AKS_VNET }}
+  AKS_VNET_RG: ${{ secrets.AKS_VNET_RG }}
   GKE_PROJECT_ID: ${{ secrets.GKE_PROJECT_ID }}
   PROVIDER: ${{ inputs.hosted_provider }}
   RANCHER_PASSWORD: ${{ secrets.RANCHER_PASSWORD }}

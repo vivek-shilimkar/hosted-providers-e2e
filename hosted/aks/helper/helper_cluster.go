@@ -610,7 +610,7 @@ func convertMapToAKSString(tags map[string]string) []string {
 	return convertedString
 }
 
-// Complete cleanup steps for Azure AKS
+// DeleteAKSClusteronAzure: Complete cleanup steps for Azure AKS
 func DeleteAKSClusteronAzure(clusterName string) error {
 
 	fmt.Println("Deleting AKS resource group which will delete cluster too ...")
