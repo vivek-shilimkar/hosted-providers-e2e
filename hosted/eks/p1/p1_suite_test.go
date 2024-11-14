@@ -15,6 +15,7 @@ limitations under the License.
 package p1_test
 
 import (
+	"maps"
 	"strconv"
 	"strings"
 	"testing"
@@ -312,4 +313,64 @@ func upgradeCPAndAddNgCheck(cluster *management.Cluster, client *rancher.Client)
 		}
 		return true
 	}, "5m", "15s").Should(BeTrue())
+}
+
+// Automate Qase 81 and 131
+func updateTagsAndLabels(cluster *management.Cluster, client *rancher.Client) {
+	var err error
+	tags := map[string]string{
+		"foo":        "bar",
+		"testCaseID": "144-97-143",
+	}
+
+	labels := map[string]string{
+		"testCaseID": "142-99-145",
+	}
+
+	originalClusterTags := *cluster.EKSConfig.Tags
+	// updatedTags must contain both the original and the new tags
+	updatedTags := make(map[string]string)
+	maps.Copy(updatedTags, originalClusterTags)
+	maps.Copy(updatedTags, tags)
+
+	By("Adding cluster tags", func() {
+		cluster, err = helper.UpdateClusterTags(cluster, client, updatedTags, true)
+		Expect(err).To(BeNil())
+	})
+
+	By("Removing cluster tags", func() {
+		cluster, err = helper.UpdateClusterTags(cluster, client, originalClusterTags, true)
+		for key, value := range tags {
+			Expect(*cluster.EKSConfig.Tags).ToNot(HaveKeyWithValue(key, value))
+		}
+	})
+
+	originalNGLabels := *cluster.EKSConfig.NodeGroups[0].Labels
+	// updatedNGLabels must contain both the original and the new tags
+	updatedNGLabels := make(map[string]string)
+	maps.Copy(updatedNGLabels, originalNGLabels)
+	maps.Copy(updatedNGLabels, labels)
+
+	originalNGTags := *cluster.EKSConfig.NodeGroups[0].Tags
+	// updatedNGTags must contain both the original and the new tags
+	updatedNGTags := make(map[string]string)
+	maps.Copy(updatedNGTags, originalNGTags)
+	maps.Copy(updatedNGTags, tags)
+
+	By("Adding Nodegroup tags & labels", func() {
+		cluster, err = helper.UpdateNodegroupMetadata(cluster, client, updatedNGTags, updatedNGLabels, true)
+		Expect(err).To(BeNil())
+	})
+
+	By("Removing Nodegroup tags & labels", func() {
+		cluster, err = helper.UpdateNodegroupMetadata(cluster, client, originalNGTags, originalNGLabels, true)
+		for _, ng := range cluster.EKSConfig.NodeGroups {
+			for key, value := range tags {
+				Expect(*ng.Tags).ToNot(HaveKeyWithValue(key, value))
+			}
+			for key, value := range labels {
+				Expect(*ng.Labels).ToNot(HaveKeyWithValue(key, value))
+			}
+		}
+	})
 }

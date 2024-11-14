@@ -363,32 +363,33 @@ func UpdatePublicAccessSources(cluster *management.Cluster, client *rancher.Clie
 	return cluster, nil
 }
 
-// UpdateClusterTags updates the tags of a EKS cluster
+// UpdateClusterTags updates the tags of a EKS cluster;
+// the given tag list will replace the existing tags; this is required to be able to delete tag removal using this function
 // if wait is set to true, it waits until the update is complete; if checkClusterConfig is true, it validates the update
 func UpdateClusterTags(cluster *management.Cluster, client *rancher.Client, tags map[string]string, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := cluster
-	maps.Copy(*upgradedCluster.EKSConfig.Tags, tags)
+	upgradedCluster.EKSConfig.Tags = &tags
 
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
 	Expect(err).To(BeNil())
 
 	if checkClusterConfig {
+		// Check if the desired config is set correctly
+		for key, value := range tags {
+			Expect(*cluster.EKSConfig.Tags).Should(HaveKeyWithValue(key, value))
+		}
 		Eventually(func() bool {
-			// Check if the desired config is set correctly
-			for key, value := range tags {
-				Expect(*cluster.EKSConfig.Tags).Should(HaveKeyWithValue(key, value))
-			}
-
 			ginkgo.GinkgoLogr.Info("Waiting for the cluster tag changes to appear in EKSStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			return helpers.CheckMapKeys(tags, *cluster.EKSStatus.UpstreamSpec.Tags)
+			return maps.Equal(tags, *cluster.EKSStatus.UpstreamSpec.Tags)
 		}, tools.SetTimeout(10*time.Minute), 15*time.Second).Should(BeTrue())
 	}
 	return cluster, nil
 }
 
 // UpdateNodegroupMetadata updates the tags & labels of a EKS Node groups
+// the given tags and labels will replace the existing counterparts
 // if wait is set to true, it waits until the update is complete; if checkClusterConfig is true, it validates the update
 func UpdateNodegroupMetadata(cluster *management.Cluster, client *rancher.Client, tags, labels map[string]string, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := cluster
@@ -418,7 +419,7 @@ func UpdateNodegroupMetadata(cluster *management.Cluster, client *rancher.Client
 			Expect(err).To(BeNil())
 
 			for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
-				if helpers.CheckMapKeys(tags, *ng.Tags) && helpers.CheckMapKeys(labels, *ng.Labels) {
+				if maps.Equal(tags, *ng.Tags) && maps.Equal(labels, *ng.Labels) {
 					return true
 				}
 			}
@@ -460,7 +461,7 @@ func ListEKSAllVersions(client *rancher.Client) (allVersions []string, err error
 // <==============================EKS CLI==============================>
 
 // Create AWS EKS cluster using EKS CLI
-func CreateEKSClusterOnAWS(region string, clusterName string, k8sVersion string, nodes string, tags map[string]string) error {
+func CreateEKSClusterOnAWS(region string, clusterName string, k8sVersion string, nodes string, tags map[string]string, extraArgs ...string) error {
 	currentKubeconfig := os.Getenv("KUBECONFIG")
 	defer os.Setenv("KUBECONFIG", currentKubeconfig)
 
@@ -468,7 +469,10 @@ func CreateEKSClusterOnAWS(region string, clusterName string, k8sVersion string,
 
 	formattedTags := k8slabels.SelectorFromSet(tags).String()
 	fmt.Println("Creating EKS cluster ...")
-	args := []string{"create", "cluster", "--region=" + region, "--name=" + clusterName, "--version=" + k8sVersion, "--nodegroup-name", "ranchernodes", "--nodes", nodes, "--managed", "--tags", formattedTags}
+	args := []string{"create", "cluster", "--region=" + region, "--name=" + clusterName, "--version=" + k8sVersion, "--nodegroup-name", "ranchernodes", "--nodes", nodes, "--tags", formattedTags}
+	if len(extraArgs) != 0 {
+		args = append(args, extraArgs...)
+	}
 	fmt.Printf("Running command: eksctl %v\n", args)
 	out, err := proc.RunW("eksctl", args...)
 	if err != nil {
@@ -494,6 +498,23 @@ func UpgradeEKSClusterOnAWS(region string, clusterName string, upgradeToVersion 
 	return nil
 }
 
+// AddNodeGroupOnAWS adds nodegroup ot a cluster using EKS CLI
+func AddNodeGroupOnAWS(nodeName, clusterName, region string, extraArgs ...string) error {
+	fmt.Println("Adding nodegroup to EKS cluster ...")
+	args := []string{"create", "nodegroup", "--region=" + region, "--cluster", clusterName, "--name", nodeName}
+	if len(extraArgs) != 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: eksctl %v\n", args)
+	out, err := proc.RunW("eksctl", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to add nodegroup: "+out)
+	}
+	fmt.Println("Added nodegroup: ", nodeName)
+	return nil
+
+}
+
 // Upgrade EKS cluster nodegroup using EKS CLI
 func UpgradeEKSNodegroupOnAWS(region string, clusterName string, ngName string, upgradeToVersion string) error {
 	fmt.Println("Upgrading EKS cluster nodegroup ...")
@@ -508,17 +529,27 @@ func UpgradeEKSNodegroupOnAWS(region string, clusterName string, ngName string, 
 	return nil
 }
 
-func GetFromEKS(region string, clusterName string, cmd string, query string) (out string, err error) {
-	clusterArgs := []string{"eksctl", "get", "cluster", "--region=" + region, "--name=" + clusterName, "-ojson", "|", "jq", "-r"}
-	ngArgs := []string{"eksctl", "get", "nodegroup", "--region=" + region, "--cluster=" + clusterName, "-ojson", "|", "jq", "-r"}
+func GetFromEKS(region string, clusterName string, cmd string, query string, extraArgs ...string) (out string, err error) {
+	clusterArgs := []string{"eksctl", "get", "cluster", "--region=" + region, "--name=" + clusterName, "-ojson"}
+	ngArgs := []string{"eksctl", "get", "nodegroup", "--region=" + region, "--cluster=" + clusterName, "-ojson"}
+	queryArgs := []string{"|", "jq", "-r", query}
 
 	if cmd == "cluster" {
-		clusterArgs = append(clusterArgs, query)
+		// extraArgs must be appended before queryArgs
+		if len(extraArgs) != 0 {
+			clusterArgs = append(clusterArgs, extraArgs...)
+		}
+		clusterArgs = append(clusterArgs, queryArgs...)
 		cmd = strings.Join(clusterArgs, " ")
 	} else {
-		ngArgs = append(ngArgs, query)
+		// extraArgs must be appended before queryArgs
+		if len(extraArgs) != 0 {
+			ngArgs = append(ngArgs, extraArgs...)
+		}
+		ngArgs = append(ngArgs, queryArgs...)
 		cmd = strings.Join(ngArgs, " ")
 	}
+
 	fmt.Printf("Running command: %s\n", cmd)
 	out, err = proc.RunW("bash", "-c", cmd)
 	return strings.TrimSpace(out), err

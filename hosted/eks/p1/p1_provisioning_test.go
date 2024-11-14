@@ -10,9 +10,10 @@ import (
 	"github.com/rancher/shepherd/extensions/clusters/eks"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
-	"k8s.io/utils/pointer"
 )
 
 var _ = Describe("P1Provisioning", func() {
@@ -25,16 +26,16 @@ var _ = Describe("P1Provisioning", func() {
 		GinkgoLogr.Info(fmt.Sprintf("While provisioning, using kubernetes version %s for cluster %s", k8sVersion, clusterName))
 	})
 
-	Context("Provisioning/Editing a cluster with invalid config", func() {
+	AfterEach(func() {
+		if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
+			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+		} else {
+			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+		}
+	})
 
-		AfterEach(func() {
-			if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
-				if cluster != nil {
-					err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
-					Expect(err).To(BeNil())
-				}
-			}
-		})
+	Context("Provisioning/Editing a cluster with invalid config", func() {
 
 		It("should error out to provision a cluster with no nodegroups", func() {
 			testCaseID = 141
@@ -135,6 +136,32 @@ var _ = Describe("P1Provisioning", func() {
 		})
 	})
 
+	It("should successfully Provision EKS from Rancher with Enabled GPU feature", func() {
+		testCaseID = 274
+		var gpuNodeName = "gpuenabled"
+		createFunc := func(clusterConfig *eks.ClusterConfig) {
+			nodeGroups := *clusterConfig.NodeGroupsConfig
+			gpuNG := nodeGroups[0]
+			gpuNG.Gpu = pointer.Bool(true)
+			gpuNG.NodegroupName = &gpuNodeName
+			gpuNG.InstanceType = pointer.String("p2.xlarge")
+			nodeGroups = append(nodeGroups, gpuNG)
+			clusterConfig.NodeGroupsConfig = &nodeGroups
+		}
+		var err error
+		cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, createFunc)
+		Expect(err).To(BeNil())
+
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+		var amiID string
+		amiID, err = helper.GetFromEKS(region, clusterName, "nodegroup", ".[].ImageID", "--name", gpuNodeName)
+		Expect(err).To(BeNil())
+		Expect(amiID).To(Equal("AL2_x86_64_GPU"))
+	})
+
 	When("a cluster is created for upgrade", func() {
 
 		BeforeEach(func() {
@@ -149,15 +176,6 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
-		})
-
-		AfterEach(func() {
-			if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
-				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
-				Expect(err).To(BeNil())
-			} else {
-				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
-			}
 		})
 
 		It("Upgrade version of node group only", func() {
@@ -187,15 +205,6 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 		})
 
-		AfterEach(func() {
-			if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
-				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
-				Expect(err).To(BeNil())
-			} else {
-				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
-			}
-		})
-
 		It("Update cluster logging types", func() {
 			testCaseID = 128
 
@@ -214,26 +223,7 @@ var _ = Describe("P1Provisioning", func() {
 
 		It("Update Tags and Labels", func() {
 			testCaseID = 131
-
-			var err error
-			tags := map[string]string{
-				"foo":        "bar",
-				"testCaseID": "144",
-			}
-
-			labels := map[string]string{
-				"testCaseID": "142",
-			}
-
-			By("Adding cluster tags", func() {
-				cluster, err = helper.UpdateClusterTags(cluster, ctx.RancherAdminClient, tags, true)
-				Expect(err).To(BeNil())
-			})
-
-			By("Adding Nodegroup tags & labels", func() {
-				cluster, err = helper.UpdateNodegroupMetadata(cluster, ctx.RancherAdminClient, tags, labels, true)
-				Expect(err).To(BeNil())
-			})
+			updateTagsAndLabels(cluster, ctx.RancherAdminClient)
 		})
 	})
 })
