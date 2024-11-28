@@ -150,32 +150,34 @@ jobs:
       - name: Install Proxy
         if: ${{ inputs.rancher_installed == 'hostname/password' && inputs.proxy == true }}
         run: |
-          docker run -d --name squid_proxy -v $(pwd)/.github/scripts/squid.conf:/etc/squid/squid.conf -p 3128:3128 wernight/squid
           echo "PROXY_HOST=$(gcloud compute instances describe ${{ needs.create-runner.outputs.runner }} \
             --format='get(networkInterfaces[0].networkIP)' --zone ${{ env.GCP_RUNNER_ZONE }}):3128" >> ${GITHUB_ENV}
+          echo "RANCHER_BEHIND_PROXY=enabled" >> ${GITHUB_ENV}
 
-      - name: Install K3s / Helm / Rancher
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        env:
+          GOTOOLCHAIN: local
+        with:
+          go-version-file: go.mod
+
+      - name: Install k3s / Helm / CertManager / Rancher
+        id: prepare-rancher
         if: ${{ inputs.rancher_installed == 'hostname/password' }}
         env:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-          HELM_VERSION: 3.13.1
-          K3S_VERSION: ${{ inputs.k3s_version }}
+          INSTALL_K3S_VERSION: ${{ inputs.k3s_version }}
           RANCHER_VERSION: ${{ inputs.rancher_version }}
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
           PROXY_HOST: ${{ env.PROXY_HOST }}
+          RANCHER_BEHIND_PROXY: ${{ env.RANCHER_BEHIND_PROXY }}
         run: |
           if [ ${{ inputs.operator_nightly_chart }} == true ]; then
-            if [ ${{ inputs.proxy }} == true ]; then
-              make prepare-e2e-ci-rancher-hosted-nightly-chart-behind-proxy
-            else
-              make prepare-e2e-ci-rancher-hosted-nightly-chart
-            fi
-          elif [ ${{ inputs.proxy }} == true ]; then
-            make prepare-e2e-ci-rancher-behind-proxy
-          else
-            make prepare-e2e-ci-rancher
+            export NIGHTLY_CHART="enabled"
           fi
+          make prepare-rancher
             
       - name: Login to Azure
         uses: azure/login@v2.2.0
@@ -197,13 +199,6 @@ jobs:
           aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.EKS_REGION }}
 
-      - name: Install Go
-        uses: actions/setup-go@v5
-        env:
-          GOTOOLCHAIN: local
-        with:
-          go-version-file: go.mod
-
       - name: Create/Export Qase Run
         id: qase
         run: |
@@ -221,7 +216,7 @@ jobs:
           echo -e "Exported values:\nQASE_RUN_ID=${ID}\nQASE_RUN_DESCRIPTION=${QASE_RUN_DESCRIPTION}\nQASE_RUN_NAME=${QASE_RUN_NAME}"
 
       - name: Provisioning cluster tests
-        if:  ${{ contains(inputs.tests_to_run, 'p0_provisioning') }}
+        if:  ${{ steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p0_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -231,7 +226,7 @@ jobs:
           make e2e-provisioning-tests
 
       - name: Import cluster tests
-        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'p0_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p0_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -241,7 +236,7 @@ jobs:
           make e2e-import-tests
 
       - name: Provisioning cluster P1 tests
-        if:  ${{ !cancelled() && contains(inputs.tests_to_run, 'p1_provisioning') }}
+        if:  ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p1_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -251,7 +246,7 @@ jobs:
           make e2e-p1-provisioning-tests
 
       - name: Import cluster P1 tests
-        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'p1_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p1_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -261,7 +256,7 @@ jobs:
           make e2e-p1-import-tests
 
       - name: Support matrix provisioning tests
-        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'support_matrix_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'support_matrix_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -271,7 +266,7 @@ jobs:
           make e2e-support-matrix-provisioning-tests
 
       - name: Support matrix import tests
-        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'support_matrix_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'support_matrix_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -281,7 +276,7 @@ jobs:
           make e2e-support-matrix-import-tests
 
       - name: K8s Chart Support provisioning tests
-        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'k8s_chart_support_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'k8s_chart_support_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -293,7 +288,7 @@ jobs:
           make e2e-k8s-chart-support-provisioning-tests
 
       - name: K8s Chart Support import tests
-        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'k8s_chart_support_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'k8s_chart_support_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -305,7 +300,7 @@ jobs:
           make e2e-k8s-chart-support-import-tests
 
       - name: Sync provisioning tests
-        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'sync_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'sync_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -316,7 +311,7 @@ jobs:
           make e2e-sync-provisioning-tests
 
       - name: Sync import tests
-        if: ${{ !cancelled() && contains(inputs.tests_to_run, 'sync_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'sync_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -344,13 +339,13 @@ jobs:
         env:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
           RANCHER_BEHIND_PROXY: ${{ inputs.proxy == true }}
-        if: ${{ !cancelled() }}
+        if: ${{ steps.prepare-rancher.outcome == 'success' }}
         run: |
           chmod +x ${{ env.RANCHER_LOG_COLLECTOR }}
           bash ${{ env.RANCHER_LOG_COLLECTOR }}
 
       - name: Upload cluster logs
-        if: ${{ !cancelled() }}
+        if: ${{ steps.prepare-rancher.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: support-logs

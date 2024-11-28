@@ -235,8 +235,8 @@ github.com/prometheus/common v0.45.0 h1:2BGz0eBc2hdMDLnO/8n0jeB3oPrt2D08CekT0lne
 github.com/prometheus/common v0.45.0/go.mod h1:YJmSTw9BoKxJplESWWxlbyttQR4uaEcGyv9MZjVOJsY=
 github.com/prometheus/procfs v0.12.0 h1:jluTpSng7V9hY0O2R9DzzJHYb2xULk9VTR1V1R/k6Bo=
 github.com/prometheus/procfs v0.12.0/go.mod h1:pcuDEFsWDnvcgNzo4EEweacyhjeA9Zk3cnaOZAZEfOo=
-github.com/rancher-sandbox/ele-testhelpers v0.0.0-20240911133917-d4312809d5eb h1:Q4XjVA19KEX/EFHzbsN+A0bsSac70MvAYDF2qJddF1I=
-github.com/rancher-sandbox/ele-testhelpers v0.0.0-20240911133917-d4312809d5eb/go.mod h1:Ex+a/ng4u2BvcGQdQjTHI48h88bQ6k2a7q8rnvU0XbQ=
+github.com/rancher-sandbox/ele-testhelpers v0.0.0-20241114104736-0d5b41ca9158 h1:qQjjaS+nhifw5iPLIvMmLqDpxr39DPWJRFOskw0AJlg=
+github.com/rancher-sandbox/ele-testhelpers v0.0.0-20241114104736-0d5b41ca9158/go.mod h1:Ex+a/ng4u2BvcGQdQjTHI48h88bQ6k2a7q8rnvU0XbQ=
 github.com/rancher-sandbox/qase-ginkgo v1.0.1 h1:LB9ITLavX3PmcOe0hp0Y7rwQCjJ3WpL8kG8v1MxPadE=
 github.com/rancher-sandbox/qase-ginkgo v1.0.1/go.mod h1:sIF43xaLHtEzmPqADKlZZV6oatc66GHz1N6gpBNn6QY=
 github.com/rancher/aks-operator v1.9.2-rc.2 h1:bHFenlOiJzZOu6LWvheHBDYhZvPCd/bz8ygveujifZI=

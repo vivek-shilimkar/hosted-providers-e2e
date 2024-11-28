@@ -84,14 +84,15 @@ func CommonBeforeSuite() Context {
 	rancherAdminClient, err := rancher.NewClient(rancherConfig.AdminToken, testSession)
 	Expect(err).To(BeNil())
 
-	setting := new(management.Setting)
-	resp, err := rancherAdminClient.Management.Setting.ByID("server-url")
-	Expect(err).To(BeNil())
+	// This is done by testhelpers already
+	//setting := new(management.Setting)
+	//resp, err := rancherAdminClient.Management.Setting.ByID("server-url")
+	//Expect(err).To(BeNil())
 
-	setting.Source = "env"
-	setting.Value = fmt.Sprintf("https://%s", RancherHostname)
-	_, err = rancherAdminClient.Management.Setting.Update(resp, setting)
-	Expect(err).To(BeNil())
+	//setting.Source = "env"
+	//setting.Value = fmt.Sprintf("https://%s", RancherHostname)
+	//_, err = rancherAdminClient.Management.Setting.Update(resp, setting)
+	//Expect(err).To(BeNil())
 
 	cloudCredID, err := CreateCloudCredentials(rancherAdminClient)
 	Expect(err).To(BeNil())
