@@ -13,8 +13,10 @@ import (
 )
 
 var _ = Describe("P1Import", func() {
-	var k8sVersion string
-	var cluster *management.Cluster
+	var (
+		cluster    *management.Cluster
+		k8sVersion string
+	)
 	BeforeEach(func() {
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, false)

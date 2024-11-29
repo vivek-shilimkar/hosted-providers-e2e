@@ -17,7 +17,10 @@ import (
 )
 
 var _ = Describe("P1Provisioning", func() {
-	var cluster *management.Cluster
+	var (
+		cluster    *management.Cluster
+		k8sVersion string
+	)
 
 	var _ = BeforeEach(func() {
 		var err error
@@ -31,7 +34,7 @@ var _ = Describe("P1Provisioning", func() {
 			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		} else {
-			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
+			GinkgoLogr.Info(fmt.Sprintf("Skipping downstream cluster deletion: %s", clusterName))
 		}
 	})
 
@@ -77,7 +80,9 @@ var _ = Describe("P1Provisioning", func() {
 			Eventually(func() bool {
 				cluster, err := ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
-				return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "is not unique within the cluster")
+				// checking for both the messages since different operator version shows different messages. To be removed once the message is updated.
+				// New Message: NodePool names must be unique within the [c-dnzzk] cluster to avoid duplication
+				return cluster.Transitioning == "error" && (strings.Contains(cluster.TransitioningMessage, "is not unique within the cluster") || strings.Contains(cluster.TransitioningMessage, "NodePool names must be unique"))
 			}, "1m", "3s").Should(BeTrue())
 		})
 
@@ -162,7 +167,8 @@ var _ = Describe("P1Provisioning", func() {
 		Expect(amiID).To(Equal("AL2_x86_64_GPU"))
 	})
 
-	When("a cluster is created for upgrade", func() {
+	Context("Upgrade testing", func() {
+		var upgradeToVersion string
 
 		BeforeEach(func() {
 			var err error
@@ -171,27 +177,33 @@ var _ = Describe("P1Provisioning", func() {
 			upgradeToVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, false)
 			Expect(err).To(BeNil())
 			GinkgoLogr.Info(fmt.Sprintf("While provisioning, using kubernetes version %s for cluster %s", k8sVersion, clusterName))
-
-			cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, nil)
-			Expect(err).To(BeNil())
-			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
-			Expect(err).To(BeNil())
 		})
 
-		It("Upgrade version of node group only", func() {
-			testCaseID = 126
-			upgradeNodeKubernetesVersionGTCPCheck(cluster, ctx.RancherAdminClient)
-		})
+		When("a cluster is created", func() {
 
-		It("Update k8s version of cluster and add node groups", func() {
-			testCaseID = 125
-			upgradeCPAndAddNgCheck(cluster, ctx.RancherAdminClient)
-		})
+			BeforeEach(func() {
+				var err error
+				cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, nil)
+				Expect(err).To(BeNil())
+				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+			})
 
-		// eks-operator/issues/752
-		XIt("should successfully update a cluster while it is still in updating state", func() {
-			testCaseID = 148
-			updateClusterInUpdatingState(cluster, ctx.RancherAdminClient)
+			It("Upgrade version of node group only", func() {
+				testCaseID = 126
+				upgradeNodeKubernetesVersionGTCPCheck(cluster, ctx.RancherAdminClient, upgradeToVersion)
+			})
+
+			It("Update k8s version of cluster and add node groups", func() {
+				testCaseID = 125
+				upgradeCPAndAddNgCheck(cluster, ctx.RancherAdminClient, upgradeToVersion)
+			})
+
+			// eks-operator/issues/752
+			XIt("should successfully update a cluster while it is still in updating state", func() {
+				testCaseID = 148
+				updateClusterInUpdatingState(cluster, ctx.RancherAdminClient, upgradeToVersion)
+			})
 		})
 	})
 
@@ -205,21 +217,10 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 		})
 
-		// eks-operator/issues/938
-		XIt("Update cluster logging types", func() {
+		It("Update cluster logging types", func() {
+			// https://github.com/rancher/eks-operator/issues/938
 			testCaseID = 128
-
-			var err error
-			loggingTypes := []string{"api", "audit", "authenticator", "controllerManager", "scheduler"}
-			By("Adding the LoggingTypes", func() {
-				cluster, err = helper.UpdateLogging(cluster, ctx.RancherAdminClient, loggingTypes, true)
-				Expect(err).To(BeNil())
-			})
-
-			By("Removing the LoggingTypes", func() {
-				cluster, err = helper.UpdateLogging(cluster, ctx.RancherAdminClient, []string{loggingTypes[0]}, true)
-				Expect(err).To(BeNil())
-			})
+			updateLoggingCheck(cluster, ctx.RancherAdminClient)
 		})
 
 		It("Update Tags and Labels", func() {

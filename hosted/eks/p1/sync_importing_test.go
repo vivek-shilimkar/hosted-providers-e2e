@@ -12,10 +12,24 @@ import (
 )
 
 var _ = Describe("SyncImport", func() {
-	var cluster *management.Cluster
+	var (
+		cluster    *management.Cluster
+		k8sVersion string
+	)
+
+	AfterEach(func() {
+		if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
+			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+			err = helper.DeleteEKSClusterOnAWS(region, clusterName)
+			Expect(err).To(BeNil())
+		} else {
+			GinkgoLogr.Info(fmt.Sprintf("Skipping downstream cluster deletion: %s", clusterName))
+		}
+	})
 
 	When("a cluster is imported for sync", func() {
-
+		var upgradeToVersion string
 		BeforeEach(func() {
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, true)
@@ -32,28 +46,17 @@ var _ = Describe("SyncImport", func() {
 			Expect(err).To(BeNil())
 		})
 
-		AfterEach(func() {
-			if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
-				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
-				Expect(err).To(BeNil())
-				err = helper.DeleteEKSClusterOnAWS(region, clusterName)
-				Expect(err).To(BeNil())
-			} else {
-				fmt.Println("Skipping downstream cluster deletion: ", clusterName)
-			}
-		})
-
 		It("Upgrade k8s version of cluster from EKS and verify it is synced back to Rancher", func() {
 			testCaseID = 114
 
 			By("upgrading the ControlPlane & NodeGroup", func() {
-				syncK8sVersionUpgradeCheck(cluster, ctx.RancherAdminClient, true)
+				syncK8sVersionUpgradeCheck(cluster, ctx.RancherAdminClient, true, k8sVersion, upgradeToVersion)
 			})
 		})
 
 		It("Sync from Rancher to AWS console after a sync from AWS console to Rancher", func() {
 			testCaseID = 112
-			syncRancherToAWSCheck(cluster, ctx.RancherAdminClient)
+			syncRancherToAWSCheck(cluster, ctx.RancherAdminClient, k8sVersion, upgradeToVersion)
 		})
 	})
 })

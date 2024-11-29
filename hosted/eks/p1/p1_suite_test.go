@@ -39,10 +39,10 @@ import (
 )
 
 var (
-	ctx                                       helpers.Context
-	clusterName, k8sVersion, upgradeToVersion string
-	testCaseID                                int64
-	region                                    = helpers.GetEKSRegion()
+	ctx         helpers.Context
+	clusterName string
+	testCaseID  int64
+	region      = helpers.GetEKSRegion()
 )
 
 func TestP1(t *testing.T) {
@@ -72,11 +72,11 @@ var _ = ReportAfterEach(func(report SpecReport) {
 })
 
 // updateClusterInUpdatingState runs checks to ensure cluster in an updating state can be updated
-func updateClusterInUpdatingState(cluster *management.Cluster, client *rancher.Client) {
-	var exists bool
-	upgradeToVersion, err := helper.GetK8sVersion(client, false)
-	Expect(err).To(BeNil())
-
+func updateClusterInUpdatingState(cluster *management.Cluster, client *rancher.Client, upgradeToVersion string) {
+	var (
+		exists bool
+		err    error
+	)
 	cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, client, false)
 	Expect(err).To(BeNil())
 	Expect(*cluster.EKSConfig.KubernetesVersion).To(Equal(upgradeToVersion))
@@ -85,7 +85,8 @@ func updateClusterInUpdatingState(cluster *management.Cluster, client *rancher.C
 	Expect(err).To(BeNil())
 
 	loggingTypes := []string{"api"}
-	helper.UpdateLogging(cluster, client, loggingTypes, false)
+	cluster, err = helper.UpdateLogging(cluster, client, loggingTypes, false)
+	Expect(err).To(BeNil())
 	Expect(*cluster.EKSConfig.LoggingTypes).Should(HaveExactElements(loggingTypes))
 
 	err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
@@ -103,7 +104,7 @@ func updateClusterInUpdatingState(cluster *management.Cluster, client *rancher.C
 	}, "15m", "30s").Should(BeTrue())
 }
 
-func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Client, upgradeNodeGroup bool) {
+func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Client, upgradeNodeGroup bool, k8sVersion, upgradeToVersion string) {
 	var err error
 	GinkgoLogr.Info("Upgrading cluster to version:" + upgradeToVersion)
 
@@ -157,14 +158,14 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 	}
 }
 
-func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client) {
+func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client, k8sVersion, upgradeToVersion string) {
 	var err error
 	loggingTypes := []string{"api", "audit", "authenticator", "controllerManager", "scheduler"}
 	currentNodeGroupNumber := len(cluster.EKSConfig.NodeGroups)
 	initialNodeCount := *cluster.EKSConfig.NodeGroups[0].DesiredSize
 
 	By("upgrading control plane", func() {
-		syncK8sVersionUpgradeCheck(cluster, client, false)
+		syncK8sVersionUpgradeCheck(cluster, client, false, k8sVersion, upgradeToVersion)
 	})
 
 	By("scaling up the NodeGroup", func() {
@@ -178,7 +179,8 @@ func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client) 
 		}
 
 		// Verify the new edits reflect in AWS and existing details do NOT change
-		out, err := helper.GetFromEKS(region, clusterName, "cluster", "'.[]|.Version'")
+		var out string
+		out, err = helper.GetFromEKS(region, clusterName, "cluster", "'.[]|.Version'")
 		Expect(err).To(BeNil())
 		Expect(out).To(Equal(upgradeToVersion))
 
@@ -200,7 +202,8 @@ func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client) 
 		Expect(*cluster.EKSConfig.LoggingTypes).ShouldNot(HaveExactElements(loggingTypes))
 
 		// Verify the new edits reflect in AWS console and existing details do NOT change
-		out, err := helper.GetFromEKS(region, clusterName, "cluster", "'.[]|.Version'")
+		var out string
+		out, err = helper.GetFromEKS(region, clusterName, "cluster", "'.[]|.Version'")
 		Expect(err).To(BeNil())
 		Expect(out).To(Equal(upgradeToVersion))
 
@@ -218,7 +221,8 @@ func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client) 
 		Expect(len(cluster.EKSConfig.NodeGroups)).To(Equal(currentNodeGroupNumber + 1))
 
 		// Verify the new edits reflect in AWS console and existing details do NOT change
-		out, err := helper.GetFromEKS(region, clusterName, "nodegroup", "'.|length'")
+		var out string
+		out, err = helper.GetFromEKS(region, clusterName, "nodegroup", "'.|length'")
 		Expect(err).To(BeNil())
 		Expect(strconv.Atoi(out)).To(Equal(currentNodeGroupNumber + 1))
 
@@ -230,19 +234,19 @@ func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client) 
 }
 
 // upgradeNodeKubernetesVersionGTCP upgrades Nodegroup version greater than Controlplane's
-func upgradeNodeKubernetesVersionGTCPCheck(cluster *management.Cluster, client *rancher.Client) {
-	var err error
-	upgradeToVersion, err = helper.GetK8sVersion(client, false)
-	Expect(err).To(BeNil())
+func upgradeNodeKubernetesVersionGTCPCheck(cluster *management.Cluster, client *rancher.Client, upgradeToVersion string) {
 	GinkgoLogr.Info("Upgrading only Nodegroup's EKS version to: " + upgradeToVersion)
+	var err error
 	cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, false, false)
 	Expect(err).To(BeNil())
 
 	// wait until the error is visible on the cluster
 	Eventually(func() bool {
-		cluster, err := client.Management.Cluster.ByID(cluster.ID)
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
 		Expect(err).To(BeNil())
-		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "are not compatible: the node group version may only be up to three minor versions older than the cluster version")
+		// checking for both the messages since different operator version shows different messages. To be removed once the message is updated.
+		// New message:  versions for cluster [1.29] and nodegroup [1.30] not compatible: all nodegroup kubernetes versions must be equal to or one minor version lower than the cluster kubernetes version
+		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "not compatible")
 	}, "1m", "3s").Should(BeTrue())
 }
 
@@ -266,13 +270,10 @@ func invalidAccessValuesCheck(cluster *management.Cluster, client *rancher.Clien
 	Expect(err).To(MatchError(ContainSubstring("public access, private access, or both must be enabled")))
 }
 
-func upgradeCPAndAddNgCheck(cluster *management.Cluster, client *rancher.Client) {
-
+func upgradeCPAndAddNgCheck(cluster *management.Cluster, client *rancher.Client, upgradeToVersion string) {
 	var err error
 	originalLen := len(cluster.EKSConfig.NodeGroups)
 	newNodeGroupName := pointer.String(namegen.AppendRandomString("ng"))
-	upgradeToVersion, err = helper.GetK8sVersion(client, false)
-	Expect(err).To(BeNil())
 	GinkgoLogr.Info("Upgrading control plane to version:" + upgradeToVersion)
 
 	By("upgrading the ControlPlane", func() {
@@ -372,5 +373,20 @@ func updateTagsAndLabels(cluster *management.Cluster, client *rancher.Client) {
 				Expect(*ng.Labels).ToNot(HaveKeyWithValue(key, value))
 			}
 		}
+	})
+}
+
+// Automates Qase: 128 and 77
+func updateLoggingCheck(cluster *management.Cluster, client *rancher.Client) {
+	var err error
+	loggingTypes := []string{"api", "audit", "authenticator", "controllerManager", "scheduler"}
+	By("Adding the LoggingTypes", func() {
+		cluster, err = helper.UpdateLogging(cluster, client, loggingTypes, true)
+		Expect(err).To(BeNil())
+	})
+
+	By("Removing the LoggingTypes", func() {
+		cluster, err = helper.UpdateLogging(cluster, client, []string{loggingTypes[0]}, true)
+		Expect(err).To(BeNil())
 	})
 }
