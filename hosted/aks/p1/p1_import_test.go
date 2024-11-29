@@ -195,8 +195,7 @@ var _ = Describe("P1Import", func() {
 			Expect(err).To(BeNil())
 		})
 
-		XIt("should not be able to remove system nodepool", func() {
-			// Blocked on https://github.com/rancher/aks-operator/issues/619
+		It("should not be able to remove system nodepool", func() {
 			testCaseID = 267
 			removeSystemNpCheck(cluster, ctx.RancherAdminClient)
 		})

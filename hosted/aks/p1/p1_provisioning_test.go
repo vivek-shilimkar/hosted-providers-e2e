@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/user"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -379,13 +378,8 @@ var _ = Describe("P1Provisioning", func() {
 			Eventually(func() bool {
 				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 				Expect(err).NotTo(HaveOccurred())
-				for _, np := range cluster.AKSConfig.NodePools {
-					if !reflect.DeepEqual(*np.AvailabilityZones, originalNPMap[*np.Name]) {
-						return false
-					}
-				}
-				return true
-			}, "5m", "5s").Should(BeTrue(), "Timed out while waiting for config to be restored")
+				return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "Changing availability zones for node pool") && strings.Contains(cluster.TransitioningMessage, "is not permitted")
+			}, "3m", "3s").Should(BeTrue())
 		})
 
 		It("should not delete the resource group when cluster is deleted", func() {
@@ -464,6 +458,7 @@ var _ = Describe("P1Provisioning", func() {
 
 	})
 
+	// Refer: https://github.com/rancher/hosted-providers-e2e/issues/192
 	It("should successfully create 2 clusters in the same RG", func() {
 		testCaseID = 217
 		rgName := namegen.AppendRandomString(helpers.ClusterNamePrefix + "-custom-rg")

@@ -84,7 +84,7 @@ func removeSystemNpCheck(cluster *management.Cluster, client *rancher.Client) {
 	Eventually(func() bool {
 		cluster, err = client.Management.Cluster.ByID(cluster.ID)
 		Expect(err).To(BeNil())
-		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "There has to be at least one system agent pool")
+		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "cannot remove node pool") && strings.Contains(cluster.TransitioningMessage, "with mode System from cluster")
 	}, "5m", "5s").Should(BeTrue())
 }
 

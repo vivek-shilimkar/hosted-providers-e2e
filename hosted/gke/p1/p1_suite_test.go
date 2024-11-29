@@ -16,6 +16,7 @@ package p1_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -115,6 +116,12 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 
 		if !helpers.IsImport {
 			// For imported clusters, GKEConfig always has null values; so we check GKEConfig only when testing provisioned clusters
+			// Refer: github.com/rancher/gke-operator/issues/702
+			Expect(strings.Contains(cluster.TransitioningMessage, "downgrades of minor versions are not supported in GKE, consider updating spec version to match upstream version")).To(BeTrue())
+			// Updating controlplane version via Rancher
+			cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, false, true, false)
+			Expect(err).To(BeNil())
+
 			Expect(*cluster.GKEConfig.KubernetesVersion).To(Equal(upgradeToVersion))
 			for _, np := range cluster.GKEConfig.NodePools {
 				Expect(np.Version).To(BeEquivalentTo(currentVersion), "GKEConfig.NodePools check failed")

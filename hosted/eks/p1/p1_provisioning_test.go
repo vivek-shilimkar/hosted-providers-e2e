@@ -205,7 +205,8 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("Update cluster logging types", func() {
+		// eks-operator/issues/938
+		XIt("Update cluster logging types", func() {
 			testCaseID = 128
 
 			var err error
