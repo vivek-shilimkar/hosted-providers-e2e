@@ -164,7 +164,8 @@ var _ = Describe("P1Provisioning", func() {
 		var amiID string
 		amiID, err = helper.GetFromEKS(region, clusterName, "nodegroup", ".[].ImageID", "--name", gpuNodeName)
 		Expect(err).To(BeNil())
-		Expect(amiID).To(Equal("AL2_x86_64_GPU"))
+		GinkgoLogr.Info(fmt.Sprintf("Used AMI for GPU enabled nodegroup in EKS cluster: %s", amiID))
+		Expect(amiID).To(Or(Equal("AL2_x86_64_GPU"), Equal("AL2023_x86_64_NVIDIA")))
 	})
 
 	Context("Upgrade testing", func() {
