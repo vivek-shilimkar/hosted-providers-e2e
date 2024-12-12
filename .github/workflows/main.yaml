@@ -216,7 +216,7 @@ jobs:
           echo -e "Exported values:\nQASE_RUN_ID=${ID}\nQASE_RUN_DESCRIPTION=${QASE_RUN_DESCRIPTION}\nQASE_RUN_NAME=${QASE_RUN_NAME}"
 
       - name: Provisioning cluster tests
-        if:  ${{ steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p0_provisioning') }}
+        if: ${{ steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p0_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -226,7 +226,7 @@ jobs:
           make e2e-provisioning-tests
 
       - name: Import cluster tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p0_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p0_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -236,7 +236,7 @@ jobs:
           make e2e-import-tests
 
       - name: Provisioning cluster P1 tests
-        if:  ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p1_provisioning') }}
+        if:  ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p1_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -246,7 +246,7 @@ jobs:
           make e2e-p1-provisioning-tests
 
       - name: Import cluster P1 tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p1_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p1_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -256,7 +256,7 @@ jobs:
           make e2e-p1-import-tests
 
       - name: Support matrix provisioning tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'support_matrix_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'support_matrix_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -266,7 +266,7 @@ jobs:
           make e2e-support-matrix-provisioning-tests
 
       - name: Support matrix import tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'support_matrix_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'support_matrix_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -276,7 +276,7 @@ jobs:
           make e2e-support-matrix-import-tests
 
       - name: K8s Chart Support provisioning tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'k8s_chart_support_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'k8s_chart_support_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -288,7 +288,7 @@ jobs:
           make e2e-k8s-chart-support-provisioning-tests
 
       - name: K8s Chart Support import tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'k8s_chart_support_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'k8s_chart_support_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -300,7 +300,7 @@ jobs:
           make e2e-k8s-chart-support-import-tests
 
       - name: Sync provisioning tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'sync_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'sync_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -311,7 +311,7 @@ jobs:
           make e2e-sync-provisioning-tests
 
       - name: Sync import tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'sync_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'sync_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
