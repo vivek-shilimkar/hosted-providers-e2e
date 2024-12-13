@@ -224,14 +224,14 @@ NO_PROXY=127.0.0.0/8,10.0.0.0/8,cattle-system.svc,172.16.0.0/12,192.168.0.0/16,.
 		})
 
 		if nightlyChart == "enabled" {
-			By(fmt.Sprintf("Install nightly %s-operator via Helm", providerOperator), func() {
+			By(fmt.Sprintf("Install nightly rancher-%s-operator via Helm", providerOperator), func() {
 				// Get the current date to use as the build date
 				buildDate := time.Now().Format("20060102")
 
-				RunHelmCmdWithRetry("upgrade", "--install", providerOperator+"-operator-crds",
+				RunHelmCmdWithRetry("upgrade", "--install", "rancher-"+providerOperator+"-operator-crds",
 					"oci://ttl.sh/"+providerOperator+"-operator/rancher-"+providerOperator+"-operator-crd",
 					"--version", buildDate)
-				RunHelmCmdWithRetry("upgrade", "--install", providerOperator+"-operator",
+				RunHelmCmdWithRetry("upgrade", "--install", "rancher-"+providerOperator+"-operator",
 					"oci://ttl.sh/"+providerOperator+"-operator/rancher-"+providerOperator+"-operator",
 					"--version", buildDate, "--namespace", "cattle-system")
 			})

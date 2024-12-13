@@ -1,5 +1,5 @@
 name: Release-matrix
-run-name: Rancher release `${{ inputs.rancher_version }}` deployed on `${{ inputs.k3s_version }}`
+run-name: Rancher `${{ inputs.rancher_version }}` on `${{ inputs.k3s_version }}` running `${{ inputs.tests_to_run }}`
 
 on:
   workflow_dispatch:

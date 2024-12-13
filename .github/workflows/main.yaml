@@ -216,7 +216,7 @@ jobs:
           echo -e "Exported values:\nQASE_RUN_ID=${ID}\nQASE_RUN_DESCRIPTION=${QASE_RUN_DESCRIPTION}\nQASE_RUN_NAME=${QASE_RUN_NAME}"
 
       - name: Provisioning cluster tests
-        if: ${{ steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p0_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p0_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -339,21 +339,23 @@ jobs:
         env:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
           RANCHER_BEHIND_PROXY: ${{ inputs.proxy == true }}
-        if: ${{ steps.prepare-rancher.outcome == 'success' }}
+        if: ${{ always() && steps.prepare-rancher.outcome == 'success' }}
         run: |
           chmod +x ${{ env.RANCHER_LOG_COLLECTOR }}
           bash ${{ env.RANCHER_LOG_COLLECTOR }}
 
       - name: Upload cluster logs
-        if: ${{ steps.prepare-rancher.outcome == 'success' }}
+        if: ${{ always() && steps.prepare-rancher.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
-          name: support-logs
+          name: support-logs-${{ inputs.hosted_provider }}
           path: ${{ github.workspace }}/logs/*
           if-no-files-found: ignore
 
       - name: Add summary
-        if: ${{ !cancelled() }}
+        env:
+          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+        if: ${{ always() && steps.prepare-rancher.outcome == 'success' }}
         run: |
           # Add summary
           echo "## General information" >> ${GITHUB_STEP_SUMMARY}
@@ -361,6 +363,8 @@ jobs:
           echo "K3s on Rancher Manager: ${{ inputs.k3s_version }}" >> ${GITHUB_STEP_SUMMARY}
           echo "Downstream ${{ inputs.hosted_provider }} minor version: ${{ inputs.downstream_k8s_minor_version }}" >> ${GITHUB_STEP_SUMMARY}
           echo "Tests run: ${{ inputs.tests_to_run }}" >> ${GITHUB_STEP_SUMMARY}
+          OPERATOR_HELM_VERSION=$(helm get metadata rancher-${{ inputs.hosted_provider }}-operator -n cattle-system -o json | jq -r .version)
+          echo "Installed rancher-${{ inputs.hosted_provider }}-operator chart version: $OPERATOR_HELM_VERSION" >> ${GITHUB_STEP_SUMMARY}
 
   delete-runner:
     if: ${{ always() && inputs.destroy_runner == true }}
