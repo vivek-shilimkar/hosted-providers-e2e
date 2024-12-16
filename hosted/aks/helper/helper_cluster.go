@@ -583,6 +583,34 @@ func ClusterExistsOnAzure(clusterName, resourceGroup string) (bool, error) {
 	return false, nil
 }
 
+// RunCommand executes `aks command invoke` which runs a command inside a cluster;  useful when registering a private cluster with rancher
+func RunCommand(clusterName, resourceGroup, command string) error {
+	currentKubeconfig := os.Getenv("KUBECONFIG")
+	downstreamKubeconfig := helpers.DownstreamKubeconfig(clusterName)
+	defer func() {
+		_ = os.Setenv("KUBECONFIG", currentKubeconfig)
+		_ = os.Remove(downstreamKubeconfig) // clean up
+	}()
+	_ = os.Setenv("KUBECONFIG", downstreamKubeconfig)
+
+	fmt.Printf("Logging into the cluster")
+	loginArgs := []string{"aks", "get-credentials", "--resource-group", resourceGroup, "--name", clusterName, "--overwrite-existing", "--subscription", subscriptionID}
+	fmt.Printf("Running command: az %v\n", loginArgs)
+	out, err := proc.RunW("az", loginArgs...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to run command: "+out)
+	}
+
+	args := []string{"aks", "command", "invoke", "--resource-group", resourceGroup, "--name", clusterName, "--subscription", subscriptionID, "--command", command}
+	fmt.Printf("Running command inside the cluster: az %v\n", args)
+
+	out, err = proc.RunW("az", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to run command: "+out)
+	}
+	return nil
+}
+
 // UpgradeAKSOnAzure upgrade the AKS cluster using az CLI
 // `--control-plane-only` flag can be passed to only upgrade Control Plane version. (Default) If not specified, both control plane AND all node pools will be upgraded.
 // `--node-image-only` flag can be passed to only upgrade Node Pool version

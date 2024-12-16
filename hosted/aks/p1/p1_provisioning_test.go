@@ -14,6 +14,7 @@ import (
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/clusters/aks"
+	"github.com/rancher/shepherd/extensions/tokenregistration"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 	"k8s.io/utils/pointer"
 
@@ -601,6 +602,25 @@ var _ = Describe("P1Provisioning", func() {
 		}, "5m", "5s").Should(BeTrue(), "Failed while waiting for k8s upgrade.")
 	})
 
+	It("should Create NP with AZ for region where AZ is not supported", func() {
+		testCaseID = 196
+		// none of the availability zones are supported in this location
+		location = "westus"
+		var err error
+		// re-fetching k8s version based on the location to avoid unsupported k8s version errors
+		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, false)
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() bool {
+			cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "Availability zone is not supported in region")
+		}, "2m", "2s").Should(BeTrue(), "Timed out while waiting for cluster to error out")
+	})
+
 	When("a cluster is created for with user and system mode nodepool", func() {
 		BeforeEach(func() {
 			updateFunc := func(clusterConfig *aks.ClusterConfig) {
@@ -728,4 +748,66 @@ var _ = Describe("P1Provisioning", func() {
 		}
 	})
 
+	XContext("Private Cluster", func() {
+		// Blocked on: https://github.com/rancher/rancher/issues/43772
+		BeforeEach(func() {
+			var err error
+			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
+			Expect(err).NotTo(HaveOccurred())
+			GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
+
+			createFunc := func(clusterConfig *aks.ClusterConfig) {
+				clusterConfig.PrivateCluster = pointer.Bool(true)
+			}
+
+			cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, createFunc)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+				Expect(err).To(BeNil())
+				return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "failed to communicate with cluster: error generating service account token") && strings.Contains(cluster.TransitioningMessage, "cluster agent disconnected")
+			}, "12m", "10s").Should(BeTrue(), "Timed out while waiting for cluster to be ready for registration")
+
+			registrationToken, err1 := tokenregistration.GetRegistrationToken(ctx.RancherAdminClient, cluster.ID)
+			Expect(err1).To(BeNil())
+			err = helper.RunCommand(cluster.AKSConfig.ClusterName, cluster.AKSConfig.ResourceGroup, registrationToken.InsecureCommand)
+			Expect(err).To(BeNil())
+
+			//Failed to communicate with cluster: error generating service account token: Post "https://auto-aks-pvala-hp-ci-rqbte-dns-gs1f40rx.006641f3-b627-466d-917b-c2c6bca16c4c.privatelink.centralindia.azmk8s.io:443/api/v1/namespaces": dial tcp: address auto-aks-pvala-hp-ci-rqbte-dns-gs1f40rx.006641f3-b627-466d-917b-c2c6bca16c4c.priva
+
+			//Failed to communicate with cluster: error generating service account token: Post "https://pvala-aks-dns-i0lznum3.9f8ba64d-e36e-4aaa-84d2-d0a8935cdb32.privatelink.centralindia.azmk8s.io:443/api/v1/namespaces": cluster agent disconnected
+			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+			Expect(err).To(BeNil())
+		})
+		It("should successfully Create a private cluster", func() {
+			testCaseID = 240 // 241, 242
+			helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+
+			availableVersions, err := helper.ListAKSAvailableVersions(ctx.RancherAdminClient, cluster.ID)
+			Expect(err).To(BeNil())
+			upgradeK8sVersion := availableVersions[0]
+
+			By("upgrading control plane k8s version", func() {
+				cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeK8sVersion, ctx.RancherAdminClient, true)
+				Expect(err).To(BeNil())
+			})
+
+			By("upgrading nodepool k8s version", func() {
+				cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeK8sVersion, ctx.RancherAdminClient, true, true)
+				Expect(err).To(BeNil())
+			})
+
+			By("adding a nodepool", func() {
+				cluster, err = helper.AddNodePool(cluster, 1, ctx.RancherAdminClient, true, true)
+				Expect(err).To(BeNil())
+			})
+
+			By("updating autoscaling", func() {
+				cluster, err = helper.UpdateAutoScaling(cluster, ctx.RancherAdminClient, true, 5, 2, true)
+				Expect(err).To(BeNil())
+			})
+		})
+
+	})
 })

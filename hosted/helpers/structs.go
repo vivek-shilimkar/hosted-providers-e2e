@@ -41,7 +41,7 @@ var (
 	RancherUpgradeVersion = os.Getenv("RANCHER_UPGRADE_VERSION")
 	Kubeconfig            = os.Getenv("KUBECONFIG")
 	DownstreamKubeconfig  = func(clusterName string) string {
-		return os.Getenv(fmt.Sprintf("%s_KUBECONFIG", clusterName))
+		return fmt.Sprintf("%s_KUBECONFIG", clusterName)
 	}
 	K8sUpgradedMinorVersion   = os.Getenv("K8S_UPGRADE_MINOR_VERSION")
 	DownstreamK8sMinorVersion = os.Getenv("DOWNSTREAM_K8S_MINOR_VERSION")
