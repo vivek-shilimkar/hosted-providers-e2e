@@ -515,6 +515,166 @@ func AddNodeGroupOnAWS(nodeName, clusterName, region string, extraArgs ...string
 
 }
 
+// ScaleNodeGroupOnAWS scales nodegroup of a cluster using EKS CLI
+func ScaleNodeGroupOnAWS(ngName, clusterName, region string, numOfNodes, maxCount, minCount int64, extraArgs ...string) error {
+	fmt.Println("Scaling nodegroup of EKS cluster ...")
+	args := []string{"scale", "nodegroup", "--region", region, "--name", ngName, "--cluster", clusterName, "--nodes", fmt.Sprintf("%d", numOfNodes), "--nodes-max", fmt.Sprintf("%d", maxCount), "--nodes-min", fmt.Sprintf("%d", minCount), "--wait"}
+	if len(extraArgs) != 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: eksctl %v\n", args)
+	out, err := proc.RunW("eksctl", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to scale nodegroup: "+out)
+	}
+	fmt.Println("Scaled nodegroup: ", ngName)
+	return nil
+}
+
+// UpdateNodeGroupLabelsOnAWS deletes or add/updates labels on nodegroup of a cluster;
+func UpdateNodeGroupLabelsOnAWS(clusterName, nodegroupName, region string, addOrUpdatelabels map[string]string, removeLabels []string, extraArgs ...string) error {
+	if len(addOrUpdatelabels) == 0 && len(removeLabels) == 0 {
+		return fmt.Errorf("no labels provided to remove or update/add")
+	}
+	fmt.Println("Updating labels of nodegroup on EKS cluster ...")
+	args := []string{"eks", "update-nodegroup-config", "--cluster-name", clusterName, "--nodegroup-name", nodegroupName, "--region", region}
+	var addLabel, removeLabel string
+
+	if len(addOrUpdatelabels) > 0 {
+		formattedLabels := k8slabels.FormatLabels(addOrUpdatelabels)
+		addLabel = fmt.Sprintf("addOrUpdateLabels={%s}", formattedLabels)
+	}
+	if len(removeLabels) > 0 {
+		removeLabel = fmt.Sprintf("removeLabels=%s", strings.Join(removeLabels, ","))
+	}
+
+	var label string
+	if addLabel != "" && removeLabel != "" {
+		label = fmt.Sprintf("%s,%s", addLabel, removeLabel)
+	} else if addLabel != "" {
+		label = fmt.Sprintf("%s", addLabel)
+	} else {
+		label = fmt.Sprintf("%s", removeLabel)
+	}
+
+	args = append(args, "--labels", label)
+	if len(extraArgs) != 0 {
+		args = append(args, extraArgs...)
+	}
+
+	fmt.Printf("Running command: aws %v\n", args)
+	out, err := proc.RunW("aws", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to update labels to nodegroup: "+out)
+	}
+	fmt.Println("Updated labels to nodegroup: ", nodegroupName, "\n", out)
+	return nil
+}
+
+// AddClusterTagsOnAWS adds label to cluster using AWS cli
+func AddClusterTagsOnAWS(clusterName, region string, tags map[string]string, extraArgs ...string) error {
+	arn, err := GetFromEKS(region, clusterName, "cluster", ".[].Arn")
+	if err != nil {
+		return fmt.Errorf("failed to get ARN for cluster %s: %v", clusterName, err)
+	}
+	return UpdateResoureTagsOnAWS(arn, clusterName, region, tags, extraArgs...)
+}
+
+// RemoveClusterTagsOnAWS removes label from cluster using AWS cli
+func RemoveClusterTagsOnAWS(clusterName, region string, tags []string, extraArgs ...string) error {
+	arn, err := GetFromEKS(region, clusterName, "cluster", ".[].Arn")
+	if err != nil {
+		return fmt.Errorf("failed to get ARN for cluster %s: %v", clusterName, err)
+	}
+	return RemoveResourceTagsOnAWS(arn, clusterName, region, tags, extraArgs...)
+}
+
+// UpdateClusterTagOnAWS tags resource using AWS CLI
+func UpdateResoureTagsOnAWS(resourceArn, clusterName, region string, tags map[string]string, extraArgs ...string) error {
+	formattedTags := k8slabels.SelectorFromSet(tags).String()
+	fmt.Println("Updating tag on EKS cluster ...")
+	args := []string{"eks", "tag-resource", "--resource-arn", resourceArn, "--tags", formattedTags, "--region", region}
+	if len(extraArgs) != 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: aws %v\n", args)
+	out, err := proc.RunW("aws", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to update tag: "+out)
+	}
+	fmt.Println("Updated tag on EKS cluster: ", clusterName, "\n", out)
+	return nil
+}
+
+// RemoveResourceTagsOnAWS untags the resources using AWS CLI
+func RemoveResourceTagsOnAWS(resourceArn, clusterName, region string, tags []string, extraArgs ...string) error {
+	fmt.Println("Removing tag on EKS cluster ...")
+	args := []string{"eks", "untag-resource", "--resource-arn", resourceArn, "--region", region}
+	args = append(args, "--tag-keys")
+	for _, tag := range tags {
+		args = append(args, tag)
+	}
+	if len(extraArgs) != 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: aws %v\n", args)
+	out, err := proc.RunW("aws", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to remove tag: "+out)
+	}
+	fmt.Println("Removed tag on EKS cluster: ", clusterName, "\n", out)
+	return nil
+}
+
+// UpdateLoggingOnAWS enabled and disabled the logging of a cluster
+// types: all, api, audit, authenticator, controllerManager, scheduler
+func UpdateLoggingOnAWS(clusterName, region string, enableLoggingTypes, disableLoggingTypes []string, extraArgs ...string) error {
+	fmt.Println("Updating Logging of EKS cluster ...")
+	args := []string{"utils", "update-cluster-logging", "--region", region, "--cluster", clusterName, "--approve"}
+	if len(enableLoggingTypes) != 0 {
+		args = append(args, "--enable-types")
+		args = append(args, strings.Join(enableLoggingTypes, ","))
+	}
+	if len(disableLoggingTypes) != 0 {
+		args = append(args, "--disable-types")
+		args = append(args, strings.Join(disableLoggingTypes, ","))
+	}
+	if len(extraArgs) != 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: eksctl %v\n", args)
+	out, err := proc.RunW("eksctl", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to update logging: "+out)
+	}
+	fmt.Println("Updated logging of EKS cluster: ", clusterName, "\n", out)
+	return nil
+}
+
+func UpdateVPCAccess(clusterName, region string, enablePublic, enablePrivate bool, publicAccessCIDR []string, extraArgs ...string) error {
+	fmt.Println("Updating VPC access of control plane ...")
+	args := []string{"utils", "update-cluster-vpc-config", "--region", region, "--cluster", clusterName, "--approve"}
+	if enablePublic {
+		args = append(args, "--public-access")
+	}
+	if enablePrivate {
+		args = append(args, "--private-access")
+	}
+	if len(publicAccessCIDR) != 0 {
+		args = append(args, "--public-access-cidrs", strings.Join(publicAccessCIDR, ","))
+	}
+	if len(extraArgs) != 0 {
+		args = append(args, extraArgs...)
+	}
+	fmt.Printf("Running command: eksctl %v\n", args)
+	out, err := proc.RunW("eksctl", args...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to update VPC access: "+out)
+	}
+	fmt.Println("Updated VPC access: ", clusterName)
+	return nil
+}
+
 // Upgrade EKS cluster nodegroup using EKS CLI
 func UpgradeEKSNodegroupOnAWS(region string, clusterName string, ngName string, upgradeToVersion string) error {
 	fmt.Println("Upgrading EKS cluster nodegroup ...")

@@ -15,6 +15,7 @@ limitations under the License.
 package p1_test
 
 import (
+	"fmt"
 	"maps"
 	"strconv"
 	"strings"
@@ -129,7 +130,7 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 
 	if upgradeNodeGroup {
 		By("upgrading the nodegroup", func() {
-			GinkgoLogr.Info("Upgrading Nodegroup's EKS version")
+			GinkgoLogr.Info(fmt.Sprintf("Upgrading Nodegroup's EKS version to %s", upgradeToVersion))
 			for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
 				err = helper.UpgradeEKSNodegroupOnAWS(region, clusterName, *ng.NodegroupName, upgradeToVersion)
 				Expect(err).To(BeNil())
@@ -145,17 +146,306 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 					}
 				}
 				return true
-			}, tools.SetTimeout(5*time.Minute), 10*time.Second).Should(BeTrue(), "Failed while waiting for nodegroup k8s upgrade to appear in EKSStatus.UpstreamSpec")
+			}, tools.SetTimeout(7*time.Minute), 10*time.Second).Should(BeTrue(), "Failed while waiting for nodegroup k8s upgrade to appear in EKSStatus.UpstreamSpec")
 
 			if !helpers.IsImport {
 				// For imported clusters, EKSConfig always has null values; so we check EKSConfig only when testing provisioned clusters
 				Expect(*cluster.EKSConfig.KubernetesVersion).To(Equal(upgradeToVersion))
 				for _, ng := range cluster.EKSConfig.NodeGroups {
+					Expect(ng.Version).ToNot(BeNil())
 					Expect(*ng.Version).To(BeEquivalentTo(upgradeToVersion), "EKSConfig.NodePools upgrade check failed")
 				}
 			}
 		})
 	}
+}
+
+func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, k8sVersion, upgradeToVersion string) {
+	loggingTypes := []string{"api", "audit", "authenticator", "controllerManager", "scheduler"}
+	By("Enabling the LoggingTypes", func() {
+		err := helper.UpdateLoggingOnAWS(clusterName, region, loggingTypes, nil)
+		Expect(err).To(BeNil())
+
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			updated := len(*cluster.EKSStatus.UpstreamSpec.LoggingTypes) == len(loggingTypes)
+			if !helpers.IsImport {
+				updated = updated && len(*cluster.EKSConfig.LoggingTypes) == len(loggingTypes)
+			}
+			return updated
+		}, "10m", "7s").Should(BeTrue(), "Timed out waiting for LoggingTypes update to appear in Rancher")
+
+		for _, lType := range loggingTypes {
+			if !helpers.IsImport {
+				Expect(*cluster.EKSConfig.LoggingTypes).To(ContainElement(lType))
+			}
+			Expect(*cluster.EKSStatus.UpstreamSpec.LoggingTypes).To(ContainElement(lType))
+		}
+	})
+
+	By("Disabling the LoggingTypes", func() {
+		err := helper.UpdateLoggingOnAWS(clusterName, region, nil, []string{"all"})
+		Expect(err).To(BeNil())
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			updated := len(*cluster.EKSStatus.UpstreamSpec.LoggingTypes) == 0
+			if !helpers.IsImport {
+				updated = updated && len(*cluster.EKSConfig.LoggingTypes) == 0
+			}
+			return updated
+		}, "10m", "7s").Should(BeTrue(), "Timed out waiting for LoggingTypes update to appear in Rancher")
+	})
+
+	By("Updating public/private access and CIDRs", func() {
+		cidrs := []string{"0.0.0.0/0", helpers.GetRancherIP() + "/32"}
+		err := helper.UpdateVPCAccess(clusterName, region, true, true, cidrs)
+		Expect(err).To(BeNil())
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			privateUpdated := *cluster.EKSStatus.UpstreamSpec.PrivateAccess
+			publicUpdated := *cluster.EKSStatus.UpstreamSpec.PublicAccess
+			cidrUpdated := len(*cluster.EKSStatus.UpstreamSpec.PublicAccessSources) == len(cidrs)
+			if !helpers.IsImport {
+				privateUpdated = privateUpdated && *cluster.EKSConfig.PrivateAccess
+				publicUpdated = publicUpdated && *cluster.EKSConfig.PublicAccess
+				cidrUpdated = cidrUpdated && len(*cluster.EKSConfig.PublicAccessSources) == len(cidrs)
+			}
+			return privateUpdated && publicUpdated && cidrUpdated
+		}, "10m", "7s").Should(BeTrue(), "Timed out waiting for private/public access to appear in Rancher")
+
+		for _, cidr := range cidrs {
+			if !helpers.IsImport {
+				Expect(*cluster.EKSConfig.PublicAccessSources).To(ContainElement(cidr))
+			}
+			Expect(*cluster.EKSStatus.UpstreamSpec.PublicAccessSources).To(ContainElement(cidr))
+		}
+	})
+
+	By("upgrading control plane and nodegroup", func() {
+		syncK8sVersionUpgradeCheck(cluster, client, true, k8sVersion, upgradeToVersion)
+	})
+
+	By("scaling up the NodeGroup", func() {
+		ng := cluster.EKSStatus.UpstreamSpec.NodeGroups[0]
+		var nodeCount int64 = 2
+		if ng.DesiredSize != nil {
+			nodeCount = *ng.DesiredSize + 2
+		}
+		err := helper.ScaleNodeGroupOnAWS(*ng.NodegroupName, clusterName, region, nodeCount, nodeCount+2, nodeCount-1)
+		Expect(err).To(BeNil())
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			updated := *cluster.EKSStatus.UpstreamSpec.NodeGroups[0].DesiredSize == nodeCount
+			if !helpers.IsImport {
+				updated = updated && *cluster.EKSConfig.NodeGroups[0].DesiredSize == nodeCount
+			}
+			return updated
+		}, "10m", "7s").Should(BeTrue(), "Timed out waiting for NodeGroup scale to show in Rancher")
+	})
+
+	var nodeName = namegen.AppendRandomString("ng")
+	ngCount := len(cluster.EKSStatus.UpstreamSpec.NodeGroups)
+	if helpers.IsImport {
+		// The following error is encountered when adding nodegroup to a non-eksctl managed i.e. rancher provisioned cluster; so we skip it for now
+		// Error: loading VPC spec for cluster "auto-eks-hp-ci-atiia": VPC configuration required for creating nodegroups on clusters not owned by eksctl: vpc.subnets, vpc.id, vpc.securityGroup
+		// If this is implemented for rancher-provisioned cluster; make sure to check for Config spec.
+		By("adding a NodeGroup", func() {
+			err := helper.AddNodeGroupOnAWS(nodeName, clusterName, region)
+			Expect(err).To(BeNil())
+
+			Eventually(func() bool {
+				cluster, err = client.Management.Cluster.ByID(cluster.ID)
+				Expect(err).To(BeNil())
+				if len(cluster.EKSStatus.UpstreamSpec.NodeGroups) != ngCount+1 {
+					return false
+				}
+				for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+					if *ng.NodegroupName == nodeName {
+						return true
+					}
+				}
+				return false
+			}, "10m", "7s").Should(BeTrue(), "Timed out waiting for new NodeGroup to appear in Rancher")
+		})
+	}
+
+	By("deleting a NodeGroup", func() {
+		if !helpers.IsImport {
+			// adding an extra nodegroup to make sure there are at least 2 nodes in the cluster before deleting it for rancher-provisioned clusters
+			// remove this if and when By("adding a Nodegroup") is implemented for rancher-provisioned cluster
+			var err error
+			cluster, err = helper.AddNodeGroup(cluster, 1, client, true, true)
+			Expect(err).To(BeNil())
+			nodeName = *cluster.EKSConfig.NodeGroups[1].NodegroupName
+		}
+		err := helper.ModifyEKSNodegroupOnAWS(region, clusterName, nodeName, "delete", "--wait")
+		Expect(err).To(BeNil())
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			updated := len(cluster.EKSStatus.UpstreamSpec.NodeGroups) != ngCount
+			if !helpers.IsImport {
+				updated = updated && len(cluster.EKSConfig.NodeGroups) != ngCount
+			}
+			if updated {
+				return false
+			}
+			var nodeGroupPresentInUpstream, nodeGroupPresentInConfig bool
+			for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+				if *ng.NodegroupName == nodeName {
+					nodeGroupPresentInUpstream = true
+					break
+				}
+			}
+			if !helpers.IsImport {
+				for _, ng := range cluster.EKSConfig.NodeGroups {
+					if *ng.NodegroupName == nodeName {
+						nodeGroupPresentInConfig = true
+						break
+					}
+				}
+			} else {
+				// if the cluster is imported, Config will be null, so we assign this variable to true to do easy check
+				nodeGroupPresentInConfig = true
+			}
+			return nodeGroupPresentInConfig && nodeGroupPresentInUpstream
+		}, "10m", "7s").Should(BeFalse(), "Timed out waiting for NodeGroup to delete from Rancher")
+	})
+
+	tags := map[string]string{"foo": "bar", "updated": "via-cli"}
+	By("adding tags to EKS cluster", func() {
+		err := helper.AddClusterTagsOnAWS(clusterName, region, tags)
+		Expect(err).To(BeNil())
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			upstreamTags := *cluster.EKSStatus.UpstreamSpec.Tags
+			for key := range tags {
+				_, existsUpstream := upstreamTags[key]
+
+				var existsConfig bool
+				if !helpers.IsImport {
+					configTags := *cluster.EKSConfig.Tags
+					_, existsConfig = configTags[key]
+				} else {
+					// if the cluster is imported, Config will be null, so we assign this variable to true to do easy check
+					existsConfig = true
+				}
+				if !(existsConfig && existsUpstream) {
+					// TODO: check this logic
+					// return early if the key doesn't exist in either of the specs
+					return false
+				}
+			}
+			return true
+		}, "10m", "5s").Should(BeTrue(), "Timed out waiting for EKS tags to be updated")
+		for key, value := range tags {
+			if !helpers.IsImport {
+				Expect(*cluster.EKSConfig.Tags).To(HaveKeyWithValue(key, value))
+			}
+			Expect(*cluster.EKSStatus.UpstreamSpec.Tags).To(HaveKeyWithValue(key, value))
+		}
+	})
+
+	By("removing tags from EKS cluster", func() {
+		var removeTags []string
+		for key := range tags {
+			removeTags = append(removeTags, key)
+		}
+		err := helper.RemoveClusterTagsOnAWS(clusterName, region, removeTags)
+		Expect(err).To(BeNil())
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			upstreamTags := *cluster.EKSStatus.UpstreamSpec.Tags
+			for key := range tags {
+				_, existsUpstream := upstreamTags[key]
+				var existsConfig bool
+				if !helpers.IsImport {
+					configTags := *cluster.EKSConfig.Tags
+					_, existsConfig = configTags[key]
+				}
+				if existsConfig || existsUpstream {
+					return false
+				}
+			}
+			return true
+		}, "10m", "5s").Should(BeTrue(), "Timed out waiting for EKS tags to be removed")
+	})
+
+	addLabels := map[string]string{"foo": "bar", "updated": "via-cli"}
+	const ngIndex = 0
+	By("add labels to Nodegroup", func() {
+		err := helper.UpdateNodeGroupLabelsOnAWS(clusterName, *cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].NodegroupName, region, addLabels, nil)
+		Expect(err).To(BeNil())
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			upstreamLabels := *cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].Labels
+
+			for key := range addLabels {
+				_, existUpstream := upstreamLabels[key]
+				var existConfig bool
+				if !helpers.IsImport {
+					configTags := *cluster.EKSConfig.NodeGroups[ngIndex].Labels
+					_, existConfig = configTags[key]
+				} else {
+					// if the cluster is imported, Config will be null, so we assign this variable to true to do easy check
+					existConfig = true
+				}
+				if !(existConfig && existUpstream) {
+					// return early if the key doesn't exist in either of the specs
+					return false
+				}
+			}
+			return true
+		}, "10m", "5s").Should(BeTrue(), "Timed out waiting for EKS nodegroup labels to be added")
+
+		for key, value := range addLabels {
+			if !helpers.IsImport {
+				Expect(*cluster.EKSConfig.NodeGroups[ngIndex].Labels).To(HaveKeyWithValue(key, value))
+			}
+			Expect(*cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].Labels).To(HaveKeyWithValue(key, value))
+		}
+	})
+
+	By("deleting labels from Nodegroup", func() {
+		var removeLabels []string
+		for key := range addLabels {
+			removeLabels = append(removeLabels, key)
+		}
+		err := helper.UpdateNodeGroupLabelsOnAWS(clusterName, *cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].NodegroupName, region, nil, removeLabels)
+		Expect(err).To(BeNil())
+		Eventually(func() bool {
+			cluster, err = client.Management.Cluster.ByID(cluster.ID)
+			Expect(err).To(BeNil())
+			upstreamLabels := *cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].Labels
+			for _, key := range removeLabels {
+				_, existsUpstream := upstreamLabels[key]
+				var existsConfig bool
+				if !helpers.IsImport {
+					configTags := *cluster.EKSConfig.NodeGroups[ngIndex].Labels
+					_, existsConfig = configTags[key]
+				}
+				if existsConfig || existsUpstream {
+					// return early if the key exists in either of the specs
+					return false
+				}
+			}
+			return true
+		}, "10m", "5s").Should(BeTrue(), "Timed out waiting for EKS nodegroup labels to be deleted")
+
+		for key, value := range addLabels {
+			if !helpers.IsImport {
+				Expect(*cluster.EKSConfig.NodeGroups[ngIndex].Labels).ToNot(HaveKeyWithValue(key, value))
+			}
+			Expect(*cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].Labels).ToNot(HaveKeyWithValue(key, value))
+		}
+	})
 }
 
 func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client, k8sVersion, upgradeToVersion string) {
