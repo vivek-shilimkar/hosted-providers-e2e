@@ -139,14 +139,14 @@ func WaitUntilClusterIsReady(cluster *management.Cluster, client *rancher.Client
 	opts := metav1.ListOptions{FieldSelector: "metadata.name=" + cluster.ID, TimeoutSeconds: &defaults.WatchTimeoutSeconds}
 	watchInterface, err := client.GetManagementWatchInterface(management.ClusterType, opts)
 	if err != nil {
-		return nil, err
+		return cluster, err
 	}
 
 	watchFunc := shepherdclusters.IsHostedProvisioningClusterReady
 
 	err = wait.WatchWait(watchInterface, watchFunc)
 	if err != nil {
-		return nil, err
+		return cluster, err
 	}
 	var updatedCluster *management.Cluster
 	updatedCluster, err = client.Management.Cluster.ByID(cluster.ID)
