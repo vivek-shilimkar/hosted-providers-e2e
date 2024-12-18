@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
 	. "github.com/rancher-sandbox/qase-ginkgo"
-	"github.com/rancher/norman/types/slice"
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	"github.com/rancher/shepherd/extensions/clusters"
@@ -99,7 +98,7 @@ func updateClusterInUpdatingState(cluster *management.Cluster, client *rancher.C
 		Expect(err).To(BeNil())
 
 		for _, loggingType := range loggingTypes {
-			exists = slice.ContainsString(*cluster.EKSStatus.UpstreamSpec.LoggingTypes, loggingType)
+			exists = helpers.ContainsString(*cluster.EKSStatus.UpstreamSpec.LoggingTypes, loggingType)
 		}
 		return exists && *cluster.EKSStatus.UpstreamSpec.KubernetesVersion == upgradeToVersion
 	}, "15m", "30s").Should(BeTrue())
