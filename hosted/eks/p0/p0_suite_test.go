@@ -80,13 +80,14 @@ func p0upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Clie
 		Expect(err).To(BeNil())
 	})
 
-	// Does not upgrades version since using custom LT, skip for imported cluster
-	if !helpers.IsImport {
-		By("upgrading the NodeGroups", func() {
-			cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, true, true)
-			Expect(err).To(BeNil())
-		})
+	var useEksctl bool
+	if helpers.IsImport {
+		useEksctl = true
 	}
+	By("upgrading the NodeGroups", func() {
+		cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, true, true, useEksctl)
+		Expect(err).To(BeNil())
+	})
 }
 
 func p0NodesChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {

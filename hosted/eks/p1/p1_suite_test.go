@@ -526,7 +526,7 @@ func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client, 
 func upgradeNodeKubernetesVersionGTCPCheck(cluster *management.Cluster, client *rancher.Client, upgradeToVersion string) {
 	GinkgoLogr.Info("Upgrading only Nodegroup's EKS version to: " + upgradeToVersion)
 	var err error
-	cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, false, false)
+	cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, false, false, false)
 	Expect(err).To(BeNil())
 
 	// wait until the error is visible on the cluster

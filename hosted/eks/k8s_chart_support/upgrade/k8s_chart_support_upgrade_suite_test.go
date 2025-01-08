@@ -168,13 +168,15 @@ func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName
 
 		cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, *latestVersion, ctx.RancherAdminClient, true)
 		Expect(err).To(BeNil())
-		// Does not upgrade noodegroup version since using custom LT, skip for imported cluster
-		if !helpers.IsImport {
-			By("upgrading the NodeGroups", func() {
-				cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, *latestVersion, ctx.RancherAdminClient, true, true)
-				Expect(err).To(BeNil())
-			})
+
+		var useEksctl bool
+		if helpers.IsImport {
+			useEksctl = true
 		}
+		By("upgrading the NodeGroups", func() {
+			cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, *latestVersion, ctx.RancherAdminClient, true, true, useEksctl)
+			Expect(err).To(BeNil())
+		})
 	})
 
 	var downgradeVersion string

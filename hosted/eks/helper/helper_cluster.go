@@ -84,12 +84,14 @@ func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersi
 		}
 
 		// Check if the desired config has been applied in Rancher
-		Eventually(func() string {
-			ginkgo.GinkgoLogr.Info("Waiting for k8s upgrade to appear in EKSStatus.UpstreamSpec ...")
+		// Check if EKSConfig has correct KubernetesVersion after upgrade (Ref: eks-operator/issues/668)
+		Eventually(func() bool {
+			ginkgo.GinkgoLogr.Info("Waiting for k8s upgrade to appear in EKSStatus.UpstreamSpec & EKSConfig ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			return *cluster.EKSStatus.UpstreamSpec.KubernetesVersion
-		}, tools.SetTimeout(15*time.Minute), 30*time.Second).Should(Equal(upgradeToVersion))
+			return *cluster.EKSStatus.UpstreamSpec.KubernetesVersion == upgradeToVersion && *cluster.EKSConfig.KubernetesVersion == upgradeToVersion
+		}, tools.SetTimeout(15*time.Minute), 30*time.Second).Should(BeTrue())
+
 		// ensure nodegroup version is same in Rancher
 		for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
 			Expect(*ng.Version).To(Equal(currentVersion))
@@ -101,29 +103,34 @@ func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersi
 // UpgradeNodeKubernetesVersion upgrades the k8s version of nodegroup to the value defined by upgradeToVersion.
 // if wait is set to true, it will wait until the cluster finishes upgrading;
 // if checkClusterConfig is set to true, it will validate that nodegroup has been upgraded successfully
-func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion string, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
-	upgradedCluster := cluster
-	for i := range upgradedCluster.EKSConfig.NodeGroups {
-		upgradedCluster.EKSConfig.NodeGroups[i].Version = &upgradeToVersion
-	}
-
+// if useEksctl is set to true, nodegroup will be upgraded using eksctl utility instead of updating it from Rancher
+func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion string, client *rancher.Client, wait, checkClusterConfig, useEksctl bool) (*management.Cluster, error) {
 	var err error
-	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
-	Expect(err).To(BeNil())
 
-	// Check if the desired config is set correctly
-	for _, ng := range cluster.EKSConfig.NodeGroups {
-		Expect(*ng.Version).To(Equal(upgradeToVersion))
-	}
+	if !useEksctl {
+		upgradedCluster := cluster
+		for i := range upgradedCluster.EKSConfig.NodeGroups {
+			upgradedCluster.EKSConfig.NodeGroups[i].Version = &upgradeToVersion
+		}
 
-	if wait {
-		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+		cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
 		Expect(err).To(BeNil())
+
+		if wait {
+			err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+			Expect(err).To(BeNil())
+		}
+	} else {
+		// Upgrade Nodegroup using eksctl due to custom Launch template
+		for _, ng := range cluster.EKSConfig.NodeGroups {
+			err = UpgradeEKSNodegroupOnAWS(helpers.GetEKSRegion(), cluster.EKSConfig.DisplayName, *ng.NodegroupName, upgradeToVersion)
+			Expect(err).To(BeNil())
+		}
 	}
 
 	if checkClusterConfig {
 		Eventually(func() bool {
-			// Check if the desired config has been applied in
+			// Check if the desired config has been applied
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
 			ginkgo.GinkgoLogr.Info("waiting for the nodegroup upgrade to appear in EKSStatus.UpstreamSpec ...")
@@ -135,6 +142,12 @@ func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion 
 			return true
 		}, tools.SetTimeout(15*time.Minute), 30*time.Second).Should(BeTrue())
 	}
+
+	// Ensure nodegroup version is correct in Rancher after upgrade
+	for _, ng := range cluster.EKSConfig.NodeGroups {
+		Expect(*ng.Version).To(Equal(upgradeToVersion))
+	}
+
 	return cluster, nil
 }
 
