@@ -25,14 +25,18 @@ import (
 var _ = Describe("P1Provisioning", func() {
 	var cluster *management.Cluster
 	var k8sVersion string
+
 	BeforeEach(func() {
+		GinkgoLogr.Info(fmt.Sprintf("Running on process: %d", GinkgoParallelProcess()))
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, false)
 		Expect(err).NotTo(HaveOccurred())
 		GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
 	})
+
 	AfterEach(func() {
 		if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
+			GinkgoLogr.Info(fmt.Sprintf("Cleaning up resource cluster: %s %s", cluster.Name, cluster.ID))
 			err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
 		} else {
@@ -461,8 +465,21 @@ var _ = Describe("P1Provisioning", func() {
 
 	// Refer: https://github.com/rancher/hosted-providers-e2e/issues/192
 	It("should successfully create 2 clusters in the same RG", func() {
-		testCaseID = 217
+		testCaseID = 214
+
+		// Setting this to nil ensures we do not use the `cluster` variable value from another test running in parallel with this one.
+		cluster = nil
+
+		// Create the resource group via CLI
 		rgName := namegen.AppendRandomString(helpers.ClusterNamePrefix + "-custom-rg")
+		err := helper.CreateAKSRGOnAzure(rgName, location)
+		Expect(err).To(BeNil())
+		defer func() {
+			// This is to delete the resource group
+			err = helper.DeleteAKSClusteronAzure(rgName)
+			Expect(err).To(BeNil())
+		}()
+
 		updateFunc := func(aksConfig *aks.ClusterConfig) {
 			aksConfig.ResourceGroup = rgName
 		}
@@ -488,9 +505,6 @@ var _ = Describe("P1Provisioning", func() {
 			}()
 		}
 		wg.Wait()
-		// This is to delete the resource group
-		err := helper.DeleteAKSClusteronAzure(rgName)
-		Expect(err).To(BeNil())
 	})
 
 	When("a cluster is created for upgrade", func() {

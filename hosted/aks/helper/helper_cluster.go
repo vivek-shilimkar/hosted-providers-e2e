@@ -463,13 +463,9 @@ func UpdateCluster(cluster *management.Cluster, client *rancher.Client, updateFu
 // ====================================================================Azure CLI (start)=================================
 // Create Azure AKS cluster using AZ CLI
 func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion string, nodes string, tags map[string]string, extraArgs ...string) error {
-	fmt.Println("Creating AKS resource group ...")
-	rgargs := []string{"group", "create", "--location", location, "--resource-group", clusterName, "--subscription", subscriptionID}
-	fmt.Printf("Running command: az %v\n", rgargs)
-
-	out, err := proc.RunW("az", rgargs...)
+	err := CreateAKSRGOnAzure(clusterName, location)
 	if err != nil {
-		return errors.Wrap(err, "Failed to create cluster: "+out)
+		return err
 	}
 
 	fmt.Println("Creating AKS cluster ...")
@@ -486,6 +482,7 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 	}
 
 	fmt.Printf("Running command: az %v\n", args)
+	var out string
 	out, err = proc.RunW("az", args...)
 	if err != nil {
 		return errors.Wrap(err, "Failed to create cluster: "+out)
@@ -493,6 +490,20 @@ func CreateAKSClusterOnAzure(location string, clusterName string, k8sVersion str
 
 	fmt.Println("Created AKS cluster: ", clusterName)
 
+	return nil
+}
+
+// CreateAKSRGOnAzure creates resource group on azure via CLI
+func CreateAKSRGOnAzure(name, location string) error {
+	fmt.Println("Creating AKS resource group ...")
+	rgargs := []string{"group", "create", "--location", location, "--resource-group", name, "--subscription", subscriptionID}
+	fmt.Printf("Running command: az %v\n", rgargs)
+
+	out, err := proc.RunW("az", rgargs...)
+	if err != nil {
+		return errors.Wrap(err, "Failed to create resource group: "+out)
+	}
+	fmt.Println("Created AKS resource group: ", name)
 	return nil
 }
 

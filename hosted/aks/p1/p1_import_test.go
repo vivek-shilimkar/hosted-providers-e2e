@@ -18,6 +18,8 @@ var _ = Describe("P1Import", func() {
 		k8sVersion string
 	)
 	BeforeEach(func() {
+		GinkgoLogr.Info(fmt.Sprintf("Running on process: %d", GinkgoParallelProcess()))
+
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, false)
 		Expect(err).NotTo(HaveOccurred())
@@ -27,6 +29,7 @@ var _ = Describe("P1Import", func() {
 	AfterEach(func() {
 		if ctx.ClusterCleanup {
 			if cluster != nil && cluster.ID != "" {
+				GinkgoLogr.Info(fmt.Sprintf("Cleaning up resource cluster: %s %s", cluster.Name, cluster.ID))
 				err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
 				Expect(err).To(BeNil())
 			}
