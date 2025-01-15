@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	ctx                                helpers.Context
+	ctx                                helpers.RancherContext
 	clusterName, zone, region, project string
 	testCaseID                         int64
 	updateFunc                         func(clusterConfig *gke.ClusterConfig)

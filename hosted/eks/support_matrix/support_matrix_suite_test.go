@@ -29,7 +29,7 @@ import (
 var (
 	allAvailableVersionList, availableVersionList []string
 	testCaseID                                    int64
-	ctx                                           helpers.Context
+	ctx                                           helpers.RancherContext
 	region                                        = helpers.GetEKSRegion()
 )
 

@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	ctx                     helpers.Context
+	ctx                     helpers.RancherContext
 	clusterName, k8sVersion string
 	region                  = helpers.GetEKSRegion()
 	testCaseID              int64

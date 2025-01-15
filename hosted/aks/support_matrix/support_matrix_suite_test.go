@@ -28,7 +28,7 @@ import (
 var (
 	availableVersionList []string
 	testCaseID           int64
-	ctx                  helpers.Context
+	ctx                  helpers.RancherContext
 	location             = helpers.GetAKSLocation()
 )
 

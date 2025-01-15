@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	ctx                     helpers.Context
+	ctx                     helpers.RancherContext
 	clusterName, k8sVersion string
 	region                  = helpers.GetEKSRegion()
 	testCaseID              int64
@@ -87,7 +87,7 @@ var _ = ReportAfterEach(func(report SpecReport) {
 	Qase(testCaseID, report)
 })
 
-func commonchecks(ctx *helpers.Context, cluster *management.Cluster, clusterName, rancherUpgradedVersion, hostname, k8sUpgradedVersion string) {
+func commonchecks(ctx *helpers.RancherContext, cluster *management.Cluster, clusterName, rancherUpgradedVersion, hostname, k8sUpgradedVersion string) {
 
 	helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
 	var originalChartVersion string

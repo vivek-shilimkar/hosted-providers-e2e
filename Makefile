@@ -54,6 +54,9 @@ e2e-k8s-chart-support-import-tests: deps ## Run the 'K8sChartSupportImport' test
 e2e-k8s-chart-support-provisioning-tests: deps ## Run the 'K8sChartSupportProvisioning' test suite for a given ${PROVIDER}
 	ginkgo ${STANDARD_TEST_OPTIONS} --focus "K8sChartSupportProvisioning" ./hosted/${PROVIDER}/k8s_chart_support
 
+e2e-backup-restore-tests: deps ## Run the 'BackupRestore' test suite for a given ${PROVIDER}
+	ginkgo ${STANDARD_TEST_OPTIONS} --focus "BackupRestore" ./hosted/${PROVIDER}/backup_restore
+
 clean-k3s:	## Uninstall k3s cluster
 	/usr/local/bin/k3s-killall.sh && /usr/local/bin/k3s-uninstall.sh || true
 	sudo rm -r /etc/default/k3s || true

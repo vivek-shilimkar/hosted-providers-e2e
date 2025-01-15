@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	ctx                     helpers.Context
+	ctx                     helpers.RancherContext
 	clusterName, k8sVersion string
 	testCaseID              int64
 	zone                    = helpers.GetGKEZone()

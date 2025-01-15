@@ -60,7 +60,7 @@ type HelmChart struct {
 	DerivedVersion string `json:"version"`
 }
 
-type Context struct {
+type RancherContext struct {
 	RancherAdminClient *rancher.Client
 	StdUserClient      *rancher.Client
 	Session            *session.Session

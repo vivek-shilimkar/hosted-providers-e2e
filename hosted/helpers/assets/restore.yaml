@@ -1,0 +1,10 @@
+apiVersion: resources.cattle.io/v1
+kind: Restore
+metadata:
+  name: hp-restore
+  annotations:
+    field.cattle.io/description: Restore HP/Rancher resources
+spec:
+  backupFilename: BACKUP_FILE
+  deleteTimeoutSeconds: 10
+  prune: false

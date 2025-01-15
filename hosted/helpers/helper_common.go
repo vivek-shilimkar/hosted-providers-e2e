@@ -74,7 +74,7 @@ func CommonSynchronizedBeforeSuite() {
 
 }
 
-func CommonBeforeSuite() Context {
+func CommonBeforeSuite() RancherContext {
 	ginkgo.GinkgoLogr.Info("Using Common BeforeSuite ...")
 
 	rancherConfig := new(rancher.Config)
@@ -97,7 +97,7 @@ func CommonBeforeSuite() Context {
 	cloudCredID, err := CreateCloudCredentials(rancherAdminClient)
 	Expect(err).To(BeNil())
 
-	return Context{
+	return RancherContext{
 		RancherAdminClient: rancherAdminClient,
 		Session:            testSession,
 		ClusterCleanup:     clusterCleanup,
@@ -105,7 +105,7 @@ func CommonBeforeSuite() Context {
 	}
 }
 
-func CreateStdUserClient(ctx *Context) {
+func CreateStdUserClient(ctx *RancherContext) {
 	ginkgo.GinkgoLogr.Info("Creating Std User client ...")
 
 	var stduser = namegen.AppendRandomString("stduser-")
@@ -398,4 +398,17 @@ func ContainsString(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func GetRancherVersions() (string, string, string) {
+	var rancherChannel, rancherVersion, rancherHeadVersion string
+	// Extract Rancher Manager channel/version to install
+	s := strings.Split(os.Getenv("RANCHER_VERSION"), "/")
+	Expect(len(s)).To(BeNumerically(">=", 2), "RANCHER_VERSION must contain at least two strings separated by '/'")
+	rancherChannel = s[0]
+	rancherVersion = s[1] // This can be either a string like "2.9.3[-rc4]", "devel", or "latest"
+	if len(s) > 2 {
+		rancherHeadVersion = s[2]
+	}
+	return rancherChannel, rancherVersion, rancherHeadVersion
 }

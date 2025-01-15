@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	ctx         helpers.Context
+	ctx         helpers.RancherContext
 	clusterName string
 	testCaseID  int64
 	region      = helpers.GetEKSRegion()

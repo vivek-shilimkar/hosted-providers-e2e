@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	ctx                     helpers.Context
+	ctx                     helpers.RancherContext
 	clusterName, k8sVersion string
 	testCaseID              int64
 	zone                    = helpers.GetGKEZone()
@@ -88,7 +88,7 @@ var _ = ReportAfterEach(func(report SpecReport) {
 })
 
 // commonChartSupportUpgrade runs the common checks required for testing chart support
-func commonChartSupportUpgrade(ctx *helpers.Context, cluster *management.Cluster, clusterName, rancherUpgradedVersion, hostname, k8sUpgradedVersion string) {
+func commonChartSupportUpgrade(ctx *helpers.RancherContext, cluster *management.Cluster, clusterName, rancherUpgradedVersion, hostname, k8sUpgradedVersion string) {
 	helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
 
 	var originalChartVersion string

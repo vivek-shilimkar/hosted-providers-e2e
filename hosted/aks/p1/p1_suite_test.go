@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	ctx                   helpers.Context
+	ctx                   helpers.RancherContext
 	clusterName, location string
 	testCaseID            int64
 )
