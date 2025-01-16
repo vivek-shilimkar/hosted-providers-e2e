@@ -56,10 +56,10 @@ var _ = Describe("Provision k3s cluster and Rancher", Label("install"), func() {
 				buildDate := time.Now().Format("20060102")
 
 				RunHelmCmdWithRetry("upgrade", "--install", "rancher-"+providerOperator+"-operator-crds",
-					"oci://ttl.sh/"+providerOperator+"-operator/rancher-"+providerOperator+"-operator-crd",
+					"oci://ghcr.io/rancher/rancher-"+providerOperator+"-operator-crd-chart/rancher-"+providerOperator+"-operator-crd",
 					"--version", buildDate)
 				RunHelmCmdWithRetry("upgrade", "--install", "rancher-"+providerOperator+"-operator",
-					"oci://ttl.sh/"+providerOperator+"-operator/rancher-"+providerOperator+"-operator",
+					"oci://ghcr.io/rancher/rancher-"+providerOperator+"-operator-chart/rancher-"+providerOperator+"-operator",
 					"--version", buildDate, "--namespace", "cattle-system")
 			})
 		}
