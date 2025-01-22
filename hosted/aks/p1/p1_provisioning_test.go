@@ -508,6 +508,7 @@ var _ = Describe("P1Provisioning", func() {
 	})
 
 	When("a cluster is created for upgrade", func() {
+		var upgradeK8sVersion string
 		BeforeEach(func() {
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
@@ -518,11 +519,20 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).NotTo(HaveOccurred())
+			availableVersions, err := helper.ListAKSAvailableVersions(ctx.RancherAdminClient, cluster.ID)
+			Expect(err).To(BeNil())
+			upgradeK8sVersion = availableVersions[0]
 		})
 
 		It("NP cannot be upgraded to k8s version greater than CP k8s version", func() {
 			testCaseID = 183
-			npUpgradeToVersionGTCPCheck(cluster, ctx.RancherAdminClient)
+			npUpgradeToVersionGTCPCheck(cluster, ctx.RancherAdminClient, upgradeK8sVersion)
+		})
+
+		XIt("should Update a cluster when a cluster is in Updating State", func() {
+			// Ref: https://github.com/rancher/aks-operator/issues/826
+			testCaseID = 223
+			updateClusterWhenUpdating(cluster, ctx.RancherAdminClient, upgradeK8sVersion)
 		})
 	})
 

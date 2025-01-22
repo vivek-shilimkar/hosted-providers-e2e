@@ -87,6 +87,7 @@ func UpgradeClusterKubernetesVersion(cluster *management.Cluster, upgradeToVersi
 		// Check if the desired config is set correctly
 		Expect(*cluster.AKSConfig.KubernetesVersion).To(Equal(upgradeToVersion))
 		// ensure nodepool version is still the same when config is applied
+		// NOTE: this check will fail if nodepool version at the beginning is different from cluster version
 		for _, np := range cluster.AKSConfig.NodePools {
 			Expect(*np.OrchestratorVersion).To(Equal(currentVersion))
 		}
@@ -199,21 +200,22 @@ func AddNodePool(cluster *management.Cluster, increaseBy int, client *rancher.Cl
 
 	for i := 1; i <= increaseBy; i++ {
 		newNodepool := management.AKSNodePool{
-			AvailabilityZones: npTemplate.AvailabilityZones,
-			Count:             pointer.Int64(1),
-			EnableAutoScaling: npTemplate.EnableAutoScaling,
-			MaxCount:          npTemplate.MaxCount,
-			MaxPods:           npTemplate.MaxPods,
-			MaxSurge:          npTemplate.MaxSurge,
-			MinCount:          npTemplate.MinCount,
-			Mode:              npTemplate.Mode,
-			Name:              pointer.String(namegen.RandStringLower(5)),
-			NodeLabels:        npTemplate.NodeLabels,
-			NodeTaints:        npTemplate.NodeTaints,
-			OsDiskSizeGB:      npTemplate.OsDiskSizeGB,
-			OsDiskType:        npTemplate.OsDiskType,
-			OsType:            npTemplate.OsType,
-			VMSize:            npTemplate.VMSize,
+			AvailabilityZones:   npTemplate.AvailabilityZones,
+			Count:               pointer.Int64(1),
+			EnableAutoScaling:   npTemplate.EnableAutoScaling,
+			MaxCount:            npTemplate.MaxCount,
+			MaxPods:             npTemplate.MaxPods,
+			MaxSurge:            npTemplate.MaxSurge,
+			MinCount:            npTemplate.MinCount,
+			Mode:                npTemplate.Mode,
+			Name:                pointer.String(namegen.RandStringLower(5)),
+			NodeLabels:          npTemplate.NodeLabels,
+			NodeTaints:          npTemplate.NodeTaints,
+			OrchestratorVersion: cluster.AKSConfig.KubernetesVersion,
+			OsDiskSizeGB:        npTemplate.OsDiskSizeGB,
+			OsDiskType:          npTemplate.OsDiskType,
+			OsType:              npTemplate.OsType,
+			VMSize:              npTemplate.VMSize,
 		}
 		updateNodePoolsList = append(updateNodePoolsList, newNodepool)
 

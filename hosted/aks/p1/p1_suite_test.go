@@ -161,11 +161,9 @@ func deleteAndAddNpCheck(cluster *management.Cluster, client *rancher.Client) {
 
 // npUpgradeToVersionGTCPCheck runs checks when node pool is upgraded to a version greater than control plane version
 // Qase ID: 183 and 269
-func npUpgradeToVersionGTCPCheck(cluster *management.Cluster, client *rancher.Client) {
+func npUpgradeToVersionGTCPCheck(cluster *management.Cluster, client *rancher.Client, upgradeK8sVersion string) {
 	k8sVersion := *cluster.AKSConfig.KubernetesVersion
-	availableVersions, err := helper.ListAKSAvailableVersions(client, cluster.ID)
-	Expect(err).To(BeNil())
-	upgradeK8sVersion := availableVersions[0]
+	var err error
 	cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeK8sVersion, client, false, false)
 	Expect(err).To(BeNil())
 	Eventually(func() bool {
@@ -173,6 +171,28 @@ func npUpgradeToVersionGTCPCheck(cluster *management.Cluster, client *rancher.Cl
 		Expect(err).NotTo(HaveOccurred())
 		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, fmt.Sprintf("Node pool version %s and control plane version %s are incompatible.", upgradeK8sVersion, k8sVersion))
 	}, "1m", "2s").Should(BeTrue())
+}
+
+// Qase ID: 223 and 303
+func updateClusterWhenUpdating(cluster *management.Cluster, client *rancher.Client, upgradeK8sVersion string) {
+	var err error
+	initialNPLength := len(cluster.AKSConfig.NodePools)
+	cluster, err = helper.AddNodePool(cluster, 1, client, false, false)
+	Expect(err).To(BeNil())
+
+	err = clusters.WaitClusterToBeInUpgrade(client, cluster.ID)
+	Expect(err).To(BeNil())
+	cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeK8sVersion, client, true)
+	Expect(err).To(BeNil())
+
+	err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+	Expect(err).To(BeNil())
+
+	Eventually(func() int {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).NotTo(HaveOccurred())
+		return len(cluster.AKSStatus.UpstreamSpec.NodePools)
+	}, "10m", "5s").Should(BeEquivalentTo(initialNPLength + 1))
 }
 
 // updateTagsCheck runs checks to add and delete the cluster with a new tag and an empty tag

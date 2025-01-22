@@ -223,6 +223,7 @@ var _ = Describe("P1Import", func() {
 	})
 
 	When("a cluster is created and imported for upgrade", func() {
+		var upgradeK8sVersion string
 		BeforeEach(func() {
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
@@ -236,11 +237,18 @@ var _ = Describe("P1Import", func() {
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 			Expect(err).To(BeNil())
+			availableVersions, err := helper.ListAKSAvailableVersions(ctx.RancherAdminClient, cluster.ID)
+			Expect(err).To(BeNil())
+			upgradeK8sVersion = availableVersions[0]
 		})
 
 		It("NP cannot be upgraded to k8s version greater than CP k8s version", func() {
 			testCaseID = 269
-			npUpgradeToVersionGTCPCheck(cluster, ctx.RancherAdminClient)
+			npUpgradeToVersionGTCPCheck(cluster, ctx.RancherAdminClient, upgradeK8sVersion)
+		})
+		It("should Update a cluster when a cluster is in Updating State", func() {
+			testCaseID = 303
+			updateClusterWhenUpdating(cluster, ctx.RancherAdminClient, upgradeK8sVersion)
 		})
 	})
 
