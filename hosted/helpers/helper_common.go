@@ -9,6 +9,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher-sandbox/ele-testhelpers/tools"
 	"github.com/rancher/rancher/tests/v2/actions/clusters"
 	"github.com/rancher/rancher/tests/v2/actions/pipeline"
 	"github.com/rancher/shepherd/clients/rancher"
@@ -190,8 +191,9 @@ func ClusterIsReadyChecks(cluster *management.Cluster, client *rancher.Client, c
 	})
 
 	ginkgo.By("checking all pods are ready", func() {
-		podErrors := pods.StatusPods(client, cluster.ID)
-		Expect(podErrors).To(BeEmpty())
+		Eventually(func() []error {
+			return pods.StatusPods(client, cluster.ID)
+		}, tools.SetTimeout(30*time.Second), Timeout).Should(BeEmpty(), "All pods are not running")
 	})
 }
 

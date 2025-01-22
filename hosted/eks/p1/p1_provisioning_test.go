@@ -219,7 +219,6 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("Update cluster logging types", func() {
-			// https://github.com/rancher/eks-operator/issues/938
 			testCaseID = 128
 			updateLoggingCheck(cluster, ctx.RancherAdminClient)
 		})

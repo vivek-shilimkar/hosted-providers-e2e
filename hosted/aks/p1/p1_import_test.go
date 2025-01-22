@@ -205,7 +205,8 @@ var _ = Describe("P1Import", func() {
 			removeSystemNpCheck(cluster, ctx.RancherAdminClient)
 		})
 
-		It("should to able to delete a nodepool and add a new one", func() {
+		XIt("should to able to delete a nodepool and add a new one", func() {
+			// Blocked by: https://github.com/rancher/aks-operator/issues/667#issuecomment-2370798904
 			testCaseID = 268
 			deleteAndAddNpCheck(cluster, ctx.RancherAdminClient)
 		})

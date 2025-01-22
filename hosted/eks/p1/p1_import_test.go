@@ -157,7 +157,6 @@ var _ = Describe("P1Import", func() {
 		})
 
 		It("Update cluster logging types", func() {
-			// https://github.com/rancher/eks-operator/issues/938
 			testCaseID = 77
 			updateLoggingCheck(cluster, ctx.RancherAdminClient)
 		})
