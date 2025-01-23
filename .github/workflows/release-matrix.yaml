@@ -31,8 +31,10 @@ on:
         description: Cleanup downstream clusters after test
         default: true
         type: boolean
-      downstream_k8s_minor_version:
-        description: Downstream cluster minor K8s version to test (e.g., 1.30)
+      proxy:
+        description: Install Rancher behind proxy
+        type: boolean
+        default: false
       rancher_installed:
         description: Rancher details if already installed
         default: 'hostname/password'
@@ -41,10 +43,9 @@ on:
         description: Tests to run
         required: true
         default: p0_provisioning/p0_import
-      proxy:
-        description: Install Rancher behind proxy
-        type: boolean
-        default: false
+      backup_operator_version:
+        description: Backup Restore operator version (eg. 6.0.0)
+        type: string
 
 jobs:
   e2e-tests:
@@ -62,7 +63,8 @@ jobs:
       tests_to_run: ${{ inputs.tests_to_run }}
       destroy_runner: ${{ inputs.destroy_runner }}
       runner_template: ${{ inputs.runner_template }}
-      downstream_k8s_minor_version: ${{ inputs.downstream_k8s_minor_version }}
       rancher_installed: ${{ inputs.rancher_installed }}
       downstream_cluster_cleanup: ${{ inputs.downstream_cluster_cleanup }}
       proxy: ${{ inputs.proxy }}
+      backup_operator_version: ${{ inputs.backup_operator_version }}
+
