@@ -312,7 +312,7 @@ func ScaleNodeGroup(cluster *management.Cluster, client *rancher.Client, nodeCou
 // if checkClusterConfig is true, it validates the update
 func UpdateLogging(cluster *management.Cluster, client *rancher.Client, loggingTypes []string, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := cluster
-	*upgradedCluster.EKSConfig.LoggingTypes = loggingTypes
+	upgradedCluster.EKSConfig.LoggingTypes = &loggingTypes
 
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
 	Expect(err).To(BeNil())
@@ -335,8 +335,8 @@ func UpdateLogging(cluster *management.Cluster, client *rancher.Client, loggingT
 // if checkClusterConfig is true, it validates the update
 func UpdateAccess(cluster *management.Cluster, client *rancher.Client, publicAccess, privateAccess bool, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := cluster
-	*upgradedCluster.EKSConfig.PublicAccess = publicAccess
-	*upgradedCluster.EKSConfig.PrivateAccess = privateAccess
+	upgradedCluster.EKSConfig.PublicAccess = &publicAccess
+	upgradedCluster.EKSConfig.PrivateAccess = &privateAccess
 
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
 

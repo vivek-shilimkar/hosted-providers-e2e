@@ -166,6 +166,23 @@ var _ = Describe("P1Import", func() {
 			updateTagsAndLabels(cluster, ctx.RancherAdminClient)
 		})
 
+		It("Add a nodegroup in EKS -> Syncs to Rancher -> Update cluster, the nodegroup is intact", func() {
+			testCaseID = 87
+			nodepoolcount := len(cluster.EKSStatus.UpstreamSpec.NodeGroups)
+			err := helper.AddNodeGroupOnAWS(namegen.AppendRandomString("ng"), clusterName, region)
+			Expect(err).To(BeNil())
+			Eventually(func() bool {
+				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+				Expect(err).To(BeNil())
+				return len(cluster.EKSStatus.UpstreamSpec.NodeGroups) == nodepoolcount+1
+			}, "10m", "7s").Should(BeTrue(), "Timed out while waiting for rancher to sync")
+			cluster, err = helper.UpdateLogging(cluster, ctx.RancherAdminClient, []string{"authenticator"}, true)
+			Expect(err).To(BeNil())
+
+			// verify that the nodegroups are intact
+			Expect(cluster.EKSStatus.UpstreamSpec.NodeGroups).To(HaveLen(nodepoolcount + 1))
+		})
+
 		Context("Reimporting/Editing a cluster with invalid config", func() {
 			It("Reimport a cluster to Rancher should fail", func() {
 				testCaseID = 101

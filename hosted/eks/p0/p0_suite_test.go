@@ -80,12 +80,8 @@ func p0upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Clie
 		Expect(err).To(BeNil())
 	})
 
-	var useEksctl bool
-	if helpers.IsImport {
-		useEksctl = true
-	}
 	By("upgrading the NodeGroups", func() {
-		cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, true, true, useEksctl)
+		cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, client, true, true, helpers.IsImport)
 		Expect(err).To(BeNil())
 	})
 }

@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
+	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/clusters/eks"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
@@ -168,6 +169,25 @@ var _ = Describe("P1Provisioning", func() {
 		Expect(amiID).To(Or(Equal("AL2_x86_64_GPU"), Equal("AL2023_x86_64_NVIDIA")))
 	})
 
+	XIt("Deploy a cluster with Public/Priv access then disable Public access", func() {
+		// https://github.com/rancher/eks-operator/issues/752#issuecomment-2609144199
+		testCaseID = 151
+		createFunc := func(clusterConfig *eks.ClusterConfig) {
+			clusterConfig.PublicAccess = pointer.Bool(true)
+			clusterConfig.PrivateAccess = pointer.Bool(true)
+		}
+		var err error
+		cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, createFunc)
+		Expect(err).To(BeNil())
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+
+		cluster, err = helper.UpdateAccess(cluster, ctx.RancherAdminClient, false, true, true)
+		Expect(err).To(BeNil())
+
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+	})
+
 	Context("Upgrade testing", func() {
 		var upgradeToVersion string
 
@@ -204,6 +224,54 @@ var _ = Describe("P1Provisioning", func() {
 			XIt("should successfully update a cluster while it is still in updating state", func() {
 				testCaseID = 148
 				updateClusterInUpdatingState(cluster, ctx.RancherAdminClient, upgradeToVersion)
+			})
+		})
+
+		When("a cluster is created with multiple nodegroups", func() {
+			BeforeEach(func() {
+				var err error
+				createFunc := func(clusterConfig *eks.ClusterConfig) {
+					*clusterConfig, err = helper.AddNodeGroupToConfig(*clusterConfig, 4)
+					Expect(err).To(BeNil())
+				}
+				cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, createFunc)
+				Expect(err).To(BeNil())
+				cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+			})
+
+			It("Update k8s version of node groups - sequential & simultaneous upgrade of multiple node groups", func() {
+				testCaseID = 153
+				var err error
+				cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, upgradeToVersion, ctx.RancherAdminClient, true)
+				Expect(err).To(BeNil())
+
+				// upgrade 2 nodegroups simultaneously
+				updateFunc := func(cluster *management.Cluster) {
+					nodeGroups := cluster.EKSConfig.NodeGroups
+					for i := 0; i <= 1; i++ {
+						nodeGroups[i].Version = &upgradeToVersion
+					}
+				}
+				cluster, err = helper.UpdateCluster(cluster, ctx.RancherAdminClient, updateFunc)
+				Expect(err).To(BeNil())
+				err = clusters.WaitClusterToBeUpgraded(ctx.RancherAdminClient, cluster.ID)
+				Expect(err).To(BeNil())
+				Eventually(func() bool {
+					cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
+					Expect(err).To(BeNil())
+					nodeGroups := cluster.EKSStatus.UpstreamSpec.NodeGroups
+					for i := 0; i <= 1; i++ {
+						if nodeGroups[i].Version == nil || *nodeGroups[i].Version != upgradeToVersion {
+							return false
+						}
+					}
+					return true
+				}, "10m", "7s").Should(BeTrue())
+
+				// upgrade the remaining nodegroups
+				cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, upgradeToVersion, ctx.RancherAdminClient, true, true, false)
+				Expect(err).To(BeNil())
 			})
 		})
 	})

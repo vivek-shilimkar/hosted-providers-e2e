@@ -169,12 +169,8 @@ func commonchecks(ctx *helpers.RancherContext, cluster *management.Cluster, clus
 		cluster, err = helper.UpgradeClusterKubernetesVersion(cluster, *latestVersion, ctx.RancherAdminClient, true)
 		Expect(err).To(BeNil())
 
-		var useEksctl bool
-		if helpers.IsImport {
-			useEksctl = true
-		}
 		By("upgrading the NodeGroups", func() {
-			cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, *latestVersion, ctx.RancherAdminClient, true, true, useEksctl)
+			cluster, err = helper.UpgradeNodeKubernetesVersion(cluster, *latestVersion, ctx.RancherAdminClient, true, true, helpers.IsImport)
 			Expect(err).To(BeNil())
 		})
 	})
