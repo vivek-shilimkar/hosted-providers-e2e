@@ -2,6 +2,7 @@ package p1_test
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -140,6 +141,20 @@ var _ = Describe("P1Provisioning", func() {
 			invalidEndpointCheck(cluster, ctx.RancherAdminClient)
 			invalidAccessValuesCheck(cluster, ctx.RancherAdminClient)
 		})
+	})
+
+	It("should successfully Provision EKS with secrets encryption (KMS)", func() {
+		testCaseID = 149
+		createFunc := func(clusterConfig *eks.ClusterConfig) {
+			clusterConfig.KmsKey = pointer.String(os.Getenv("AWS_KMS_KEY"))
+		}
+		var err error
+		cluster, err = helper.CreateEKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, region, createFunc)
+		Expect(err).To(BeNil())
+		cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+
 	})
 
 	It("should successfully Provision EKS from Rancher with Enabled GPU feature", func() {
