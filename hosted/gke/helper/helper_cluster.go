@@ -606,6 +606,24 @@ func DeleteGKEClusterOnGCloud(zone, project, clusterName string) error {
 	return nil
 }
 
+// EnableDisableServiceAccountOnGCloud can enable/disable a service account via gcloud cli
+func EnableDisableServiceAccountOnGCloud(clientID, project, op string) error {
+	if !(op == "enable" || op == "disable") {
+		return fmt.Errorf("unknown operation: %s", op)
+	}
+	fmt.Printf("%s service account on GKE cluster...\n", op)
+	var args = []string{"iam", "service-accounts", op, fmt.Sprintf("%s@%s.iam.gserviceaccount.com", clientID, project), "--project", project}
+	fmt.Printf("Running command: gcloud %v\n", args)
+	out, err := proc.RunW("gcloud", args...)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("Failed to %s service-account: %s", op, out))
+	}
+
+	fmt.Printf("%sd service account on GKE cluster...\n", op)
+	return nil
+
+}
+
 // <==============================================================================GCLOUD CLI (end)==============================>
 
 // GetK8sVersion returns the k8s version to be used by the test;

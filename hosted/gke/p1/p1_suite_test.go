@@ -16,6 +16,7 @@ package p1_test
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -26,6 +27,8 @@ import (
 	. "github.com/rancher-sandbox/qase-ginkgo"
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
+	"github.com/rancher/shepherd/extensions/cloudcredentials"
+	"github.com/rancher/shepherd/extensions/cloudcredentials/google"
 	"github.com/rancher/shepherd/extensions/clusters"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 	"k8s.io/utils/pointer"
@@ -363,4 +366,64 @@ func upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Client
 		cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, true, true, true)
 		Expect(err).To(BeNil())
 	})
+}
+
+// Automates Qase 2 and 306
+func invalidCredCheck(cluster *management.Cluster, client *rancher.Client) {
+	By("creating invalid creds")
+	cloudCredentialConfig := cloudcredentials.CloudCredential{GoogleCredentialConfig: &cloudcredentials.GoogleCredentialConfig{AuthEncodedJSON: "{\"invalid-key\":\"invalid-value\"}"}}
+	cloudCredential, err := google.CreateGoogleCloudCredentials(client, cloudCredentialConfig)
+	Expect(err).To(BeNil())
+	cloudCredentialID := fmt.Sprintf("%s:%s", cloudCredential.Namespace, cloudCredential.Name)
+
+	if helpers.IsImport {
+		By("importing the cluster")
+		cluster, err = helper.ImportGKEHostedCluster(client, clusterName, cloudCredentialID, zone, project)
+		Expect(err).To(BeNil())
+	} else {
+		By("provisioning the cluster")
+		cluster, err = helper.CreateGKEHostedCluster(client, clusterName, cloudCredentialID, k8sVersion, zone, "", project, nil)
+		Expect(err).To(BeNil())
+	}
+
+	Eventually(func() bool {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).To(BeNil())
+		return cluster.Transitioning == "error"
+	}, "2m", "3s").Should(BeTrue())
+}
+
+// Automates Qase 6 and 305
+func expiredCredCheck(cluster *management.Cluster, client *rancher.Client) {
+	By("adding the creds")
+	cloudCredentialConfig := cloudcredentials.CloudCredential{GoogleCredentialConfig: &cloudcredentials.GoogleCredentialConfig{AuthEncodedJSON: os.Getenv("SECONDARY_GCP_CREDENTIALS")}}
+	cloudCredential, err := google.CreateGoogleCloudCredentials(client, cloudCredentialConfig)
+	Expect(err).To(BeNil())
+	cloudCredentialID := fmt.Sprintf("%s:%s", cloudCredential.Namespace, cloudCredential.Name)
+
+	By("disabling the service account")
+	const clientID = "hosted-providers-ci-creds-test"
+	err = helper.EnableDisableServiceAccountOnGCloud(clientID, project, "disable")
+	Expect(err).To(BeNil())
+	defer func() {
+		By("cleanup: enabling the service account")
+		err = helper.EnableDisableServiceAccountOnGCloud(clientID, project, "enable")
+		Expect(err).To(BeNil())
+	}()
+
+	if helpers.IsImport {
+		By("importing the cluster")
+		cluster, err = helper.ImportGKEHostedCluster(client, clusterName, cloudCredentialID, zone, project)
+		Expect(err).To(BeNil())
+	} else {
+		By("provisioning the cluster")
+		cluster, err = helper.CreateGKEHostedCluster(client, clusterName, cloudCredentialID, k8sVersion, zone, "", project, nil)
+		Expect(err).To(BeNil())
+	}
+
+	Eventually(func() bool {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).To(BeNil())
+		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "cannot fetch token")
+	}, "2m", "3s").Should(BeTrue())
 }

@@ -69,6 +69,7 @@ env:
   GCP_RUNNER_ZONE: asia-south2-c
   DOWNSTREAM_CLUSTER_CLEANUP: ${{ inputs.downstream_cluster_cleanup }}
   QASE_HELPER: ${{ github.workspace }}/hosted/helpers/qase/helper_qase.go
+  SECONDARY_GCP_CREDENTIALS: ${{ secrets.SECONDARY_GOOGLE_APPLICATION_CREDENTIALS }}
 jobs:
   create-runner:
     runs-on: ubuntu-latest

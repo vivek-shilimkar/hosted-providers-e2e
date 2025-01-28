@@ -46,6 +46,16 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(err.Error()).To(ContainSubstring("InvalidFormat"))
 		})
 
+		It("User should not be able to add cluster with invalid GKE creds in Rancher", func() {
+			testCaseID = 2
+			invalidCredCheck(cluster, ctx.RancherAdminClient)
+		})
+
+		It("User should not be able to add a cluster using an expired GKE creds", func() {
+			testCaseID = 6
+			expiredCredCheck(cluster, ctx.RancherAdminClient)
+		})
+
 		It("should fail to provision a cluster with invalid nodepool name", func() {
 			testCaseID = 37
 

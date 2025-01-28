@@ -679,3 +679,23 @@ func updateLoggingCheck(cluster *management.Cluster, client *rancher.Client) {
 		Expect(err).To(BeNil())
 	})
 }
+
+// Automates Qase: 109 and 155
+func updateCloudCredentialsCheck(cluster *management.Cluster, client *rancher.Client) {
+	newCCID, err := helpers.CreateCloudCredentials(client)
+	Expect(err).To(BeNil())
+	updateFunc := func(cluster *management.Cluster) {
+		cluster.EKSConfig.AmazonCredentialSecret = newCCID
+	}
+	cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
+	Expect(err).To(BeNil())
+	Expect(cluster.EKSConfig.AmazonCredentialSecret).To(Equal(newCCID))
+	Eventually(func() bool {
+		cluster, err = client.Management.Cluster.ByID(cluster.ID)
+		Expect(err).NotTo(HaveOccurred())
+		return cluster.EKSStatus.UpstreamSpec.AmazonCredentialSecret == newCCID
+	}, "5m", "5s").Should(BeTrue(), "Failed while upstream cloud credentials update")
+
+	cluster, err = helper.ScaleNodeGroup(cluster, client, 3, true, true)
+	Expect(err).To(BeNil())
+}

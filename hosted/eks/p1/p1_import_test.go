@@ -183,6 +183,11 @@ var _ = Describe("P1Import", func() {
 			Expect(cluster.EKSStatus.UpstreamSpec.NodeGroups).To(HaveLen(nodepoolcount + 1))
 		})
 
+		It("Update the cloud creds", func() {
+			testCaseID = 155
+			updateCloudCredentialsCheck(cluster, ctx.RancherAdminClient)
+		})
+
 		Context("Reimporting/Editing a cluster with invalid config", func() {
 			It("Reimport a cluster to Rancher should fail", func() {
 				testCaseID = 101
