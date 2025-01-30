@@ -175,4 +175,10 @@ func ExecuteRestore(k *kubectl.Kubectl, restoreResourceName, backupFile string) 
 	By("Checking that the restore has been done", func() {
 		CheckOperation(restoreResourceName, "Done restoring")
 	})
+
+	By("Reset restore resource", func() {
+		// Reset the backup file in the restore resource
+		err := tools.Sed(backupFile, "BACKUP_FILE", "../../helpers/assets/restore.yaml")
+		Expect(err).To(Not(HaveOccurred()))
+	})
 }

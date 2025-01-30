@@ -350,8 +350,8 @@ jobs:
         run: |
           make e2e-sync-import-tests
 
-      - name: Backup/Restore cluster tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'backup_restore') }}
+      - name: Backup/Restore provisioning tests
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'backup_restore_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -361,7 +361,20 @@ jobs:
           QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
         run: |
-          make e2e-backup-restore-tests
+          make e2e-backup-restore-provisioning-tests
+
+      - name: Backup/Restore import tests
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'backup_restore_import') }}
+        env:
+          RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
+          RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
+          RANCHER_VERSION: ${{ inputs.rancher_version }}
+          BACKUP_OPERATOR_VERSION: ${{ inputs.backup_operator_version }}
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
+          QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
+          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+        run: |
+          make e2e-backup-restore-import-tests
 
       - name: Finalize Qase Run and publish Results
         env:

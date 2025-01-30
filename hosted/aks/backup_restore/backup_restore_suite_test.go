@@ -12,14 +12,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package backup_test
+package backup_restore_test
 
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
 	. "github.com/rancher-sandbox/qase-ginkgo"
 
 	"testing"
@@ -32,7 +34,9 @@ import (
 )
 
 const (
-	increaseBy = 1
+	increaseBy          = 1
+	backupResourceName  = "hp-backup"
+	restoreResourceName = "hp-restore"
 )
 
 var (
@@ -65,10 +69,19 @@ var _ = BeforeEach(func() {
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 	k8sVersion, err := helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, false)
 	Expect(err).NotTo(HaveOccurred())
-
 	GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
-	cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
-	Expect(err).To(BeNil())
+
+	if helpers.IsImport {
+		By("importing the cluster")
+		err = helper.CreateAKSClusterOnAzure(location, clusterName, k8sVersion, "1", helpers.GetCommonMetadataLabels())
+		Expect(err).To(BeNil())
+		cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, location, helpers.GetCommonMetadataLabels())
+		Expect(err).To(BeNil())
+	} else {
+		By("provisioning the cluster")
+		cluster, err = helper.CreateAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, location, nil)
+		Expect(err).To(BeNil())
+	}
 	cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
 	Expect(err).To(BeNil())
 })
@@ -76,6 +89,8 @@ var _ = BeforeEach(func() {
 var _ = AfterEach(func() {
 	if ctx.ClusterCleanup && cluster != nil {
 		err := helper.DeleteAKSHostCluster(cluster, ctx.RancherAdminClient)
+		Expect(err).To(BeNil())
+		err = helper.DeleteAKSClusteronAzure(clusterName)
 		Expect(err).To(BeNil())
 	} else {
 		fmt.Println("Skipping downstream cluster deletion: ", clusterName)
@@ -96,5 +111,45 @@ func restoreNodesChecks(cluster *management.Cluster, client *rancher.Client, clu
 		var err error
 		cluster, err = helper.AddNodePool(cluster, increaseBy, client, true, true)
 		Expect(err).To(BeNil())
+	})
+}
+
+func BackupRestoreChecks(k *kubectl.Kubectl) {
+	By("Checking hosted cluster is ready", func() {
+		helpers.ClusterIsReadyChecks(cluster, ctx.RancherAdminClient, clusterName)
+	})
+
+	By("Performing a backup", func() {
+		backupFile = helpers.ExecuteBackup(k, backupResourceName)
+	})
+
+	By("Perform restore pre-requisites: Uninstalling k3s", func() {
+		out, err := exec.Command("k3s-uninstall.sh").CombinedOutput()
+		Expect(err).To(Not(HaveOccurred()), out)
+	})
+
+	By("Perform restore pre-requisites: Getting k3s ready", func() {
+		helpers.InstallK3S(k, k3sVersion, "none", "none")
+	})
+
+	By("Performing a restore", func() {
+		helpers.ExecuteRestore(k, restoreResourceName, backupFile)
+	})
+
+	By("Performing post migration installations: Installing CertManager", func() {
+		helpers.InstallCertManager(k, "none", "none")
+	})
+
+	By("Performing post migration installations: Installing Rancher Manager", func() {
+		rancherChannel, rancherVersion, rancherHeadVersion := helpers.GetRancherVersions()
+		helpers.InstallRancherManager(k, helpers.RancherHostname, rancherChannel, rancherVersion, rancherHeadVersion, "none", "none")
+	})
+
+	By("Performing post migration installations: Checking Rancher Deployments", func() {
+		helpers.CheckRancherDeployments(k)
+	})
+
+	By("Checking hosted cluster can be modified", func() {
+		restoreNodesChecks(cluster, ctx.RancherAdminClient, clusterName)
 	})
 }

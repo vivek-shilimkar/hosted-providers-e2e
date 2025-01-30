@@ -44,7 +44,7 @@ on:
         required: true
         default: p0_provisioning/p0_import
       backup_operator_version:
-        description: Backup Restore operator version (eg. 6.0.0)
+        description: Backup Restore operator version (eg. v6.0.0)
         type: string
 
 jobs:
@@ -67,4 +67,5 @@ jobs:
       downstream_cluster_cleanup: ${{ inputs.downstream_cluster_cleanup }}
       proxy: ${{ inputs.proxy }}
       backup_operator_version: ${{ inputs.backup_operator_version }}
+      qase_run_id: 'auto'
 
