@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
@@ -19,7 +21,6 @@ import (
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	"github.com/rancher/shepherd/extensions/clusters"
 	"github.com/rancher/shepherd/extensions/clusters/eks"
-	"github.com/rancher/shepherd/extensions/clusters/kubernetesversions"
 	"github.com/rancher/shepherd/pkg/config"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
@@ -452,22 +453,61 @@ func UpdateCluster(cluster *management.Cluster, client *rancher.Client, updateFu
 }
 
 // ListEKSAvailableVersions lists all the available and UI supported EKS versions for cluster upgrade.
+// this function is a fork of r/shepherd ListEKSAvailableVersions
 func ListEKSAvailableVersions(client *rancher.Client, cluster *management.Cluster) (availableVersions []string, err error) {
-	allAvailableVersions, err := kubernetesversions.ListEKSAvailableVersions(client, cluster)
+	currentVersion, err := semver.NewVersion(cluster.Version.GitVersion)
 	if err != nil {
-		return nil, err
+		return
+	}
+	var validMasterVersions []*semver.Version
+	allAvailableVersions, err := ListEKSAllVersions(client)
+	if err != nil {
+		return
+	}
+	for _, version := range allAvailableVersions {
+		v, err := semver.NewVersion(version)
+		if err != nil {
+			continue
+		}
+		validMasterVersions = append(validMasterVersions, v)
+	}
+	for _, v := range validMasterVersions {
+		if v.Minor()-1 > currentVersion.Minor() || v.Compare(currentVersion) == 0 || v.Compare(currentVersion) == -1 {
+			continue
+		}
+		version := fmt.Sprintf("%v.%v", v.Major(), v.Minor())
+		availableVersions = append(availableVersions, version)
 	}
 
-	return helpers.FilterUIUnsupportedVersions(allAvailableVersions, client), nil
+	sort.SliceStable(availableVersions, func(i, j int) bool { return i > j })
+	return helpers.FilterUIUnsupportedVersions(availableVersions, client), nil
 }
 
-// ListEKSAllVersions lists all the versions supported by UI
+// ListEKSAllVersions lists all the versions supported by UI;
+// this is a separate static list maintained by hosted-providers-e2e, similar to the  UI lists:
+// https://raw.githubusercontent.com/rancher/dashboard/refs/heads/master/pkg/eks/assets/data/eks-versions.js and
+// https://raw.githubusercontent.com/rancher/ui/master/lib/shared/addon/utils/amazon.js
+// the static list only contains officially supported EKS versions, i.e. 1.24 to 1.32;
+// refer: https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html.
 func ListEKSAllVersions(client *rancher.Client) (allVersions []string, err error) {
-	allVersions, err = kubernetesversions.ListEKSAllVersions(client)
+	serverVersion, err := helpers.GetRancherServerVersion(client)
 	if err != nil {
 		return
 	}
 
+	if strings.Contains(serverVersion, "2.11") {
+		allVersions = []string{"1.32", "1.31", "1.30"}
+	} else if strings.Contains(serverVersion, "2.10") {
+		allVersions = []string{"1.31", "1.30", "1.29", "1.28"}
+	} else if strings.Contains(serverVersion, "2.9") {
+		allVersions = []string{"1.30", "1.29", "1.28", "1.27"}
+	} else if strings.Contains(serverVersion, "2.8") {
+		allVersions = []string{"1.28", "1.27", "1.26", "1.25"}
+	} else if strings.Contains(serverVersion, "2.7") {
+		allVersions = []string{"1.27", "1.26", "1.25", "1.24"}
+	}
+
+	// as a safety net, we ensure all the versions are UI supported
 	return helpers.FilterUIUnsupportedVersions(allVersions, client), nil
 }
 
