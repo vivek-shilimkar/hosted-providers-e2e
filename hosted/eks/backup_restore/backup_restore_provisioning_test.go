@@ -15,21 +15,12 @@ limitations under the License.
 package backup_restore_test
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
-	"github.com/rancher-sandbox/ele-testhelpers/tools"
 )
 
 var _ = Describe("BackupRestoreProvisioning", func() {
-	// Create kubectl context
-	// Default timeout is too small, so New() cannot be used
-	k := &kubectl.Kubectl{
-		Namespace:    "",
-		PollTimeout:  tools.SetTimeout(300 * time.Second),
-		PollInterval: 500 * time.Millisecond,
-	}
+	k := kubectl.New()
 
 	It("Do a full backup/restore test", func() {
 		testCaseID = 164 // Report to Qase

@@ -45,6 +45,12 @@ on:
       qase_run_id:
         description: Qase run ID to use for reporting
         type: string
+      rancher_upgrade_version:
+        description: Rancher upgrade version
+        type: string
+      k8s_upgrade_minor_version:
+        description: K8s minor version to test
+        type: string
 
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -214,6 +220,7 @@ jobs:
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
           PROXY_HOST: ${{ env.PROXY_HOST }}
           RANCHER_BEHIND_PROXY: ${{ env.RANCHER_BEHIND_PROXY }}
+          SKIP_RANCHER_INSTALL: ${{ startsWith(inputs.tests_to_run, 'k8s_chart_support_upgrade') == true}}
         run: |
           if [ ${{ inputs.operator_nightly_chart }} == true ]; then
             export NIGHTLY_CHART="enabled"
@@ -375,6 +382,34 @@ jobs:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
         run: |
           make e2e-backup-restore-import-tests
+
+      - name: K8s Chart Support Upgrade provisioning tests
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'k8s_chart_support_upgrade_provisioning') }}
+        env:
+          RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
+          RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
+          QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
+          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+          RANCHER_VERSION: ${{ inputs.rancher_version }}
+          RANCHER_UPGRADE_VERSION: ${{ inputs.rancher_upgrade_version }}
+          K8S_UPGRADE_MINOR_VERSION: ${{ inputs.k8s_upgrade_minor_version }}
+        run: |
+          make e2e-k8s-chart-support-provisioning-tests-upgrade
+
+      - name: K8s Chart Support Upgrade import tests
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'k8s_chart_support_upgrade_import') }}
+        env:
+          RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
+          RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
+          CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
+          QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
+          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+          RANCHER_VERSION: ${{ inputs.rancher_version }}
+          RANCHER_UPGRADE_VERSION: ${{ inputs.rancher_upgrade_version }}
+          K8S_UPGRADE_MINOR_VERSION: ${{ inputs.k8s_upgrade_minor_version }}
+        run: |
+          make e2e-k8s-chart-support-import-tests-upgrade
 
       - name: Finalize Qase Run and publish Results
         env:

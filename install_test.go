@@ -20,18 +20,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
-	"github.com/rancher-sandbox/ele-testhelpers/tools"
+
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
 var _ = Describe("Provision k3s cluster and Rancher", Label("install"), func() {
-	// Create kubectl context
-	// Default timeout is too small, so New() cannot be used
-	k := &kubectl.Kubectl{
-		Namespace:    "",
-		PollTimeout:  tools.SetTimeout(300 * time.Second),
-		PollInterval: 500 * time.Millisecond,
-	}
+	k := kubectl.New()
 
 	It("Install upstream k3s cluster", func() {
 		By("Installing K3S", func() {
@@ -42,13 +36,17 @@ var _ = Describe("Provision k3s cluster and Rancher", Label("install"), func() {
 			helpers.InstallCertManager(k, proxy, proxyHost)
 		})
 
-		By("Installing Rancher Manager", func() {
-			helpers.InstallRancherManager(k, rancherHostname, rancherChannel, rancherVersion, rancherHeadVersion, proxy, nightlyChart)
-		})
+		if skipInstallRancher != "true" {
+			By("Installing Rancher Manager", func() {
+				helpers.InstallRancherManager(k, rancherHostname, rancherChannel, rancherVersion, rancherHeadVersion, proxy, nightlyChart)
+			})
 
-		By("Checking Rancher Deployments", func() {
-			helpers.CheckRancherDeployments(k)
-		})
+			By("Checking Rancher Deployments", func() {
+				helpers.CheckRancherDeployments(k)
+			})
+		} else {
+			GinkgoLogr.Info("Skipping Rancher Manager installation; SKIP_RANCHER_INSTALL=\"true\"")
+		}
 
 		if nightlyChart == "enabled" {
 			By(fmt.Sprintf("Install nightly rancher-%s-operator via Helm", providerOperator), func() {

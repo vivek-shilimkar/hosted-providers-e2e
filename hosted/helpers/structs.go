@@ -18,15 +18,8 @@ const (
 )
 
 var (
-	RancherPassword = os.Getenv("RANCHER_PASSWORD")
-	RancherHostname = os.Getenv("RANCHER_HOSTNAME")
-	RancherChannel  = func() string {
-		if channel := os.Getenv("RANCHER_CHANNEL"); channel != "" {
-			return channel
-		} else {
-			return "latest"
-		}
-	}()
+	RancherPassword   = os.Getenv("RANCHER_PASSWORD")
+	RancherHostname   = os.Getenv("RANCHER_HOSTNAME")
 	Provider          = os.Getenv("PROVIDER")
 	testuser, _       = user.Current()
 	clusterCleanup, _ = strconv.ParseBool(os.Getenv("DOWNSTREAM_CLUSTER_CLEANUP"))
@@ -37,10 +30,10 @@ var (
 			return fmt.Sprintf("%s-%s-hp-ci", Provider, testuser.Username)
 		}
 	}()
-	RancherVersion        = os.Getenv("RANCHER_VERSION")
-	RancherUpgradeVersion = os.Getenv("RANCHER_UPGRADE_VERSION")
-	Kubeconfig            = os.Getenv("KUBECONFIG")
-	DownstreamKubeconfig  = func(clusterName string) string {
+	RancherFullVersion        = os.Getenv("RANCHER_VERSION")
+	RancherUpgradeFullVersion = os.Getenv("RANCHER_UPGRADE_VERSION")
+	Kubeconfig                = os.Getenv("KUBECONFIG")
+	DownstreamKubeconfig      = func(clusterName string) string {
 		return fmt.Sprintf("%s_KUBECONFIG", clusterName)
 	}
 	K8sUpgradedMinorVersion   = os.Getenv("K8S_UPGRADE_MINOR_VERSION")

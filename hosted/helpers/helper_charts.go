@@ -15,11 +15,9 @@ import (
 	"github.com/rancher/shepherd/clients/rancher/catalog"
 )
 
-// AddRancherCharts adds the repo from which rancher can be installed
+// AddRancherCharts adds the repo from which rancher operator charts can be installed
 func AddRancherCharts() {
 	err := kubectl.RunHelmBinaryWithCustomErr("repo", "add", catalog.RancherChartRepo, "https://charts.rancher.io")
-	Expect(err).To(BeNil())
-	err = kubectl.RunHelmBinaryWithCustomErr("repo", "add", fmt.Sprintf("rancher-%s", RancherChannel), fmt.Sprintf("https://releases.rancher.com/server-charts/%s", RancherChannel))
 	Expect(err).To(BeNil())
 }
 
@@ -72,11 +70,12 @@ func WaitUntilOperatorChartInstallation(chartVersion, comparator string, compare
 	}
 	Eventually(func() int {
 		currentChartVersion := GetCurrentOperatorChartVersion()
+		ginkgo.GinkgoLogr.Info(fmt.Sprintf("CurrentChartVersion: %s; comparing with %s to %s %d", currentChartVersion, chartVersion, comparator, compareTo))
 		if currentChartVersion == "" {
 			return 10
 		}
 		return VersionCompare(currentChartVersion, chartVersion)
-	}, tools.SetTimeout(1*time.Minute), 5*time.Second).Should(BeNumerically(comparator, compareTo))
+	}, tools.SetTimeout(4*time.Minute), 3*time.Second).Should(BeNumerically(comparator, compareTo))
 
 }
 

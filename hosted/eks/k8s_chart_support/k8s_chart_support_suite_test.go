@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
 	. "github.com/rancher-sandbox/qase-ginkgo"
 	"github.com/rancher/shepherd/clients/rancher"
@@ -125,7 +126,7 @@ func commonchecks(client *rancher.Client, cluster *management.Cluster) {
 		})
 
 		By("ensuring that rancher is up", func() {
-			helpers.CheckRancherPods(false)
+			helpers.CheckRancherDeployments(kubectl.New())
 		})
 
 		// We do not use WaitClusterToBeUpgraded because it has been flaky here and times out

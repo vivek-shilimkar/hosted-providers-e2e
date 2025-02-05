@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
 	"github.com/rancher-sandbox/ele-testhelpers/tools"
 	"github.com/rancher/shepherd/clients/rancher"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
@@ -115,7 +116,7 @@ func commonChartSupport(client *rancher.Client, cluster *management.Cluster) {
 		})
 
 		By("ensuring that rancher is up", func() {
-			helpers.CheckRancherPods(false)
+			helpers.CheckRancherDeployments(kubectl.New())
 		})
 
 		err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)

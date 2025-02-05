@@ -18,19 +18,19 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rancher-sandbox/ele-testhelpers/kubectl"
 	. "github.com/rancher-sandbox/qase-ginkgo"
 
-	"testing"
-
-	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
-	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 	"github.com/rancher/shepherd/clients/rancher"
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
+
+	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
+	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
 const (
@@ -143,7 +143,7 @@ func BackupRestoreChecks(k *kubectl.Kubectl) {
 	})
 
 	By("Performing post migration installations: Installing Rancher Manager", func() {
-		rancherChannel, rancherVersion, rancherHeadVersion := helpers.GetRancherVersions()
+		rancherChannel, rancherVersion, rancherHeadVersion := helpers.GetRancherVersions(helpers.RancherFullVersion)
 		helpers.InstallRancherManager(k, helpers.RancherHostname, rancherChannel, rancherVersion, rancherHeadVersion, "none", "none")
 	})
 

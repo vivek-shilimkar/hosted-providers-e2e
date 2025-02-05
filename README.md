@@ -22,10 +22,9 @@ Following are the common environment variables that need to be exported for runn
 1. KUBECONFIG: Upstream K8s' Kubeconfig file; usually it is k3s.yaml.
 
 ##### Upgrade Scenarios
-1. RANCHER_UPGRADE_VERSION: Rancher version to test upgrade. This version can be in the following formats: 2.9.0, 2.9.0-rc1, devel/2.9
+1. RANCHER_UPGRADE_VERSION: Rancher version to test upgrade. This version can be in the following formats (channel/version/head_version): prime/2.9.0, latest/2.9.0-rc1, latest/devel/2.9
 2. K8S_UPGRADE_MINOR_VERSION: K8s version to test. This value does not have to be exact, just the X.Y version. For e.g. 1.28. The complete version value will be fetched during the test.
-3. RANCHER_VERSION: Base rancher version to begin with. Since chart support tests are basically upgrade scenarios, the base version should be a released version, if it is an unreleased version such as 2.9-head, the test will fail. This version can be in the following formats: 2.9.0, 2.9.0-rc1
-4. RANCHER_CHANNEL (Optional): Acceptable values: latest (default), alpha, stable, prime
+3. RANCHER_VERSION: Base rancher version to begin with. Since chart support tests are basically upgrade scenarios, the base version should be a released version, if it is an unreleased version such as 2.9-head, the test will fail. This version can be in the following formats(channel/version): latest/2.9.0, latest/2.9.0-rc1
 
 Note: These are E2E tests, so rancher (version=`RANCHER_VERSION`) will be installed by the test.
 

@@ -33,10 +33,10 @@ var _ = Describe("K8sChartSupportUpgradeProvisioning", func() {
 	})
 
 	It("should successfully test k8s chart support provisioning in an upgrade scenario", func() {
-		GinkgoLogr.Info(fmt.Sprintf("Testing K8s %s chart support for provisioning on Rancher upgraded from %s to %s", helpers.K8sUpgradedMinorVersion, helpers.RancherVersion, helpers.RancherUpgradeVersion))
+		GinkgoLogr.Info(fmt.Sprintf("Testing K8s %s chart support for provisioning on Rancher upgraded from %s to %s", helpers.K8sUpgradedMinorVersion, helpers.RancherFullVersion, helpers.RancherUpgradeFullVersion))
 
 		testCaseID = 251 // Report to Qase
-		commonchecks(&ctx, cluster, clusterName, helpers.RancherUpgradeVersion, helpers.RancherHostname, helpers.K8sUpgradedMinorVersion)
+		commonchecks(&ctx, cluster, clusterName, helpers.RancherUpgradeFullVersion, helpers.K8sUpgradedMinorVersion)
 	})
 
 })
