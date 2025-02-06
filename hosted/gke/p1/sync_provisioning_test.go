@@ -34,9 +34,10 @@ var _ = Describe("SyncProvisioning", func() {
 	} {
 		testData := testData
 		When("a cluster is created", func() {
-			var cluster *management.Cluster
-
 			BeforeEach(func() {
+				if testData.isUpgrade && helpers.SkipUpgradeTests {
+					Skip(helpers.SkipUpgradeTestsLog)
+				}
 				k8sVersion, err := helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "", testData.isUpgrade)
 				Expect(err).NotTo(HaveOccurred())
 				GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))

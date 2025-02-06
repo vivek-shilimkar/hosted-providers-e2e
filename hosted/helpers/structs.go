@@ -44,6 +44,15 @@ var (
 		}
 		return false
 	}()
+	SkipUpgradeTests = func() bool {
+		// Skip upgrade tests since lowest k8s version not available
+		return strings.Contains((RancherFullVersion), "2.8")
+	}()
+	SkipTest = func() bool {
+		// Some features not available on v2.8, v2.9
+		return strings.Contains((RancherFullVersion), "2.8") || strings.Contains((RancherFullVersion), "2.9")
+	}()
+	SkipUpgradeTestsLog = "Skipping upgrade tests since only one minor k8s version is supported by the current rancher version ..."
 )
 
 type HelmChart struct {

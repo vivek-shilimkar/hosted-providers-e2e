@@ -524,7 +524,7 @@ func AddNodePoolOnGCloud(clusterName, zone, project, npName string, extraArgs ..
 	}
 
 	fmt.Println("Adding nodepool to the GKE cluster ...")
-	args := []string{"container", "node-pools", "create", npName, "--cluster", clusterName, "--project", project, "--zone", zone, "--num-nodes", "1"}
+	args := []string{"container", "node-pools", "create", npName, "--cluster", clusterName, "--project", project, "--zone", zone, "--num-nodes", "1", "--enable-autoscaling", "--max-nodes", "1", "--min-nodes", "0"}
 
 	args = append(args, extraArgs...)
 	fmt.Printf("Running command: gcloud %v\n", args)

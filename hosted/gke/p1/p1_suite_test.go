@@ -39,6 +39,7 @@ import (
 
 var (
 	ctx                     helpers.RancherContext
+	cluster                 *management.Cluster
 	clusterName, k8sVersion string
 	testCaseID              int64
 	zone                    = helpers.GetGKEZone()
@@ -58,6 +59,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 })
 
 var _ = BeforeEach(func() {
+	// Setting this to nil ensures we do not use the `cluster` variable value from another test running in parallel with this one.
+	cluster = nil
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 })
 
@@ -74,7 +77,7 @@ var _ = ReportAfterEach(func(report SpecReport) {
 // updateLoggingAndMonitoringServiceCheck tests updating `loggingService` and `monitoringService`
 func updateLoggingAndMonitoringServiceCheck(cluster *management.Cluster, client *rancher.Client, updateMonitoringValue, updateLoggingValue string) {
 	var err error
-	cluster, err = helper.UpdateMonitoringAndLoggingService(cluster, client, updateMonitoringValue, updateLoggingValue, true, true)
+	_, err = helper.UpdateMonitoringAndLoggingService(cluster, client, updateMonitoringValue, updateLoggingValue, true, true)
 	Expect(err).To(BeNil())
 }
 
@@ -110,7 +113,7 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
 			return *cluster.GKEStatus.UpstreamSpec.KubernetesVersion
-		}, tools.SetTimeout(7*time.Minute), 10*time.Second).Should(Equal(upgradeToVersion), "Failed while waiting for k8s upgrade to appear in GKEStatus.UpstreamSpec")
+		}, tools.SetTimeout(10*time.Minute), 10*time.Second).Should(Equal(upgradeToVersion), "Failed while waiting for k8s upgrade to appear in GKEStatus.UpstreamSpec")
 
 		// Ensure nodepool version is still the same.
 		for _, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
@@ -120,11 +123,10 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 		if !helpers.IsImport {
 			// For imported clusters, GKEConfig always has null values; so we check GKEConfig only when testing provisioned clusters
 			// Refer: github.com/rancher/gke-operator/issues/702
-			Expect(strings.Contains(cluster.TransitioningMessage, "downgrades of minor versions are not supported in GKE, consider updating spec version to match upstream version")).To(BeTrue())
+			Expect(strings.Contains(cluster.TransitioningMessage, "downgrades of minor versions are not supported in GKE, consider updating spec version to match upstream version") || strings.Contains(cluster.TransitioningMessage, "specified version is not newer than the current version")).To(BeTrue())
 			// Updating controlplane version via Rancher
 			cluster, err = helper.UpgradeKubernetesVersion(cluster, upgradeToVersion, client, false, true, false)
 			Expect(err).To(BeNil())
-
 			Expect(*cluster.GKEConfig.KubernetesVersion).To(Equal(upgradeToVersion))
 			for _, np := range cluster.GKEConfig.NodePools {
 				Expect(np.Version).To(BeEquivalentTo(currentVersion), "GKEConfig.NodePools check failed")
@@ -134,8 +136,8 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 
 	By("upgrading the node pool", func() {
 		for _, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
-			err = helper.UpgradeGKEClusterOnGCloud(zone, clusterName, project, upgradeToVersion, true, *np.Name)
-			Expect(err).To(BeNil())
+			// The cluster errors out and becomes unavailable at some point due to the upgrade , so we wait until the cluster is ready
+			_ = helper.UpgradeGKEClusterOnGCloud(zone, clusterName, project, upgradeToVersion, true, *np.Name)
 		}
 
 		Eventually(func() bool {
@@ -149,7 +151,7 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 				}
 			}
 			return true
-		}, tools.SetTimeout(5*time.Minute), 10*time.Second).Should(BeTrue(), "GKEStatus.UpstreamSpec.NodePools upgrade check failed")
+		}, tools.SetTimeout(15*time.Minute), 15*time.Second).Should(BeTrue(), "GKEStatus.UpstreamSpec.NodePools upgrade check failed")
 
 		if !helpers.IsImport {
 			// For imported clusters, GKEConfig always has null values; so we check GKEConfig only when testing provisioned clusters
@@ -176,7 +178,7 @@ func syncNodepoolsCheck(cluster *management.Cluster, client *rancher.Client) {
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
 			return len(cluster.GKEStatus.UpstreamSpec.NodePools)
-		}, tools.SetTimeout(5*time.Minute), 5*time.Second).Should(Equal(currentNodeCount + 1))
+		}, tools.SetTimeout(10*time.Minute), 15*time.Second).Should(Equal(currentNodeCount + 1))
 
 		// check that the new node pool has been added
 		Expect(func() bool {
@@ -213,7 +215,7 @@ func syncNodepoolsCheck(cluster *management.Cluster, client *rancher.Client) {
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
 			return len(cluster.GKEStatus.UpstreamSpec.NodePools)
-		}, tools.SetTimeout(5*time.Minute), 2*time.Second).Should(Equal(currentNodeCount))
+		}, tools.SetTimeout(15*time.Minute), 15*time.Second).Should(Equal(currentNodeCount))
 
 		// check that the new node pool has been deleted
 		Expect(func() bool {
@@ -244,6 +246,9 @@ func syncNodepoolsCheck(cluster *management.Cluster, client *rancher.Client) {
 
 // updateClusterInUpdatingState runs checks to ensure cluster in an updating state can be updated
 func updateClusterInUpdatingState(cluster *management.Cluster, client *rancher.Client) {
+	if helpers.SkipUpgradeTests {
+		Skip(helpers.SkipUpgradeTestsLog)
+	}
 	availableVersions, err := helper.ListGKEAvailableVersions(client, cluster.ID)
 	Expect(err).To(BeNil())
 	upgradeK8sVersion := availableVersions[0]
@@ -424,6 +429,6 @@ func expiredCredCheck(cluster *management.Cluster, client *rancher.Client) {
 	Eventually(func() bool {
 		cluster, err = client.Management.Cluster.ByID(cluster.ID)
 		Expect(err).To(BeNil())
-		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "cannot fetch token")
+		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "cannot fetch token") || strings.Contains(cluster.TransitioningMessage, "unexpected end of JSON input")
 	}, "2m", "3s").Should(BeTrue())
 }

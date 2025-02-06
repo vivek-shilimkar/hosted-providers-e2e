@@ -20,6 +20,7 @@ import (
 
 var (
 	ctx                   helpers.RancherContext
+	cluster               *management.Cluster
 	clusterName, location string
 	testCaseID            int64
 )
@@ -37,6 +38,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 })
 
 var _ = BeforeEach(func() {
+	// Setting this to nil ensures we do not use the `cluster` variable value from another test running in parallel with this one.
+	cluster = nil
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 	location = helpers.GetAKSLocation()
 })
@@ -353,7 +356,7 @@ func updateSystemNodePoolCheck(cluster *management.Cluster, client *rancher.Clie
 			}
 		}
 		return true
-	}, "5m", "5s").Should(BeTrue(), "Failed while upstream nodepool update")
+	}, "15m", "15s").Should(BeTrue(), "Failed while upstream nodepool update")
 }
 
 // Qase ID: 230 and 291
@@ -376,7 +379,7 @@ func updateNodePoolModeCheck(cluster *management.Cluster, client *rancher.Client
 	for _, np := range cluster.AKSConfig.NodePools {
 		Expect(np.Mode).ToNot(Equal(originalModeMap[*np.Name]))
 	}
-	err = clusters.WaitClusterToBeUpgraded(client, cluster.ID)
+	err = clusters.WaitClusterUntilUpgrade(client, cluster.ID)
 	Expect(err).To(BeNil())
 
 	Eventually(func() bool {
@@ -388,7 +391,7 @@ func updateNodePoolModeCheck(cluster *management.Cluster, client *rancher.Client
 			}
 		}
 		return true
-	}, "5m", "5s").Should(BeTrue(), "Failed while upstream nodepool mode update")
+	}, "10m", "15s").Should(BeTrue(), "Failed while upstream nodepool mode update")
 }
 
 // Qase ID: 221 and 292

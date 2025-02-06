@@ -23,7 +23,6 @@ import (
 )
 
 var _ = Describe("P1Provisioning", func() {
-	var cluster *management.Cluster
 	var k8sVersion string
 
 	BeforeEach(func() {
@@ -45,6 +44,9 @@ var _ = Describe("P1Provisioning", func() {
 	})
 
 	It("should successfully Create a cluster in Region without AZ", func() {
+		if helpers.SkipUpgradeTests {
+			Skip(helpers.SkipUpgradeTestsLog)
+		}
 		location = "ukwest"
 		testCaseID = 275
 
@@ -362,6 +364,10 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("should not be able to edit availability zone of a nodepool", func() {
+			if helpers.SkipTest {
+				Skip("Skipping test for v2.8, v2.9 ...")
+			}
+
 			// Refer: https://github.com/rancher/aks-operator/issues/669
 			testCaseID = 195
 			originalNPMap := make(map[string][]string)
@@ -430,6 +436,9 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("should be able to update cluster monitoring", func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
 			testCaseID = 200
 			updateMonitoringCheck(cluster, ctx.RancherAdminClient)
 		})
@@ -510,6 +519,10 @@ var _ = Describe("P1Provisioning", func() {
 	When("a cluster is created for upgrade", func() {
 		var upgradeK8sVersion string
 		BeforeEach(func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
+
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
 			Expect(err).NotTo(HaveOccurred())
@@ -525,6 +538,9 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("NP cannot be upgraded to k8s version greater than CP k8s version", func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
 			testCaseID = 183
 			npUpgradeToVersionGTCPCheck(cluster, ctx.RancherAdminClient, upgradeK8sVersion)
 		})
@@ -579,8 +595,11 @@ var _ = Describe("P1Provisioning", func() {
 	})
 
 	It("should not be able to select NP K8s version; CP K8s version should take precedence", func() {
-		testCaseID = 182
+		if helpers.SkipUpgradeTests {
+			Skip(helpers.SkipUpgradeTestsLog)
+		}
 
+		testCaseID = 182
 		k8sVersions, err := helper.ListSingleVariantAKSAllVersions(ctx.RancherAdminClient, ctx.CloudCredID, location)
 		Expect(err).To(BeNil())
 		Expect(len(k8sVersions)).To(BeNumerically(">=", 2))
@@ -695,6 +714,9 @@ var _ = Describe("P1Provisioning", func() {
 		})
 
 		It("should not be able to remove system nodepool", func() {
+			if helpers.SkipTest {
+				Skip("Skipping test for v2.8, v2.9 ...")
+			}
 			testCaseID = 191
 			removeSystemNpCheck(cluster, ctx.RancherAdminClient)
 		})

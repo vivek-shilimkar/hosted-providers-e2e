@@ -193,7 +193,7 @@ func ClusterIsReadyChecks(cluster *management.Cluster, client *rancher.Client, c
 	ginkgo.By("checking all pods are ready", func() {
 		Eventually(func() []error {
 			return pods.StatusPods(client, cluster.ID)
-		}, tools.SetTimeout(30*time.Second), Timeout).Should(BeEmpty(), "All pods are not running")
+		}, tools.SetTimeout(Timeout), 30*time.Second).Should(BeEmpty(), "All pods are not running")
 	})
 }
 

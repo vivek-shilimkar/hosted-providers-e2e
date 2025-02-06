@@ -19,11 +19,7 @@ import (
 )
 
 var _ = Describe("P1Provisioning", func() {
-	var (
-		cluster    *management.Cluster
-		k8sVersion string
-	)
-
+	var k8sVersion string
 	var _ = BeforeEach(func() {
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, false)
@@ -32,11 +28,14 @@ var _ = Describe("P1Provisioning", func() {
 	})
 
 	AfterEach(func() {
-		if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
-			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
-			Expect(err).To(BeNil())
+		if ctx.ClusterCleanup {
+			if cluster != nil && cluster.ID != "" {
+				GinkgoLogr.Info(fmt.Sprintf("Cleaning up resource cluster: %s %s", cluster.Name, cluster.ID))
+				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+			}
 		} else {
-			GinkgoLogr.Info(fmt.Sprintf("Skipping downstream cluster deletion: %s", clusterName))
+			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
 		}
 	})
 
@@ -84,7 +83,7 @@ var _ = Describe("P1Provisioning", func() {
 				Expect(err).To(BeNil())
 				// checking for both the messages since different operator version shows different messages. To be removed once the message is updated.
 				// New Message: NodePool names must be unique within the [c-dnzzk] cluster to avoid duplication
-				return cluster.Transitioning == "error" && (strings.Contains(cluster.TransitioningMessage, "is not unique within the cluster") || strings.Contains(cluster.TransitioningMessage, "NodePool names must be unique"))
+				return cluster.Transitioning == "error" && (strings.Contains(cluster.TransitioningMessage, "is not unique within the cluster") || strings.Contains(cluster.TransitioningMessage, "names must be unique"))
 			}, "1m", "3s").Should(BeTrue())
 		})
 
@@ -158,6 +157,10 @@ var _ = Describe("P1Provisioning", func() {
 	})
 
 	It("should successfully Provision EKS from Rancher with Enabled GPU feature", func() {
+		if helpers.SkipTest {
+			Skip("Skipping test for v2.8, v2.9 ...")
+		}
+
 		testCaseID = 274
 		var gpuNodeName = "gpuenabled"
 		createFunc := func(clusterConfig *eks.ClusterConfig) {
@@ -207,6 +210,10 @@ var _ = Describe("P1Provisioning", func() {
 		var upgradeToVersion string
 
 		BeforeEach(func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
+
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, true)
 			Expect(err).To(BeNil())

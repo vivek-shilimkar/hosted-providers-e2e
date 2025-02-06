@@ -123,6 +123,9 @@ jobs:
     env:
       # For some reason the go doesn't link by default against system libresolv library
       CGO_LDFLAGS: -O2 -g -lresolv
+      KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+      INSTALL_K3S_VERSION: ${{ inputs.k3s_version }}
+      RANCHER_VERSION: ${{ inputs.rancher_version }}
     outputs:
       PUBLIC_IP: ${{ steps.runner-ip.outputs.PUBLIC_IP }}
     steps:
@@ -213,9 +216,6 @@ jobs:
         id: prepare-rancher
         if: ${{ inputs.rancher_installed == 'hostname/password' }}
         env:
-          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-          INSTALL_K3S_VERSION: ${{ inputs.k3s_version }}
-          RANCHER_VERSION: ${{ inputs.rancher_version }}
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
           PROXY_HOST: ${{ env.PROXY_HOST }}
@@ -256,7 +256,7 @@ jobs:
           rm -rf awscliv2.zip aws/
 
       - name: Provisioning cluster tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p0_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p0_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -266,7 +266,7 @@ jobs:
           make e2e-provisioning-tests
 
       - name: Import cluster tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p0_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p0_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -276,7 +276,7 @@ jobs:
           make e2e-import-tests
 
       - name: Provisioning cluster P1 tests
-        if:  ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p1_provisioning') }}
+        if:  ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p1_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -286,7 +286,7 @@ jobs:
           make e2e-p1-provisioning-tests
 
       - name: Import cluster P1 tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'p1_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'p1_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -296,7 +296,7 @@ jobs:
           make e2e-p1-import-tests
 
       - name: Support matrix provisioning tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'support_matrix_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'support_matrix_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -306,7 +306,7 @@ jobs:
           make e2e-support-matrix-provisioning-tests
 
       - name: Support matrix import tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'support_matrix_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'support_matrix_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -316,29 +316,27 @@ jobs:
           make e2e-support-matrix-import-tests
 
       - name: K8s Chart Support provisioning tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'k8s_chart_support_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'k8s_chart_support_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
           QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
-          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
         run: |
           make e2e-k8s-chart-support-provisioning-tests
 
       - name: K8s Chart Support import tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'k8s_chart_support_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'k8s_chart_support_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
           QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
-          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
         run: |
           make e2e-k8s-chart-support-import-tests
 
       - name: Sync provisioning tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'sync_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'sync_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -348,7 +346,7 @@ jobs:
           make e2e-sync-provisioning-tests
 
       - name: Sync import tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'sync_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'sync_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
@@ -358,54 +356,46 @@ jobs:
           make e2e-sync-import-tests
 
       - name: Backup/Restore provisioning tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'backup_restore_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'backup_restore_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
-          RANCHER_VERSION: ${{ inputs.rancher_version }}
           BACKUP_OPERATOR_VERSION: ${{ inputs.backup_operator_version }}
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
           QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
-          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
         run: |
           make e2e-backup-restore-provisioning-tests
 
       - name: Backup/Restore import tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'backup_restore_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'backup_restore_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
-          RANCHER_VERSION: ${{ inputs.rancher_version }}
           BACKUP_OPERATOR_VERSION: ${{ inputs.backup_operator_version }}
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
           QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
-          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
         run: |
           make e2e-backup-restore-import-tests
 
       - name: K8s Chart Support Upgrade provisioning tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'k8s_chart_support_upgrade_provisioning') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'k8s_chart_support_upgrade_provisioning') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-provisioning.yaml
           QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
-          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-          RANCHER_VERSION: ${{ inputs.rancher_version }}
           RANCHER_UPGRADE_VERSION: ${{ inputs.rancher_upgrade_version }}
           K8S_UPGRADE_MINOR_VERSION: ${{ inputs.k8s_upgrade_minor_version }}
         run: |
           make e2e-k8s-chart-support-provisioning-tests-upgrade
 
       - name: K8s Chart Support Upgrade import tests
-        if: ${{ !cancelled() && steps.prepare-rancher.outcome != 'failure' && contains(inputs.tests_to_run, 'k8s_chart_support_upgrade_import') }}
+        if: ${{ !cancelled() && steps.prepare-rancher.outcome == 'success' && contains(inputs.tests_to_run, 'k8s_chart_support_upgrade_import') }}
         env:
           RANCHER_HOSTNAME: ${{ env.RANCHER_HOSTNAME }}
           RANCHER_PASSWORD: ${{ env.RANCHER_PASSWORD }}
           CATTLE_TEST_CONFIG: ${{ github.workspace }}/cattle-config-import.yaml
           QASE_RUN_ID: ${{ steps.qase.outputs.qase_run_id }}
-          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
-          RANCHER_VERSION: ${{ inputs.rancher_version }}
           RANCHER_UPGRADE_VERSION: ${{ inputs.rancher_upgrade_version }}
           K8S_UPGRADE_MINOR_VERSION: ${{ inputs.k8s_upgrade_minor_version }}
         run: |
@@ -451,8 +441,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Add summary
-        env:
-          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+        shell: bash
         if: ${{ always() && steps.prepare-rancher.outcome == 'success' }}
         run: |
           # Add summary
@@ -462,7 +451,7 @@ jobs:
           echo "Tests run: ${{ inputs.tests_to_run }}" >> ${GITHUB_STEP_SUMMARY}
           OPERATOR_HELM_VERSION=$(helm get metadata rancher-${{ inputs.hosted_provider }}-operator -n cattle-system -o json | jq -r .version)
           echo "Installed rancher-${{ inputs.hosted_provider }}-operator chart version: $OPERATOR_HELM_VERSION" >> ${GITHUB_STEP_SUMMARY}
-          if [ ${{ inputs.tests_to_run }} == "backup_restore" ]; then
+          if [[ ${{ inputs.tests_to_run }} =~ "backup_restore" ]]; then
             BR_OPERATOR_HELM_VERSION=$(helm get metadata rancher-backup -n cattle-resources-system -o json | jq -r .version)
             echo "Installed backup-restore operator chart version: $BR_OPERATOR_HELM_VERSION" >> ${GITHUB_STEP_SUMMARY}
           fi

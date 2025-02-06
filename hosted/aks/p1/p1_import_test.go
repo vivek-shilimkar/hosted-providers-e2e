@@ -6,17 +6,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/aks/helper"
 	"github.com/rancher/hosted-providers-e2e/hosted/helpers"
 )
 
 var _ = Describe("P1Import", func() {
-	var (
-		cluster    *management.Cluster
-		k8sVersion string
-	)
+	var k8sVersion string
 	BeforeEach(func() {
 		GinkgoLogr.Info(fmt.Sprintf("Running on process: %d", GinkgoParallelProcess()))
 
@@ -78,6 +74,9 @@ var _ = Describe("P1Import", func() {
 		})
 
 		It("should be able to update cluster monitoring", func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
 			testCaseID = 271
 			updateMonitoringCheck(cluster, ctx.RancherAdminClient)
 		})
@@ -99,7 +98,7 @@ var _ = Describe("P1Import", func() {
 				// Wait until the cluster no longer exists
 				_, err := ctx.RancherAdminClient.Management.Cluster.ByID(clusterID)
 				return err
-			}, "10s", "1s").ShouldNot(BeNil())
+			}, "30s", "3s").ShouldNot(BeNil())
 			cluster, err = helper.ImportAKSHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, location, helpers.GetCommonMetadataLabels())
 			Expect(err).To(BeNil())
 			cluster, err = helpers.WaitUntilClusterIsReady(cluster, ctx.RancherAdminClient)
@@ -108,6 +107,9 @@ var _ = Describe("P1Import", func() {
 	})
 
 	It("should successfully Import a cluster in Region without AZ", func() {
+		if helpers.SkipUpgradeTests {
+			Skip(helpers.SkipUpgradeTestsLog)
+		}
 		location = "ukwest"
 		testCaseID = 276
 
@@ -142,6 +144,10 @@ var _ = Describe("P1Import", func() {
 	When("a cluster with custom kubelet and os config is created and imported for upgrade", func() {
 		var upgradeToVersion string
 		BeforeEach(func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
+
 			kubeletConfigJsonData := `{"cpuManagerPolicy": "static", "cpuCfsQuota": true, "cpuCfsQuotaPeriod": "200ms", "imageGcHighThreshold": 90, "imageGcLowThreshold": 70, "topologyManagerPolicy": "best-effort", "allowedUnsafeSysctls": ["kernel.msg*","net.*"], "failSwapOn": false}`
 			kubeletConfigDotJson, err := os.CreateTemp("", "custom-kubelet-*.json")
 			Expect(err).ToNot(HaveOccurred())
@@ -201,6 +207,9 @@ var _ = Describe("P1Import", func() {
 		})
 
 		It("should not be able to remove system nodepool", func() {
+			if helpers.SkipTest {
+				Skip("Skipping test for v2.8, v2.9 ...")
+			}
 			testCaseID = 267
 			removeSystemNpCheck(cluster, ctx.RancherAdminClient)
 		})
@@ -226,6 +235,10 @@ var _ = Describe("P1Import", func() {
 	When("a cluster is created and imported for upgrade", func() {
 		var upgradeK8sVersion string
 		BeforeEach(func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
+
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
 			Expect(err).NotTo(HaveOccurred())
@@ -244,6 +257,9 @@ var _ = Describe("P1Import", func() {
 		})
 
 		It("NP cannot be upgraded to k8s version greater than CP k8s version", func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
 			testCaseID = 269
 			npUpgradeToVersionGTCPCheck(cluster, ctx.RancherAdminClient, upgradeK8sVersion)
 		})

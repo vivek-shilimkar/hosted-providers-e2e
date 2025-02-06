@@ -18,8 +18,6 @@ import (
 )
 
 var _ = Describe("P1Provisioning", func() {
-	var cluster *management.Cluster
-
 	var _ = BeforeEach(func() {
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "", false)
@@ -28,9 +26,12 @@ var _ = Describe("P1Provisioning", func() {
 	})
 
 	AfterEach(func() {
-		if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
-			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
-			Expect(err).To(BeNil())
+		if ctx.ClusterCleanup {
+			if cluster != nil && cluster.ID != "" {
+				GinkgoLogr.Info(fmt.Sprintf("Cleaning up resource cluster: %s %s", cluster.Name, cluster.ID))
+				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+			}
 		} else {
 			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
 		}
@@ -127,6 +128,9 @@ var _ = Describe("P1Provisioning", func() {
 	})
 
 	It("should be able to create a cluster with CP K8s version v-XX-1 and NP K8s version v-XX should use v-XX-1 for both CP and NP", func() {
+		if helpers.SkipUpgradeTests {
+			Skip(helpers.SkipUpgradeTestsLog)
+		}
 		testCaseID = 33
 
 		k8sVersions, err := helper.ListSingleVariantGKEAvailableVersions(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "")
@@ -229,6 +233,10 @@ var _ = Describe("P1Provisioning", func() {
 		It("should successfully add a windows nodepool", func() {
 			testCaseID = 30
 			var err error
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
+
 			_, err = helper.AddNodePool(cluster, ctx.RancherAdminClient, 1, "WINDOWS_LTSC_CONTAINERD", true, true)
 			Expect(err).To(BeNil())
 		})
@@ -307,6 +315,10 @@ var _ = Describe("P1Provisioning", func() {
 	When("a cluster is created for upgrade scenarios", func() {
 
 		BeforeEach(func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
+
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "", true)
 			Expect(err).To(BeNil())

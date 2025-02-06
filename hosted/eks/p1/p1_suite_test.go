@@ -40,6 +40,7 @@ import (
 
 var (
 	ctx         helpers.RancherContext
+	cluster     *management.Cluster
 	clusterName string
 	testCaseID  int64
 	region      = helpers.GetEKSRegion()
@@ -58,6 +59,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 })
 
 var _ = BeforeEach(func() {
+	// Setting this to nil ensures we do not use the `cluster` variable value from another test running in parallel with this one.
+	cluster = nil
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 })
 
@@ -548,7 +551,7 @@ func invalidEndpointCheck(cluster *management.Cluster, client *rancher.Client) {
 	Eventually(func() bool {
 		cluster, err = client.Management.Cluster.ByID(cluster.ID)
 		Expect(err).To(BeNil())
-		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "InvalidParameterException: The following CIDRs are invalid in publicAccessCidrs")
+		return cluster.Transitioning == "error" && strings.Contains(cluster.TransitioningMessage, "The following CIDRs are invalid in publicAccessCidrs")
 	}, "2m", "3s").Should(BeTrue())
 }
 

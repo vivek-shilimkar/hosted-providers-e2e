@@ -5,7 +5,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	namegen "github.com/rancher/shepherd/pkg/namegenerator"
 
 	"github.com/rancher/hosted-providers-e2e/hosted/eks/helper"
@@ -13,11 +12,7 @@ import (
 )
 
 var _ = Describe("P1Import", func() {
-	var (
-		cluster    *management.Cluster
-		k8sVersion string
-	)
-
+	var k8sVersion string
 	BeforeEach(func() {
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, false)
@@ -26,13 +21,16 @@ var _ = Describe("P1Import", func() {
 	})
 
 	AfterEach(func() {
-		if ctx.ClusterCleanup && (cluster != nil && cluster.ID != "") {
-			err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
-			Expect(err).To(BeNil())
-			err = helper.DeleteEKSClusterOnAWS(region, clusterName)
+		if ctx.ClusterCleanup {
+			if cluster != nil && cluster.ID != "" {
+				GinkgoLogr.Info(fmt.Sprintf("Cleaning up resource cluster: %s %s", cluster.Name, cluster.ID))
+				err := helper.DeleteEKSHostCluster(cluster, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+			}
+			err := helper.DeleteEKSClusterOnAWS(region, clusterName)
 			Expect(err).To(BeNil())
 		} else {
-			GinkgoLogr.Info(fmt.Sprintf("Skipping downstream cluster deletion: %s", clusterName))
+			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
 		}
 	})
 
@@ -40,6 +38,10 @@ var _ = Describe("P1Import", func() {
 		var upgradeToVersion string
 
 		BeforeEach(func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
+
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, true)
 			Expect(err).To(BeNil())

@@ -30,6 +30,9 @@ var _ = Describe("SyncProvisioning", func() {
 		var upgradeToVersion string
 
 		BeforeEach(func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, true)
 			Expect(err).To(BeNil())

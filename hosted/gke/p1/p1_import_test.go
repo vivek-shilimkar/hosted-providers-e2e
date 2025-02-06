@@ -13,8 +13,6 @@ import (
 )
 
 var _ = Describe("P1Import", func() {
-	var cluster *management.Cluster
-
 	var _ = BeforeEach(func() {
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "", false)
@@ -23,11 +21,15 @@ var _ = Describe("P1Import", func() {
 	})
 
 	AfterEach(func() {
-		if ctx.ClusterCleanup && cluster != nil {
-			err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
+		if ctx.ClusterCleanup {
+			if cluster != nil && cluster.ID != "" {
+				GinkgoLogr.Info(fmt.Sprintf("Cleaning up resource cluster: %s %s", cluster.Name, cluster.ID))
+				err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
+				Expect(err).To(BeNil())
+			}
+			err := helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
 			Expect(err).To(BeNil())
-			err = helper.DeleteGKEClusterOnGCloud(zone, project, clusterName)
-			Expect(err).To(BeNil())
+
 		} else {
 			fmt.Println("Skipping downstream cluster deletion: ", clusterName)
 		}
@@ -171,6 +173,10 @@ var _ = Describe("P1Import", func() {
 	When("a cluster is created for upgrade scenario", func() {
 
 		BeforeEach(func() {
+			if helpers.SkipUpgradeTests {
+				Skip(helpers.SkipUpgradeTestsLog)
+			}
+
 			var err error
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "", true)
 			Expect(err).To(BeNil())

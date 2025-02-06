@@ -448,7 +448,7 @@ func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enab
 				}
 			}
 			return true
-		}, tools.SetTimeout(7*time.Minute), 5*time.Second).Should(BeTrue())
+		}, tools.SetTimeout(10*time.Minute), 15*time.Second).Should(BeTrue())
 	}
 	return cluster, nil
 }

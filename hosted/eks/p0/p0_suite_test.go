@@ -36,6 +36,7 @@ const (
 
 var (
 	ctx         helpers.RancherContext
+	cluster     *management.Cluster
 	clusterName string
 	testCaseID  int64
 	region      = helpers.GetEKSRegion()
@@ -54,6 +55,8 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 })
 
 var _ = BeforeEach(func() {
+	// Setting this to nil ensures we do not use the `cluster` variable value from another test running in parallel with this one.
+	cluster = nil
 	clusterName = namegen.AppendRandomString(helpers.ClusterNamePrefix)
 })
 

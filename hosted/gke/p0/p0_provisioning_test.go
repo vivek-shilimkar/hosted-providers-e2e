@@ -63,9 +63,11 @@ var _ = Describe("P0Provisioning", func() {
 	} {
 		testData := testData
 		When("a cluster is created", func() {
-			var cluster *management.Cluster
-
 			BeforeEach(func() {
+				if testData.isUpgrade && helpers.SkipUpgradeTests {
+					Skip(helpers.SkipUpgradeTestsLog)
+				}
+
 				if strings.Contains(testData.testTitle, "regional") {
 					zone = ""
 					updateFunc = func(clusterConfig *gke.ClusterConfig) {
@@ -85,9 +87,12 @@ var _ = Describe("P0Provisioning", func() {
 				Expect(err).To(BeNil())
 			})
 			AfterEach(func() {
-				if ctx.ClusterCleanup && cluster != nil {
-					err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
-					Expect(err).To(BeNil())
+				if ctx.ClusterCleanup {
+					if cluster != nil && cluster.ID != "" {
+						GinkgoLogr.Info(fmt.Sprintf("Cleaning up resource cluster: %s %s", cluster.Name, cluster.ID))
+						err := helper.DeleteGKEHostCluster(cluster, ctx.RancherAdminClient)
+						Expect(err).To(BeNil())
+					}
 				} else {
 					fmt.Println("Skipping downstream cluster deletion: ", clusterName)
 				}
