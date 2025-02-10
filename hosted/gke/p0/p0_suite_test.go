@@ -96,8 +96,8 @@ func p0upgradeK8sVersionChecks(cluster *management.Cluster, client *rancher.Clie
 
 func p0NodesChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
 	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
-
-	initialNodeCount := *cluster.GKEConfig.NodePools[0].InitialNodeCount
+	configNodePools := *cluster.GKEConfig.NodePools
+	initialNodeCount := *configNodePools[0].InitialNodeCount
 
 	By("scaling up the nodepool", func() {
 		var err error

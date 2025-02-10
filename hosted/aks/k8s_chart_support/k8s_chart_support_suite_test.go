@@ -103,11 +103,11 @@ func commonchecks(client *rancher.Client, cluster *management.Cluster) {
 	})
 
 	By("making a change(adding a nodepool) to the cluster to re-install the operator and validating it is re-installed to the latest/original version", func() {
-		currentNodePoolNumber := len(cluster.AKSConfig.NodePools)
+		currentNodePoolNumber := len(*cluster.AKSConfig.NodePools)
 		var err error
 		cluster, err = helper.AddNodePool(cluster, 1, client, false, false)
 		Expect(err).To(BeNil())
-		Expect(len(cluster.AKSConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
+		Expect(len(*cluster.AKSConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
 
 		By("ensuring that the chart is re-installed to the latest/original version", func() {
 			helpers.WaitUntilOperatorChartInstallation(originalChartVersion, "", 0)
@@ -123,7 +123,7 @@ func commonchecks(client *rancher.Client, cluster *management.Cluster) {
 		Eventually(func() int {
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			return len(cluster.AKSStatus.UpstreamSpec.NodePools)
+			return len(*cluster.AKSStatus.UpstreamSpec.NodePools)
 		}, tools.SetTimeout(10*time.Minute), 3*time.Second).Should(BeNumerically("==", currentNodePoolNumber+1))
 	})
 }

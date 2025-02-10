@@ -93,7 +93,8 @@ func commonChartSupport(client *rancher.Client, cluster *management.Cluster) {
 	})
 
 	By("making a change to the cluster to validate functionality after chart downgrade", func() {
-		initialNodeCount := *cluster.GKEConfig.NodePools[0].InitialNodeCount
+		configNodePools := *cluster.GKEConfig.NodePools
+		initialNodeCount := *configNodePools[0].InitialNodeCount
 		var err error
 		cluster, err = helper.ScaleNodePool(cluster, client, initialNodeCount+1, true, true)
 		Expect(err).To(BeNil())
@@ -104,12 +105,12 @@ func commonChartSupport(client *rancher.Client, cluster *management.Cluster) {
 	})
 
 	By("making a change(adding a nodepool) to the cluster to re-install the operator and validating it is re-installed to the latest/original version", func() {
-		currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
+		currentNodePoolNumber := len(*cluster.GKEConfig.NodePools)
 		var err error
 		cluster, err = helper.AddNodePool(cluster, client, 1, "", false, false)
 		Expect(err).To(BeNil())
 
-		Expect(len(cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
+		Expect(len(*cluster.GKEConfig.NodePools)).To(BeNumerically("==", currentNodePoolNumber+1))
 
 		By("ensuring that the chart is re-installed to the latest/original version", func() {
 			helpers.WaitUntilOperatorChartInstallation(originalChartVersion, "", 0)
@@ -125,7 +126,7 @@ func commonChartSupport(client *rancher.Client, cluster *management.Cluster) {
 			GinkgoLogr.Info("Waiting for the total nodepool count to increase in GKEStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			return len(cluster.GKEStatus.UpstreamSpec.NodePools)
+			return len(*cluster.GKEStatus.UpstreamSpec.NodePools)
 		}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(BeNumerically("==", currentNodePoolNumber+1))
 
 	})

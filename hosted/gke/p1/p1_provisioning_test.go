@@ -19,6 +19,10 @@ import (
 
 var _ = Describe("P1Provisioning", func() {
 	var _ = BeforeEach(func() {
+		// assigning cluster nil value so that every new test has a fresh value of the variable
+		// this is to avoid using residual value of a cluster in a test that does not use it
+		cluster = nil
+
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "", false)
 		Expect(err).To(BeNil())
@@ -78,7 +82,7 @@ var _ = Describe("P1Provisioning", func() {
 
 		})
 
-		It("should fail to provision a cluster with no nodepools", func() {
+		It("should fail to provision a cluster nodepools is nil", func() {
 			testCaseID = 27
 
 			updateFunc := func(clusterConfig *gke.ClusterConfig) {
@@ -95,6 +99,17 @@ var _ = Describe("P1Provisioning", func() {
 				return clusterState.Transitioning == "error" && strings.Contains(clusterState.TransitioningMessage, "Cluster.initial_node_count must be greater than zero")
 			}, "60s", "2s").Should(BeTrue())
 
+		})
+
+		It("should fail to provision a cluster when nodepools is an empty array", func() {
+			updateFunc := func(clusterConfig *gke.ClusterConfig) {
+				clusterConfig.NodePools = []gke.NodePool{}
+			}
+
+			var err error
+			_, err = helper.CreateGKEHostedCluster(ctx.RancherAdminClient, clusterName, ctx.CloudCredID, k8sVersion, zone, "", project, updateFunc)
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("must have at least one node pool"))
 		})
 	})
 
@@ -149,7 +164,7 @@ var _ = Describe("P1Provisioning", func() {
 		Expect(err).To(BeNil())
 
 		Expect(*cluster.GKEConfig.KubernetesVersion).To(Equal(cpK8sVersion))
-		for _, np := range cluster.GKEConfig.NodePools {
+		for _, np := range *cluster.GKEConfig.NodePools {
 			Expect(*np.Version).To(Equal(cpK8sVersion))
 		}
 
@@ -164,7 +179,7 @@ var _ = Describe("P1Provisioning", func() {
 				return false
 			}
 
-			for _, np := range clusterState.GKEStatus.UpstreamSpec.NodePools {
+			for _, np := range *clusterState.GKEStatus.UpstreamSpec.NodePools {
 				if *np.Version != cpK8sVersion {
 					return false
 				}
@@ -245,12 +260,12 @@ var _ = Describe("P1Provisioning", func() {
 			testCaseID = 263
 
 			_, err := helper.UpdateCluster(cluster, ctx.RancherAdminClient, func(upgradedCluster *management.Cluster) {
-				updateNodePoolsList := cluster.GKEConfig.NodePools
+				updateNodePoolsList := *cluster.GKEConfig.NodePools
 				for i := 0; i < len(updateNodePoolsList); i++ {
 					updateNodePoolsList[i].Config.ImageType = "WINDOWS_LTSC_CONTAINERD"
 				}
 
-				upgradedCluster.GKEConfig.NodePools = updateNodePoolsList
+				upgradedCluster.GKEConfig.NodePools = &updateNodePoolsList
 			})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("at least 1 Linux node pool is required"))
@@ -298,10 +313,10 @@ var _ = Describe("P1Provisioning", func() {
 			testCaseID = 34
 			var err error
 			cluster, err = helper.UpdateCluster(cluster, ctx.RancherAdminClient, func(upgradedCluster *management.Cluster) {
-				updateNodePoolsList := cluster.GKEConfig.NodePools
+				updateNodePoolsList := *cluster.GKEConfig.NodePools
 				updateNodePoolsList[0].Config.ImageType = "WINDOWS_LTSC_CONTAINERD"
 
-				upgradedCluster.GKEConfig.NodePools = updateNodePoolsList
+				upgradedCluster.GKEConfig.NodePools = &updateNodePoolsList
 			})
 
 			Eventually(func() bool {

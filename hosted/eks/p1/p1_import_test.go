@@ -14,6 +14,10 @@ import (
 var _ = Describe("P1Import", func() {
 	var k8sVersion string
 	BeforeEach(func() {
+		// assigning cluster nil value so that every new test has a fresh value of the variable
+		// this is to avoid using residual value of a cluster in a test that does not use it
+		cluster = nil
+
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, false)
 		Expect(err).To(BeNil())
@@ -170,19 +174,19 @@ var _ = Describe("P1Import", func() {
 
 		It("Add a nodegroup in EKS -> Syncs to Rancher -> Update cluster, the nodegroup is intact", func() {
 			testCaseID = 87
-			nodepoolcount := len(cluster.EKSStatus.UpstreamSpec.NodeGroups)
+			nodepoolcount := len(*cluster.EKSStatus.UpstreamSpec.NodeGroups)
 			err := helper.AddNodeGroupOnAWS(namegen.AppendRandomString("ng"), clusterName, region)
 			Expect(err).To(BeNil())
 			Eventually(func() bool {
 				cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
-				return len(cluster.EKSStatus.UpstreamSpec.NodeGroups) == nodepoolcount+1
+				return len(*cluster.EKSStatus.UpstreamSpec.NodeGroups) == nodepoolcount+1
 			}, "10m", "7s").Should(BeTrue(), "Timed out while waiting for rancher to sync")
 			cluster, err = helper.UpdateLogging(cluster, ctx.RancherAdminClient, []string{"authenticator"}, true)
 			Expect(err).To(BeNil())
 
 			// verify that the nodegroups are intact
-			Expect(cluster.EKSStatus.UpstreamSpec.NodeGroups).To(HaveLen(nodepoolcount + 1))
+			Expect(*cluster.EKSStatus.UpstreamSpec.NodeGroups).To(HaveLen(nodepoolcount + 1))
 		})
 
 		It("Update the cloud creds", func() {
@@ -216,6 +220,8 @@ var _ = Describe("P1Import", func() {
 					Expect(err).To(BeNil())
 					return cluster.State == "waiting"
 				}, "5m", "15s").Should(BeTrue())
+
+				cluster.EKSConfig = cluster.EKSStatus.UpstreamSpec
 
 				By("adding a NodeGroup", func() {
 					cluster, err = helper.AddNodeGroup(cluster, 1, ctx.RancherAdminClient, false, true)

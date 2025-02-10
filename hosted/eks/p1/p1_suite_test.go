@@ -124,7 +124,7 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 
 		if !helpers.IsImport {
 			// For imported clusters, EKSConfig always has null values; so we check EKSConfig only when testing provisioned clusters
-			for _, ng := range cluster.EKSConfig.NodeGroups {
+			for _, ng := range *cluster.EKSConfig.NodeGroups {
 				Expect(*ng.Version).To(BeEquivalentTo(k8sVersion), "EKSConfig.NodePools check failed")
 			}
 		}
@@ -133,7 +133,7 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 	if upgradeNodeGroup {
 		By("upgrading the nodegroup", func() {
 			GinkgoLogr.Info(fmt.Sprintf("Upgrading Nodegroup's EKS version to %s", upgradeToVersion))
-			for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+			for _, ng := range *cluster.EKSStatus.UpstreamSpec.NodeGroups {
 				err = helper.UpgradeEKSNodegroupOnAWS(region, clusterName, *ng.NodegroupName, upgradeToVersion)
 				Expect(err).To(BeNil())
 			}
@@ -142,7 +142,7 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 				GinkgoLogr.Info("Waiting for the nodegroup upgrade to appear in EKSStatus.UpstreamSpec ...")
 				cluster, err = client.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
-				for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+				for _, ng := range *cluster.EKSStatus.UpstreamSpec.NodeGroups {
 					if ng.Version == nil || *ng.Version != upgradeToVersion {
 						return false
 					}
@@ -153,7 +153,7 @@ func syncK8sVersionUpgradeCheck(cluster *management.Cluster, client *rancher.Cli
 			if !helpers.IsImport {
 				// For imported clusters, EKSConfig always has null values; so we check EKSConfig only when testing provisioned clusters
 				Expect(*cluster.EKSConfig.KubernetesVersion).To(Equal(upgradeToVersion))
-				for _, ng := range cluster.EKSConfig.NodeGroups {
+				for _, ng := range *cluster.EKSConfig.NodeGroups {
 					Expect(ng.Version).ToNot(BeNil())
 					Expect(*ng.Version).To(BeEquivalentTo(upgradeToVersion), "EKSConfig.NodePools upgrade check failed")
 				}
@@ -231,7 +231,8 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 	})
 
 	By("scaling up the NodeGroup", func() {
-		ng := cluster.EKSStatus.UpstreamSpec.NodeGroups[0]
+		upstreamNodeGroups := *cluster.EKSStatus.UpstreamSpec.NodeGroups
+		ng := upstreamNodeGroups[0]
 		var nodeCount int64 = 2
 		if ng.DesiredSize != nil {
 			nodeCount = *ng.DesiredSize + 2
@@ -241,16 +242,18 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 		Eventually(func() bool {
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			updated := *cluster.EKSStatus.UpstreamSpec.NodeGroups[0].DesiredSize == nodeCount
+			upstreamNodeGroups = *cluster.EKSStatus.UpstreamSpec.NodeGroups
+			updated := *upstreamNodeGroups[0].DesiredSize == nodeCount
 			if !helpers.IsImport {
-				updated = updated && *cluster.EKSConfig.NodeGroups[0].DesiredSize == nodeCount
+				configNodeGroups := *cluster.EKSConfig.NodeGroups
+				updated = updated && *configNodeGroups[0].DesiredSize == nodeCount
 			}
 			return updated
 		}, "10m", "7s").Should(BeTrue(), "Timed out waiting for NodeGroup scale to show in Rancher")
 	})
 
 	var nodeName = namegen.AppendRandomString("ng")
-	ngCount := len(cluster.EKSStatus.UpstreamSpec.NodeGroups)
+	ngCount := len(*cluster.EKSStatus.UpstreamSpec.NodeGroups)
 	if helpers.IsImport {
 		// The following error is encountered when adding nodegroup to a non-eksctl managed i.e. rancher provisioned cluster; so we skip it for now
 		// Error: loading VPC spec for cluster "auto-eks-hp-ci-atiia": VPC configuration required for creating nodegroups on clusters not owned by eksctl: vpc.subnets, vpc.id, vpc.securityGroup
@@ -262,10 +265,10 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 			Eventually(func() bool {
 				cluster, err = client.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
-				if len(cluster.EKSStatus.UpstreamSpec.NodeGroups) != ngCount+1 {
+				if len(*cluster.EKSStatus.UpstreamSpec.NodeGroups) != ngCount+1 {
 					return false
 				}
-				for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+				for _, ng := range *cluster.EKSStatus.UpstreamSpec.NodeGroups {
 					if *ng.NodegroupName == nodeName {
 						return true
 					}
@@ -282,29 +285,30 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 			var err error
 			cluster, err = helper.AddNodeGroup(cluster, 1, client, true, true)
 			Expect(err).To(BeNil())
-			nodeName = *cluster.EKSConfig.NodeGroups[1].NodegroupName
+			configNodeGroups := *cluster.EKSConfig.NodeGroups
+			nodeName = *configNodeGroups[1].NodegroupName
 		}
 		err := helper.ModifyEKSNodegroupOnAWS(region, clusterName, nodeName, "delete", "--wait")
 		Expect(err).To(BeNil())
 		Eventually(func() bool {
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			updated := len(cluster.EKSStatus.UpstreamSpec.NodeGroups) != ngCount
+			updated := len(*cluster.EKSStatus.UpstreamSpec.NodeGroups) != ngCount
 			if !helpers.IsImport {
-				updated = updated && len(cluster.EKSConfig.NodeGroups) != ngCount
+				updated = updated && len(*cluster.EKSConfig.NodeGroups) != ngCount
 			}
 			if updated {
 				return false
 			}
 			var nodeGroupPresentInUpstream, nodeGroupPresentInConfig bool
-			for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+			for _, ng := range *cluster.EKSStatus.UpstreamSpec.NodeGroups {
 				if *ng.NodegroupName == nodeName {
 					nodeGroupPresentInUpstream = true
 					break
 				}
 			}
 			if !helpers.IsImport {
-				for _, ng := range cluster.EKSConfig.NodeGroups {
+				for _, ng := range *cluster.EKSConfig.NodeGroups {
 					if *ng.NodegroupName == nodeName {
 						nodeGroupPresentInConfig = true
 						break
@@ -382,18 +386,21 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 	addLabels := map[string]string{"foo": "bar", "updated": "via-cli"}
 	const ngIndex = 0
 	By("add labels to Nodegroup", func() {
-		err := helper.UpdateNodeGroupLabelsOnAWS(clusterName, *cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].NodegroupName, region, addLabels, nil)
+		upstreamNodeGroups := *cluster.EKSStatus.UpstreamSpec.NodeGroups
+		err := helper.UpdateNodeGroupLabelsOnAWS(clusterName, *upstreamNodeGroups[ngIndex].NodegroupName, region, addLabels, nil)
 		Expect(err).To(BeNil())
 		Eventually(func() bool {
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			upstreamLabels := *cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].Labels
+			upstreamNodeGroups = *cluster.EKSStatus.UpstreamSpec.NodeGroups
+			upstreamLabels := *upstreamNodeGroups[ngIndex].Labels
 
 			for key := range addLabels {
 				_, existUpstream := upstreamLabels[key]
 				var existConfig bool
 				if !helpers.IsImport {
-					configTags := *cluster.EKSConfig.NodeGroups[ngIndex].Labels
+					configNodeGroups := *cluster.EKSConfig.NodeGroups
+					configTags := *configNodeGroups[ngIndex].Labels
 					_, existConfig = configTags[key]
 				} else {
 					// if the cluster is imported, Config will be null, so we assign this variable to true to do easy check
@@ -407,11 +414,13 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 			return true
 		}, "10m", "5s").Should(BeTrue(), "Timed out waiting for EKS nodegroup labels to be added")
 
+		upstreamNodeGroups = *cluster.EKSStatus.UpstreamSpec.NodeGroups
 		for key, value := range addLabels {
 			if !helpers.IsImport {
-				Expect(*cluster.EKSConfig.NodeGroups[ngIndex].Labels).To(HaveKeyWithValue(key, value))
+				configNodeGroups := *cluster.EKSConfig.NodeGroups
+				Expect(*configNodeGroups[ngIndex].Labels).To(HaveKeyWithValue(key, value))
 			}
-			Expect(*cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].Labels).To(HaveKeyWithValue(key, value))
+			Expect(*upstreamNodeGroups[ngIndex].Labels).To(HaveKeyWithValue(key, value))
 		}
 	})
 
@@ -420,17 +429,20 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 		for key := range addLabels {
 			removeLabels = append(removeLabels, key)
 		}
-		err := helper.UpdateNodeGroupLabelsOnAWS(clusterName, *cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].NodegroupName, region, nil, removeLabels)
+		upstreamNodeGroups := *cluster.EKSStatus.UpstreamSpec.NodeGroups
+		err := helper.UpdateNodeGroupLabelsOnAWS(clusterName, *upstreamNodeGroups[ngIndex].NodegroupName, region, nil, removeLabels)
 		Expect(err).To(BeNil())
 		Eventually(func() bool {
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			upstreamLabels := *cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].Labels
+			upstreamNodeGroups = *cluster.EKSStatus.UpstreamSpec.NodeGroups
+			upstreamLabels := *upstreamNodeGroups[ngIndex].Labels
 			for _, key := range removeLabels {
 				_, existsUpstream := upstreamLabels[key]
 				var existsConfig bool
 				if !helpers.IsImport {
-					configTags := *cluster.EKSConfig.NodeGroups[ngIndex].Labels
+					configNodeGroups := *cluster.EKSConfig.NodeGroups
+					configTags := *configNodeGroups[ngIndex].Labels
 					_, existsConfig = configTags[key]
 				}
 				if existsConfig || existsUpstream {
@@ -441,11 +453,13 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 			return true
 		}, "10m", "5s").Should(BeTrue(), "Timed out waiting for EKS nodegroup labels to be deleted")
 
+		configNodeGroups := *cluster.EKSConfig.NodeGroups
+		upstreamNodeGroups = *cluster.EKSStatus.UpstreamSpec.NodeGroups
 		for key, value := range addLabels {
 			if !helpers.IsImport {
-				Expect(*cluster.EKSConfig.NodeGroups[ngIndex].Labels).ToNot(HaveKeyWithValue(key, value))
+				Expect(*configNodeGroups[ngIndex].Labels).ToNot(HaveKeyWithValue(key, value))
 			}
-			Expect(*cluster.EKSStatus.UpstreamSpec.NodeGroups[ngIndex].Labels).ToNot(HaveKeyWithValue(key, value))
+			Expect(*upstreamNodeGroups[ngIndex].Labels).ToNot(HaveKeyWithValue(key, value))
 		}
 	})
 }
@@ -453,8 +467,9 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client, k8sVersion, upgradeToVersion string) {
 	var err error
 	loggingTypes := []string{"api", "audit", "authenticator", "controllerManager", "scheduler"}
-	currentNodeGroupNumber := len(cluster.EKSConfig.NodeGroups)
-	initialNodeCount := *cluster.EKSConfig.NodeGroups[0].DesiredSize
+	currentNodeGroupNumber := len(*cluster.EKSConfig.NodeGroups)
+	configNodeGroups := *cluster.EKSConfig.NodeGroups
+	initialNodeCount := *configNodeGroups[0].DesiredSize
 
 	By("upgrading control plane", func() {
 		syncK8sVersionUpgradeCheck(cluster, client, false, k8sVersion, upgradeToVersion)
@@ -465,9 +480,9 @@ func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client, 
 		Expect(err).To(BeNil())
 
 		// Verify the existing details do NOT change in Rancher
-		for _, ng := range cluster.EKSConfig.NodeGroups {
+		for _, ng := range *cluster.EKSConfig.NodeGroups {
 			Expect(*ng.Version).To(BeEquivalentTo(k8sVersion))
-			Expect(len(cluster.EKSConfig.NodeGroups)).Should(BeNumerically("==", currentNodeGroupNumber))
+			Expect(len(*cluster.EKSConfig.NodeGroups)).Should(BeNumerically("==", currentNodeGroupNumber))
 		}
 
 		// Verify the new edits reflect in AWS and existing details do NOT change
@@ -510,7 +525,7 @@ func syncRancherToAWSCheck(cluster *management.Cluster, client *rancher.Client, 
 
 		// Verify the existing details do NOT change in Rancher
 		Expect(*cluster.EKSConfig.KubernetesVersion).To(Equal(upgradeToVersion))
-		Expect(len(cluster.EKSConfig.NodeGroups)).To(Equal(currentNodeGroupNumber + 1))
+		Expect(len(*cluster.EKSConfig.NodeGroups)).To(Equal(currentNodeGroupNumber + 1))
 
 		// Verify the new edits reflect in AWS console and existing details do NOT change
 		var out string
@@ -564,7 +579,7 @@ func invalidAccessValuesCheck(cluster *management.Cluster, client *rancher.Clien
 
 func upgradeCPAndAddNgCheck(cluster *management.Cluster, client *rancher.Client, upgradeToVersion string) {
 	var err error
-	originalLen := len(cluster.EKSConfig.NodeGroups)
+	originalLen := len(*cluster.EKSConfig.NodeGroups)
 	newNodeGroupName := pointer.String(namegen.AppendRandomString("ng"))
 	GinkgoLogr.Info("Upgrading control plane to version:" + upgradeToVersion)
 
@@ -577,17 +592,18 @@ func upgradeCPAndAddNgCheck(cluster *management.Cluster, client *rancher.Client,
 	config.LoadConfig(eks.EKSClusterConfigConfigurationFileKey, &eksClusterConfig)
 
 	updateFunc := func(cluster *management.Cluster) {
-		var updatedNodeGroupsList []management.NodeGroup
-		newNodeGroup := eksClusterConfig.NodeGroups[0]
+		var updatedNodeGroupsList = make([]management.NodeGroup, 0)
+		nodeGroups := *eksClusterConfig.NodeGroups
+		newNodeGroup := nodeGroups[0]
 		newNodeGroup.NodegroupName = newNodeGroupName
 		updatedNodeGroupsList = append(updatedNodeGroupsList, newNodeGroup)
-		cluster.EKSConfig.NodeGroups = updatedNodeGroupsList
+		cluster.EKSConfig.NodeGroups = &updatedNodeGroupsList
 	}
 
 	cluster, err = helper.UpdateCluster(cluster, client, updateFunc)
 	Expect(err).To(BeNil())
-	Expect(len(cluster.EKSConfig.NodeGroups)).To(BeEquivalentTo(originalLen))
-	for _, ng := range cluster.EKSConfig.NodeGroups {
+	Expect(len(*cluster.EKSConfig.NodeGroups)).To(BeEquivalentTo(originalLen))
+	for _, ng := range *cluster.EKSConfig.NodeGroups {
 		Expect(ng.NodegroupName).To(Equal(newNodeGroupName))
 	}
 
@@ -599,7 +615,7 @@ func upgradeCPAndAddNgCheck(cluster *management.Cluster, client *rancher.Client,
 		GinkgoLogr.Info("Waiting for the version of new nodegroup to appear in EKSStatus.UpstreamSpec ...")
 		cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 		Expect(err).To(BeNil())
-		for _, ng := range cluster.EKSStatus.UpstreamSpec.NodeGroups {
+		for _, ng := range *cluster.EKSStatus.UpstreamSpec.NodeGroups {
 			if ng.Version == nil || *ng.Version != upgradeToVersion {
 				return false
 			}
@@ -638,13 +654,14 @@ func updateTagsAndLabels(cluster *management.Cluster, client *rancher.Client) {
 		}
 	})
 
-	originalNGLabels := *cluster.EKSConfig.NodeGroups[0].Labels
+	configNodeGroups := *cluster.EKSConfig.NodeGroups
+	originalNGLabels := *configNodeGroups[0].Labels
 	// updatedNGLabels must contain both the original and the new tags
 	updatedNGLabels := make(map[string]string)
 	maps.Copy(updatedNGLabels, originalNGLabels)
 	maps.Copy(updatedNGLabels, labels)
 
-	originalNGTags := *cluster.EKSConfig.NodeGroups[0].Tags
+	originalNGTags := *configNodeGroups[0].Tags
 	// updatedNGTags must contain both the original and the new tags
 	updatedNGTags := make(map[string]string)
 	maps.Copy(updatedNGTags, originalNGTags)
@@ -657,7 +674,7 @@ func updateTagsAndLabels(cluster *management.Cluster, client *rancher.Client) {
 
 	By("Removing Nodegroup tags & labels", func() {
 		cluster, err = helper.UpdateNodegroupMetadata(cluster, client, originalNGTags, originalNGLabels, true)
-		for _, ng := range cluster.EKSConfig.NodeGroups {
+		for _, ng := range *cluster.EKSConfig.NodeGroups {
 			for key, value := range tags {
 				Expect(*ng.Tags).ToNot(HaveKeyWithValue(key, value))
 			}
@@ -701,4 +718,21 @@ func updateCloudCredentialsCheck(cluster *management.Cluster, client *rancher.Cl
 
 	cluster, err = helper.ScaleNodeGroup(cluster, client, 3, true, true)
 	Expect(err).To(BeNil())
+}
+
+// Automates Qase: 134 and
+func deleteAllNodeGroupsCheck(cluster *management.Cluster, client *rancher.Client) {
+	updateFunc := func(cluster *management.Cluster) {
+		// setting this to nil will do nothing, so we set it to empty array
+		cluster.EKSConfig.NodeGroups = &[]management.NodeGroup{}
+	}
+
+	var err error
+	_, err = helper.UpdateCluster(cluster, client, updateFunc)
+	Expect(err).ToNot(BeNil())
+	Expect(err.Error()).To(ContainSubstring("must have at least one nodegroup"))
+
+	updateFunc = func(cluster *management.Cluster) {
+		cluster.EKSConfig.NodeGroups = nil
+	}
 }

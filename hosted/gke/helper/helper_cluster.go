@@ -86,8 +86,9 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 	}
 
 	if upgradeNodePool {
-		for i := range upgradedCluster.GKEConfig.NodePools {
-			upgradedCluster.GKEConfig.NodePools[i].Version = &upgradeToVersion
+		configNodePools := *upgradedCluster.GKEConfig.NodePools
+		for i := range configNodePools {
+			configNodePools[i].Version = &upgradeToVersion
 		}
 	}
 
@@ -100,7 +101,7 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 
 	if checkClusterConfig {
 		Expect(*cluster.GKEConfig.KubernetesVersion).To(Equal(upgradeToVersion))
-		for _, np := range cluster.GKEConfig.NodePools {
+		for _, np := range *cluster.GKEConfig.NodePools {
 			if upgradeNodePool {
 				Expect(*np.Version).To(Equal(upgradeToVersion))
 			} else {
@@ -122,7 +123,7 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 			}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(Equal(upgradeToVersion))
 
 			if !upgradeNodePool {
-				for _, np := range cluster.GKEConfig.NodePools {
+				for _, np := range *cluster.GKEConfig.NodePools {
 					Expect(*np.Version).To(BeEquivalentTo(currentVersion))
 				}
 			}
@@ -133,7 +134,7 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 				ginkgo.GinkgoLogr.Info("Waiting for the nodepool upgrade to appear in GKEStatus.UpstreamSpec ...")
 				cluster, err = client.Management.Cluster.ByID(cluster.ID)
 				Expect(err).To(BeNil())
-				for _, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
+				for _, np := range *cluster.GKEStatus.UpstreamSpec.NodePools {
 					if *np.Version != upgradeToVersion {
 						return false
 					}
@@ -152,8 +153,9 @@ func UpgradeKubernetesVersion(cluster *management.Cluster, upgradeToVersion stri
 // if checkClusterConfig is set to true, it will validate that nodepool has been upgraded successfully
 func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion string, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
 	upgradedCluster := cluster
-	for i := range upgradedCluster.GKEConfig.NodePools {
-		upgradedCluster.GKEConfig.NodePools[i].Version = &upgradeToVersion
+	configNodePools := *upgradedCluster.GKEConfig.NodePools
+	for i := range configNodePools {
+		configNodePools[i].Version = &upgradeToVersion
 	}
 	var err error
 	cluster, err = client.Management.Cluster.Update(cluster, &upgradedCluster)
@@ -161,7 +163,7 @@ func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion 
 
 	if checkClusterConfig {
 		// Check if the desired config is set correctly
-		for _, np := range cluster.GKEConfig.NodePools {
+		for _, np := range *cluster.GKEConfig.NodePools {
 			Expect(*np.Version).To(Equal(upgradeToVersion))
 		}
 	}
@@ -177,7 +179,7 @@ func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion 
 			ginkgo.GinkgoLogr.Info("Waiting for the nodepool upgrade to appear in GKEStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			for _, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
+			for _, np := range *cluster.GKEStatus.UpstreamSpec.NodePools {
 				if *np.Version != upgradeToVersion {
 					return false
 				}
@@ -192,7 +194,7 @@ func UpgradeNodeKubernetesVersion(cluster *management.Cluster, upgradeToVersion 
 // if wait is set to true, it waits until the update is complete; if checkClusterConfig is true, it validates the update
 // TODO(pvala): Enhance this method to accept a nodepool with different configuration
 func AddNodePool(cluster *management.Cluster, client *rancher.Client, increaseBy int, imageType string, wait, checkClusterConfig bool) (*management.Cluster, error) {
-	currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
+	currentNodePoolNumber := len(*cluster.GKEConfig.NodePools)
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.GKEConfig = cluster.GKEConfig
@@ -200,11 +202,12 @@ func AddNodePool(cluster *management.Cluster, client *rancher.Client, increaseBy
 	// We use management.GKENodePoolConfig instead of the usual gke.ClusterConfig to unmarshal the data without the need of a lot of post-processing.
 	var gkeConfigTemplate management.GKEClusterConfigSpec
 	config.LoadConfig(gke.GKEClusterConfigConfigurationFileKey, &gkeConfigTemplate)
-	npTemplate := gkeConfigTemplate.NodePools[0]
+	templateNP := *gkeConfigTemplate.NodePools
+	npTemplate := templateNP[0]
 	if imageType != "" {
 		npTemplate.Config.ImageType = imageType
 	}
-	updateNodePoolsList := cluster.GKEConfig.NodePools
+	updateNodePoolsList := *cluster.GKEConfig.NodePools
 	for i := 1; i <= increaseBy; i++ {
 		newNodepool := management.GKENodePoolConfig{
 			InitialNodeCount:  npTemplate.InitialNodeCount,
@@ -217,7 +220,7 @@ func AddNodePool(cluster *management.Cluster, client *rancher.Client, increaseBy
 		}
 		updateNodePoolsList = append(updateNodePoolsList, newNodepool)
 	}
-	upgradedCluster.GKEConfig.NodePools = updateNodePoolsList
+	upgradedCluster.GKEConfig.NodePools = &updateNodePoolsList
 
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
 	if err != nil {
@@ -226,8 +229,8 @@ func AddNodePool(cluster *management.Cluster, client *rancher.Client, increaseBy
 
 	if checkClusterConfig {
 		// Check if the desired config is set correctly
-		Expect(len(cluster.GKEConfig.NodePools)).Should(BeNumerically("==", currentNodePoolNumber+increaseBy))
-		for i, np := range cluster.GKEConfig.NodePools {
+		Expect(len(*cluster.GKEConfig.NodePools)).Should(BeNumerically("==", currentNodePoolNumber+increaseBy))
+		for i, np := range *cluster.GKEConfig.NodePools {
 			Expect(np.Name).To(Equal(updateNodePoolsList[i].Name))
 		}
 	}
@@ -243,10 +246,10 @@ func AddNodePool(cluster *management.Cluster, client *rancher.Client, increaseBy
 			ginkgo.GinkgoLogr.Info("Waiting for the total nodepool count to increase in GKEStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			return len(cluster.GKEStatus.UpstreamSpec.NodePools)
+			return len(*cluster.GKEStatus.UpstreamSpec.NodePools)
 		}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(BeNumerically("==", currentNodePoolNumber+increaseBy))
 
-		for i, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
+		for i, np := range *cluster.GKEStatus.UpstreamSpec.NodePools {
 			Expect(np.Name).To(Equal(updateNodePoolsList[i].Name))
 		}
 	}
@@ -257,12 +260,13 @@ func AddNodePool(cluster *management.Cluster, client *rancher.Client, increaseBy
 // if wait is set to true, it waits until the update is complete; if checkClusterConfig is true, it validates the update
 // TODO: Modify this method to delete a custom qty of nodepool, perhaps by adding an `decreaseBy int` arg
 func DeleteNodePool(cluster *management.Cluster, client *rancher.Client, wait, checkClusterConfig bool) (*management.Cluster, error) {
-	currentNodePoolNumber := len(cluster.GKEConfig.NodePools)
+	currentNodePoolNumber := len(*cluster.GKEConfig.NodePools)
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.GKEConfig = cluster.GKEConfig
-	updatedNodePoolsList := cluster.GKEConfig.NodePools[1:]
-	upgradedCluster.GKEConfig.NodePools = updatedNodePoolsList
+	configNodePools := *cluster.GKEConfig.NodePools
+	updatedNodePoolsList := configNodePools[1:]
+	upgradedCluster.GKEConfig.NodePools = &updatedNodePoolsList
 
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
 	if err != nil {
@@ -271,8 +275,8 @@ func DeleteNodePool(cluster *management.Cluster, client *rancher.Client, wait, c
 
 	if checkClusterConfig {
 		// Check if the desired config is set correctly
-		Expect(len(cluster.GKEConfig.NodePools)).Should(BeNumerically("==", currentNodePoolNumber-1))
-		for i, np := range cluster.GKEConfig.NodePools {
+		Expect(len(*cluster.GKEConfig.NodePools)).Should(BeNumerically("==", currentNodePoolNumber-1))
+		for i, np := range *cluster.GKEConfig.NodePools {
 			Expect(np.Name).To(Equal(updatedNodePoolsList[i].Name))
 		}
 	}
@@ -287,9 +291,9 @@ func DeleteNodePool(cluster *management.Cluster, client *rancher.Client, wait, c
 			ginkgo.GinkgoLogr.Info("Waiting for the total nodepool count to decrease in GKEStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			return len(cluster.GKEStatus.UpstreamSpec.NodePools)
+			return len(*cluster.GKEStatus.UpstreamSpec.NodePools)
 		}, tools.SetTimeout(12*time.Minute), 10*time.Second).Should(BeNumerically("==", currentNodePoolNumber-1))
-		for i, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
+		for i, np := range *cluster.GKEStatus.UpstreamSpec.NodePools {
 			Expect(np.Name).To(Equal(updatedNodePoolsList[i].Name))
 		}
 	}
@@ -303,8 +307,9 @@ func ScaleNodePool(cluster *management.Cluster, client *rancher.Client, nodeCoun
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.GKEConfig = cluster.GKEConfig
-	for i := range upgradedCluster.GKEConfig.NodePools {
-		upgradedCluster.GKEConfig.NodePools[i].InitialNodeCount = pointer.Int64(nodeCount)
+	configNodePools := *upgradedCluster.GKEConfig.NodePools
+	for i := range configNodePools {
+		configNodePools[i].InitialNodeCount = pointer.Int64(nodeCount)
 	}
 
 	cluster, err := client.Management.Cluster.Update(cluster, &upgradedCluster)
@@ -313,8 +318,9 @@ func ScaleNodePool(cluster *management.Cluster, client *rancher.Client, nodeCoun
 	}
 	if checkClusterConfig {
 		// Check if the desired config is set correctly
-		for i := range cluster.GKEConfig.NodePools {
-			Expect(*cluster.GKEConfig.NodePools[i].InitialNodeCount).To(BeNumerically("==", nodeCount))
+		configNodePools := *cluster.GKEConfig.NodePools
+		for i := range configNodePools {
+			Expect(*configNodePools[i].InitialNodeCount).To(BeNumerically("==", nodeCount))
 		}
 	}
 
@@ -329,8 +335,9 @@ func ScaleNodePool(cluster *management.Cluster, client *rancher.Client, nodeCoun
 			ginkgo.GinkgoLogr.Info("Waiting for the node count change to appear in GKEStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			for i := range cluster.GKEStatus.UpstreamSpec.NodePools {
-				if *cluster.GKEStatus.UpstreamSpec.NodePools[i].InitialNodeCount != nodeCount {
+			upstreamNodePools := *cluster.GKEStatus.UpstreamSpec.NodePools
+			for i := range upstreamNodePools {
+				if *upstreamNodePools[i].InitialNodeCount != nodeCount {
 					return false
 				}
 			}
@@ -381,8 +388,9 @@ func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enab
 	upgradedCluster := new(management.Cluster)
 	upgradedCluster.Name = cluster.Name
 	upgradedCluster.GKEConfig = cluster.GKEConfig
-	for i := range upgradedCluster.GKEConfig.NodePools {
-		upgradedCluster.GKEConfig.NodePools[i].Autoscaling = &management.GKENodePoolAutoscaling{
+	configNodePools := *upgradedCluster.GKEConfig.NodePools
+	for i := range configNodePools {
+		configNodePools[i].Autoscaling = &management.GKENodePoolAutoscaling{
 			Enabled: enabled,
 		}
 	}
@@ -391,7 +399,7 @@ func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enab
 		return nil, err
 	}
 	if checkClusterConfig {
-		for _, np := range cluster.GKEConfig.NodePools {
+		for _, np := range *cluster.GKEConfig.NodePools {
 			Expect(np.Autoscaling.Enabled).To(BeEquivalentTo(enabled))
 		}
 	}
@@ -404,7 +412,7 @@ func UpdateAutoScaling(cluster *management.Cluster, client *rancher.Client, enab
 			ginkgo.GinkgoLogr.Info("Waiting for the autoscaling update to appear in GKEStatus.UpstreamSpec ...")
 			cluster, err = client.Management.Cluster.ByID(cluster.ID)
 			Expect(err).To(BeNil())
-			for _, np := range cluster.GKEStatus.UpstreamSpec.NodePools {
+			for _, np := range *cluster.GKEStatus.UpstreamSpec.NodePools {
 				if np.Autoscaling != nil && np.Autoscaling.Enabled != enabled {
 					return false
 				}

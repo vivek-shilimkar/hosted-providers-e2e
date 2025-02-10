@@ -101,7 +101,8 @@ var _ = AfterEach(func() {
 
 func restoreNodesChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
 	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
-	initialNodeCount := *cluster.EKSConfig.NodeGroups[0].DesiredSize
+	configNodeGroups := *cluster.EKSConfig.NodeGroups
+	initialNodeCount := *configNodeGroups[0].DesiredSize
 
 	By("scaling up the NodeGroup", func() {
 		var err error

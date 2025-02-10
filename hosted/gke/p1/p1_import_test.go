@@ -14,6 +14,10 @@ import (
 
 var _ = Describe("P1Import", func() {
 	var _ = BeforeEach(func() {
+		// assigning cluster nil value so that every new test has a fresh value of the variable
+		// this is to avoid using residual value of a cluster in a test that does not use it
+		cluster = nil
+
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, project, ctx.CloudCredID, zone, "", false)
 		Expect(err).To(BeNil())
@@ -113,12 +117,12 @@ var _ = Describe("P1Import", func() {
 			It("updating a cluster to all windows nodepool should fail", func() {
 				testCaseID = 264
 				_, err := helper.UpdateCluster(cluster, ctx.RancherAdminClient, func(upgradedCluster *management.Cluster) {
-					updateNodePoolsList := cluster.GKEConfig.NodePools
+					updateNodePoolsList := *cluster.GKEConfig.NodePools
 					for i := 0; i < len(updateNodePoolsList); i++ {
 						updateNodePoolsList[i].Config.ImageType = "WINDOWS_LTSC_CONTAINERD"
 					}
 
-					upgradedCluster.GKEConfig.NodePools = updateNodePoolsList
+					upgradedCluster.GKEConfig.NodePools = &updateNodePoolsList
 				})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("at least 1 Linux node pool is required"))
@@ -155,10 +159,10 @@ var _ = Describe("P1Import", func() {
 			testCaseID = 55
 			var err error
 			cluster, err = helper.UpdateCluster(cluster, ctx.RancherAdminClient, func(upgradedCluster *management.Cluster) {
-				updateNodePoolsList := cluster.GKEConfig.NodePools
+				updateNodePoolsList := *cluster.GKEConfig.NodePools
 				updateNodePoolsList[0].Config.ImageType = "WINDOWS_LTSC_CONTAINERD"
 
-				upgradedCluster.GKEConfig.NodePools = updateNodePoolsList
+				upgradedCluster.GKEConfig.NodePools = &updateNodePoolsList
 			})
 			Expect(err).To(BeNil())
 

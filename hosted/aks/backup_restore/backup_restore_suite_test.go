@@ -99,7 +99,8 @@ var _ = AfterEach(func() {
 
 func restoreNodesChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
 	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
-	initialNodeCount := *cluster.AKSConfig.NodePools[0].Count
+	configNodePools := *cluster.AKSConfig.NodePools
+	initialNodeCount := *configNodePools[0].Count
 
 	By("scaling up the nodepool", func() {
 		var err error

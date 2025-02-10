@@ -256,12 +256,12 @@ github.com/rancher/qase-go/client v0.0.0-20240308221502-c3b2635212be h1:+m6Jv5sA
 github.com/rancher/qase-go/client v0.0.0-20240308221502-c3b2635212be/go.mod h1:NP3xboG+t2p+XMnrcrJ/L384Ki0Cp3Pww/X+vm5Jcy0=
 github.com/rancher/rancher v0.0.0-20241119163817-d801b4924311 h1:1LQW1FxHHNhyPy4wvtM7o/7ZePjnQ6SwEqxV8giytlQ=
 github.com/rancher/rancher v0.0.0-20241119163817-d801b4924311/go.mod h1:yTuEmhJ7i6rs3qO5TQij0RQkoKrMMPTMjMVS/qpqH8g=
-github.com/rancher/rancher/pkg/apis v0.0.0-20241113133627-598640d1556c h1:wgRohofDe45lOK4nmA7AboPkl1AlTJgp97kQ/0nDsg8=
-github.com/rancher/rancher/pkg/apis v0.0.0-20241113133627-598640d1556c/go.mod h1:VJQNArsPMiuWlvlnfGbD5gZtGvttnsEJSbrLsHfBtuA=
+github.com/rancher/rancher/pkg/apis v0.0.0-20241127174121-c051d99dcded h1:h2gsujsN0gxYNU1g950V2b21yOfNXA2mBHkvCWdcA20=
+github.com/rancher/rancher/pkg/apis v0.0.0-20241127174121-c051d99dcded/go.mod h1:VJQNArsPMiuWlvlnfGbD5gZtGvttnsEJSbrLsHfBtuA=
 github.com/rancher/rke v1.7.0-rc.5 h1:kBRwXTW8CYPXvCcPLISiwGTCvJ8K/+b35D5ES0IcduM=
 github.com/rancher/rke v1.7.0-rc.5/go.mod h1:+x++Mvl0A3jIzNLiu8nkraqZXiHg6VPWv0Xl4iQCg+A=
-github.com/rancher/shepherd v0.0.0-20241113142845-1338e51b4891 h1:JbWVRcIEjz2xdpfotFiCDZVjlcwGXXwLkhjevK+GCco=
-github.com/rancher/shepherd v0.0.0-20241113142845-1338e51b4891/go.mod h1:TD6hF654momYGPQ0plWbigLSF1My6KhaxcTjWoJF/nU=
+github.com/rancher/shepherd v0.0.0-20250205140852-ba6d2793aaff h1:ifkYlyFJEZzpo8uY0PX0oE8/36ZkDWiAPpL/EU2x5Og=
+github.com/rancher/shepherd v0.0.0-20250205140852-ba6d2793aaff/go.mod h1:relMIZBbmYQyZUgVWfomrpHKO0we3AmbrUD0EFYoXyc=
 github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20240301001845-4eacc2dabbde h1:x5VZI/0TUx1MeZirh6e0OMAInhCmq6yRvD6897458Ng=
 github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20240301001845-4eacc2dabbde/go.mod h1:04o7UUy7ZFiMDEtHEjO1yS7IkO8TcsgjBl93Fcjq7Gg=
 github.com/rancher/wrangler v1.1.2 h1:oXbXo9k7y/H4drUpb4RM1c++vT9O3rpoNEfyusGykiU=

@@ -14,6 +14,9 @@ import (
 var _ = Describe("P1Import", func() {
 	var k8sVersion string
 	BeforeEach(func() {
+		// assigning cluster nil value so that every new test has a fresh value of the variable
+		// this is to avoid using residual value of a cluster in a test that does not use it
+		cluster = nil
 		GinkgoLogr.Info(fmt.Sprintf("Running on process: %d", GinkgoParallelProcess()))
 
 		var err error

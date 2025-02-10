@@ -13,6 +13,10 @@ import (
 var _ = Describe("SyncProvisioning", func() {
 	var k8sVersion string
 	BeforeEach(func() {
+		// assigning cluster nil value so that every new test has a fresh value of the variable
+		// this is to avoid using residual value of a cluster in a test that does not use it
+		cluster = nil
+
 		var err error
 		k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, false)
 		Expect(err).NotTo(HaveOccurred())

@@ -14,7 +14,7 @@ require (
 	github.com/rancher-sandbox/ele-testhelpers v0.0.0-20241114104736-0d5b41ca9158
 	github.com/rancher-sandbox/qase-ginkgo v1.0.1
 	github.com/rancher/rancher v0.0.0-00010101000000-000000000000
-	github.com/rancher/shepherd v0.0.0-20241113142845-1338e51b4891 // rancher/shepherd main commit
+	github.com/rancher/shepherd v0.0.0-20250205140852-ba6d2793aaff // rancher/shepherd main commit
 	github.com/sirupsen/logrus v1.9.3
 	k8s.io/apimachinery v0.31.1
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
@@ -76,7 +76,7 @@ require (
 	github.com/rancher/gke-operator v1.10.0 // indirect
 	github.com/rancher/lasso v0.0.0-20240924233157-8f384efc8813 // indirect
 	github.com/rancher/norman v0.0.0-20241001183610-78a520c160ab // indirect
-	github.com/rancher/rancher/pkg/apis v0.0.0-20241113133627-598640d1556c // indirect
+	github.com/rancher/rancher/pkg/apis v0.0.0-20241127174121-c051d99dcded // indirect
 	github.com/rancher/rke v1.7.0-rc.5 // indirect
 	github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20240301001845-4eacc2dabbde // indirect
 	github.com/rancher/wrangler v1.1.2 // indirect

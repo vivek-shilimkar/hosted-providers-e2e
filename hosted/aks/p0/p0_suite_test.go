@@ -90,8 +90,8 @@ func p0upgradeK8sVersionCheck(cluster *management.Cluster, client *rancher.Clien
 func p0NodesChecks(cluster *management.Cluster, client *rancher.Client, clusterName string) {
 
 	helpers.ClusterIsReadyChecks(cluster, client, clusterName)
-
-	initialNodeCount := *cluster.AKSConfig.NodePools[0].Count
+	configNodePools := *cluster.AKSConfig.NodePools
+	initialNodeCount := *configNodePools[0].Count
 
 	By("adding a nodepool", func() {
 		var err error
