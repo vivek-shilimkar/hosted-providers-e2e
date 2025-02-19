@@ -65,30 +65,30 @@ Run `make help` to know about other targets.
 ### Example
 **GKE Provisioning Tests**
 ```shell
-GKE_PROJECT_ID=some-project GCP_CREDENTIALS=<credentials-json> PROVIDER=gke RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=/home/pvala/go/src/github.com/rancher/hosted-providers-e2e/hosted/gke/cattle-config-provisioning.yaml make e2e-provisioning-tests
+GKE_PROJECT_ID=some-project GCP_CREDENTIALS=<credentials-json> PROVIDER=gke RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=cattle-config-provisioning.yaml make e2e-provisioning-tests
 ```
 
 **GKE Import Tests**
 ```shell
-GKE_PROJECT_ID=some-project GCP_CREDENTIALS=<credentials-json> PROVIDER=gke RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=/home/pvala/go/src/github.com/rancher/hosted-providers-e2e/hosted/gke/cattle-config-import.yaml make e2e-import-tests
+GKE_PROJECT_ID=some-project GCP_CREDENTIALS=<credentials-json> PROVIDER=gke RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=cattle-config-import.yaml make e2e-import-tests
 ```
 
 **EKS Provisioning Tests**
 ```shell
-EKS_REGION=ap-south-1 AWS_ACCESS_KEY_ID=<key-id> AWS_SECRET_ACCESS_KEY=<key> PROVIDER=eks RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=/home/pvala/go/src/github.com/rancher/hosted-providers-e2e/hosted/gke/cattle-config-provisioning.yaml make e2e-provisioning-tests
+EKS_REGION=ap-south-1 AWS_ACCESS_KEY_ID=<key-id> AWS_SECRET_ACCESS_KEY=<key> PROVIDER=eks RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=cattle-config-provisioning.yaml make e2e-provisioning-tests
 ```
 
 **EKS Import Tests**
 ```shell
-EKS_REGION=ap-south-1 AWS_ACCESS_KEY_ID=<key-id> AWS_SECRET_ACCESS_KEY=<key> PROVIDER=eks RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=/home/pvala/go/src/github.com/rancher/hosted-providers-e2e/hosted/gke/cattle-config-import.yaml make e2e-import-tests
+EKS_REGION=ap-south-1 AWS_ACCESS_KEY_ID=<key-id> AWS_SECRET_ACCESS_KEY=<key> PROVIDER=eks RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=cattle-config-import.yaml make e2e-import-tests
 ```
 
 **AKS Provisioning Tests**
 ```shell
-AKS_REGION=centralindia AKS_CLIENT_ID=<client-id> AKS_CLIENT_SECRET=<secret> AKS_SUBSCRIPTION_ID=<subscription-id> PROVIDER=aks RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=/home/pvala/go/src/github.com/rancher/hosted-providers-e2e/hosted/gke/cattle-config-provisioning.yaml make e2e-provisioning-tests
+AKS_REGION=centralindia AKS_CLIENT_ID=<client-id> AKS_CLIENT_SECRET=<secret> AKS_SUBSCRIPTION_ID=<subscription-id> PROVIDER=aks RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=cattle-config-provisioning.yaml make e2e-provisioning-tests
 ```
 
 **AKS Import Tests**
 ```shell
-AKS_REGION=centralindia AKS_CLIENT_ID=<client-id> AKS_CLIENT_SECRET=<secret> AKS_SUBSCRIPTION_ID=<subscription-id> PROVIDER=aks RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=/home/pvala/go/src/github.com/rancher/hosted-providers-e2e/hosted/gke/cattle-config-import.yaml make e2e-import-tests
+AKS_REGION=centralindia AKS_CLIENT_ID=<client-id> AKS_CLIENT_SECRET=<secret> AKS_SUBSCRIPTION_ID=<subscription-id> PROVIDER=aks RANCHER_HOSTNAME=ec2-1-2-3-4.ap-south-1.compute.amazonaws.com RANCHER_PASSWORD=admin123 CATTLE_TEST_CONFIG=cattle-config-import.yaml make e2e-import-tests
 ```
