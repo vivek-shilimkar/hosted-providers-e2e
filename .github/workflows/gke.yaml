@@ -4,8 +4,8 @@ run-name: GKE on Rancher ${{ inputs.rancher_version || 'latest/devel/head' }} de
 
 on:
   schedule:
-    - cron: "0 4 * * 1-6" # From Monday to Saturday
-    - cron: "0 4 * * 0" # On Sunday
+    - cron: "0 1 * * 1-6" # From Monday to Saturday
+    - cron: "0 1 * * 0" # On Sunday
   workflow_dispatch: # Allow running manually on demand
     inputs:
       rancher_version:
