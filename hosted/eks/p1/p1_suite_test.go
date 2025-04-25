@@ -453,10 +453,10 @@ func syncAWSToRancherCheck(cluster *management.Cluster, client *rancher.Client, 
 			return true
 		}, "10m", "5s").Should(BeTrue(), "Timed out waiting for EKS nodegroup labels to be deleted")
 
-		configNodeGroups := *cluster.EKSConfig.NodeGroups
 		upstreamNodeGroups = *cluster.EKSStatus.UpstreamSpec.NodeGroups
 		for key, value := range addLabels {
 			if !helpers.IsImport {
+				configNodeGroups := *cluster.EKSConfig.NodeGroups
 				Expect(*configNodeGroups[ngIndex].Labels).ToNot(HaveKeyWithValue(key, value))
 			}
 			Expect(*upstreamNodeGroups[ngIndex].Labels).ToNot(HaveKeyWithValue(key, value))
