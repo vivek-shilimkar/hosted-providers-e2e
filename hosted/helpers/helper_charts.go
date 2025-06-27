@@ -126,11 +126,23 @@ func ListChartVersions(chartName string) (charts []HelmChart) {
 	return
 }
 
+func sanitizeVersion(ver string) string {
+	ver = strings.TrimSpace(ver)
+	for _, prefix := range []string{">=", "<=", ">", "<", "==", "!="} {
+		if strings.HasPrefix(ver, prefix) {
+			return strings.TrimSpace(ver[len(prefix):])
+		}
+	}
+	return ver
+}
+
 // VersionCompare compares Versions v to o:
 // -1 == v is less than o
 // 0 == v is equal to o
 // 1 == v is greater than o
 func VersionCompare(v, o string) int {
+	v = sanitizeVersion(v)
+	o = sanitizeVersion(o)
 	latestVer, err := semver.ParseTolerant(v)
 	Expect(err).To(BeNil())
 	oldVer, err := semver.ParseTolerant(o)
