@@ -314,9 +314,11 @@ func SetTempKubeConfig(clusterName string) {
 // HighestK8sMinorVersionSupportedByUI returns the highest k8s version supported by UI
 // TODO(pvala): Use this by default when fetching a list of k8s version for all the downstream providers.
 func HighestK8sMinorVersionSupportedByUI(client *rancher.Client) (value string) {
-	uiValue, err := client.Management.Setting.ByID("ui-k8s-default-version-range")
+	uiValue, err := client.Management.Setting.ByID("ui-k8s-supported-versions-range")
 	Expect(err).To(BeNil())
-	value = uiValue.Value
+	// example value: >=v1.31.x <=v1.33.x
+	values := strings.Split(uiValue.Value, " ")
+	value = values[len(values)-1]
 	Expect(value).ToNot(BeEmpty())
 	value = strings.TrimPrefix(value, "<=v")
 	value = strings.TrimSuffix(value, ".x")

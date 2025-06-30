@@ -131,6 +131,7 @@ func ListChartVersions(chartName string) (charts []HelmChart) {
 // 0 == v is equal to o
 // 1 == v is greater than o
 func VersionCompare(v, o string) int {
+	ginkgo.GinkgoLogr.Info(fmt.Sprintf("Version %s vs %s", v, o))
 	latestVer, err := semver.ParseTolerant(v)
 	Expect(err).To(BeNil())
 	oldVer, err := semver.ParseTolerant(o)
