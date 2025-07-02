@@ -23,7 +23,7 @@ on:
         description: k3s version of local cluster
         required: true
         type: string
-        default: v1.32.1+k3s1
+        default: v1.33.0+k3s1
       qase_run_id:
         description: Qase run ID where the results will be reported (auto|none|existing_run_id)
         default: none

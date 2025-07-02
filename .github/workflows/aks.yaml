@@ -1,6 +1,6 @@
 # This workflow calls the main workflow with custom variables
 name: AKS-E2E
-run-name: AKS on Rancher ${{ inputs.rancher_version || 'latest/devel/head' }} deployed on ${{ inputs.k3s_version || 'v1.32.1+k3s1' }}
+run-name: AKS on Rancher ${{ inputs.rancher_version || 'latest/devel/head' }} deployed on ${{ inputs.k3s_version || 'v1.33.0+k3s1' }}
 
 on:
   schedule:
@@ -17,7 +17,7 @@ on:
         description: k3s version of local cluster
         required: true
         type: string
-        default: v1.32.1+k3s1
+        default: v1.33.0+k3s1
       runner_template:
         description: Runner template to use
         default: hosted-prov-e2e-ci-runner-spot-n2-highmem-16-gl-template-v3
@@ -60,7 +60,7 @@ jobs:
     with:
       hosted_provider: aks
       rancher_version: ${{ inputs.rancher_version || 'latest/devel/head' }}
-      k3s_version: ${{ inputs.k3s_version || 'v1.32.1+k3s1' }}
+      k3s_version: ${{ inputs.k3s_version || 'v1.33.0+k3s1' }}
       operator_nightly_chart: ${{ inputs.operator_nightly_chart == true || (github.event_name == 'schedule' && true) }}
       tests_to_run: ${{ inputs.tests_to_run || (github.event.schedule == '0 1 * * 1-6' && 'p0_provisioning/p0_import') || (github.event.schedule == '0 1 * * 0' && 'p1_provisioning/p1_import/sync_provisioning/sync_import') }}
       destroy_runner: ${{ inputs.destroy_runner == true || (github.event_name == 'schedule' && true) }}
