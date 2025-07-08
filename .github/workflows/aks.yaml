@@ -4,7 +4,7 @@ run-name: AKS on Rancher ${{ inputs.rancher_version || 'latest/devel/head' }} de
 
 on:
   schedule:
-    - cron: "0 1 * * 1-6" # From Monday to Saturday
+    - cron: "0 1 * * 1,4" # On Monday and Thursday
     - cron: "0 1 * * 0" # On Sunday
   workflow_dispatch: # Allow running manually on demand
     inputs:
@@ -62,7 +62,7 @@ jobs:
       rancher_version: ${{ inputs.rancher_version || 'latest/devel/head' }}
       k3s_version: ${{ inputs.k3s_version || 'v1.32.1+k3s1' }}
       operator_nightly_chart: ${{ inputs.operator_nightly_chart == true || (github.event_name == 'schedule' && true) }}
-      tests_to_run: ${{ inputs.tests_to_run || (github.event.schedule == '0 1 * * 1-6' && 'p0_provisioning/p0_import') || (github.event.schedule == '0 1 * * 0' && 'p1_provisioning/p1_import/sync_provisioning/sync_import') }}
+      tests_to_run: ${{ inputs.tests_to_run || (github.event.schedule == '0 1 * * 1,4' && 'p0_provisioning/p0_import') || (github.event.schedule == '0 1 * * 0' && 'p1_provisioning/p1_import/sync_provisioning/sync_import') }}
       destroy_runner: ${{ inputs.destroy_runner == true || (github.event_name == 'schedule' && true) }}
       runner_template: ${{ inputs.runner_template || 'hosted-prov-e2e-ci-runner-spot-n2-highmem-16-gl-template-v3' }}
       rancher_installed: ${{ inputs.rancher_installed || 'hostname/password' }}
