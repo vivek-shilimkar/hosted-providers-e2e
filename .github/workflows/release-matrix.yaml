@@ -63,7 +63,7 @@ jobs:
       operator_nightly_chart: ${{ inputs.operator_nightly_chart }}
       tests_to_run: ${{ inputs.tests_to_run }}
       destroy_runner: ${{ inputs.destroy_runner }}
-      runner_template: 'hosted-prov-e2e-ci-runner-spot-n2-highmem-16-gl-template-v3'
+      runner_template: 'gke-prow-default-pool-1eb635eb'
       rancher_installed: ${{ inputs.rancher_installed }}
       downstream_cluster_cleanup: ${{ inputs.downstream_cluster_cleanup }}
       proxy: ${{ inputs.proxy }}

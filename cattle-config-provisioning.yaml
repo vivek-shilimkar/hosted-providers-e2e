@@ -125,7 +125,7 @@ gkeClusterConfig:
     masterIpv4CidrBlock: ""
   region: ""
   subnetwork: hosted-providers-ci
-  zone: us-central1-a
+  zone: us-west1
   projectID: <project>
 googleCredentials:
 rancher:

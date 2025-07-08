@@ -209,7 +209,7 @@ func GetGKEZone() string {
 			zone = gkeConfig.Zone
 		}
 		if zone == "" {
-			zone = "asia-south2-c"
+			zone = "us-west1"
 		}
 	}
 	return zone
@@ -227,7 +227,7 @@ func GetGKERegion() string {
 			region = gkeConfig.Region
 		}
 		if region == "" {
-			region = "asia-south2"
+			region = "us-west1"
 		}
 	}
 	return region
@@ -243,7 +243,7 @@ func GetAKSLocation() string {
 		config.LoadConfig("aksClusterConfig", aksClusterConfig)
 		region = aksClusterConfig.ResourceLocation
 		if region == "" {
-			region = "centralindia"
+			region = "us-west1"
 		}
 	}
 	return region
@@ -259,7 +259,7 @@ func GetEKSRegion() string {
 		config.LoadConfig("eksClusterConfig", eksClusterConfig)
 		region = eksClusterConfig.Region
 		if region == "" {
-			region = "ap-south-1"
+			region = "us-west1"
 		}
 	}
 	return region

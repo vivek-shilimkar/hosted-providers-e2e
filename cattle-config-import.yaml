@@ -42,7 +42,7 @@ eksClusterConfig:
   region: ap-south-1
 gkeClusterConfig:
   projectID: <project>
-  zone: asia-south2-c
+  zone: us-west1
   imported: true
   nodePools:
   - autoscaling: {}
