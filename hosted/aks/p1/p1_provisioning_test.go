@@ -209,7 +209,7 @@ var _ = Describe("P1Provisioning", func() {
 		cluster, err = ctx.RancherAdminClient.Management.Cluster.ByID(cluster.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(*cluster.AKSStatus.UpstreamSpec.NodePools).To(HaveLen(initialNPCount + 3))
-		Expect(cluster.AKSStatus.UpstreamSpec.KubernetesVersion).To(Equal(upgradeK8sVersion))
+		Expect(*cluster.AKSStatus.UpstreamSpec.KubernetesVersion).To(Equal(upgradeK8sVersion))
 	})
 
 	It("create cluster with network policy: calico and plugin: kubenet", func() {
@@ -557,7 +557,7 @@ var _ = Describe("P1Provisioning", func() {
 			npUpgradeToVersionGTCPCheck(cluster, ctx.RancherAdminClient, upgradeK8sVersion)
 		})
 
-		XIt("should Update a cluster when a cluster is in Updating State", func() {
+		It("should Update a cluster when a cluster is in Updating State", func() {
 			// Ref: https://github.com/rancher/aks-operator/issues/826
 			testCaseID = 223
 			updateClusterWhenUpdating(cluster, ctx.RancherAdminClient, upgradeK8sVersion)
@@ -718,7 +718,7 @@ var _ = Describe("P1Provisioning", func() {
 			Expect(len(*cluster.AKSStatus.UpstreamSpec.NodePools)).To(Equal(2))
 		})
 
-		XIt("should to able to delete a nodepool and add a new one with different availability zone", func() {
+		It("should to able to delete a nodepool and add a new one with different availability zone", func() {
 			// Blocked by: https://github.com/rancher/aks-operator/issues/667#issuecomment-2370798904
 			testCaseID = 190
 			// also covers testCaseID = 194
@@ -806,10 +806,15 @@ var _ = Describe("P1Provisioning", func() {
 		}
 	})
 
-	XContext("Private Cluster", func() {
-		// Blocked on: https://github.com/rancher/rancher/issues/43772
+	Context("Private Cluster", func() {
+		// Previously blocked on: https://github.com/rancher/rancher/issues/43772
 		BeforeEach(func() {
 			var err error
+			serverVersion, err := helpers.GetRancherServerVersion(ctx.RancherAdminClient)
+			Expect(err).NotTo(HaveOccurred())
+			if !strings.Contains(serverVersion, "2.12") {
+				Skip("Not supported on version < 2.12")
+			}
 			k8sVersion, err = helper.GetK8sVersion(ctx.RancherAdminClient, ctx.CloudCredID, location, true)
 			Expect(err).NotTo(HaveOccurred())
 			GinkgoLogr.Info(fmt.Sprintf("Using K8s version %s for cluster %s", k8sVersion, clusterName))
