@@ -1,16 +1,17 @@
 module github.com/rancher/hosted-providers-e2e
 
-go 1.22.0
+go 1.23.0
+
 toolchain go1.24.1
 
 require (
-	github.com/Masterminds/semver/v3 v3.3.1
+	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/epinio/epinio v1.11.0
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.36.3
+	github.com/onsi/gomega v1.37.0
 	github.com/pkg/errors v0.9.1
-	github.com/rancher-sandbox/ele-testhelpers v0.0.0-20250415062725-efdf8e57c793
+	github.com/rancher-sandbox/ele-testhelpers v0.0.0-20250711071119-c33617a1af7a
 	github.com/rancher-sandbox/qase-ginkgo v1.0.1
 	github.com/rancher/rancher v0.0.0-00010101000000-000000000000
 	github.com/rancher/shepherd v0.0.0-20250205140852-ba6d2793aaff // rancher/shepherd main commit

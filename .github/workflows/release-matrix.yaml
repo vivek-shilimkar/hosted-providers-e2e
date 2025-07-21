@@ -8,7 +8,7 @@ on:
         description: Rancher version channel/version/head_version
         required: true
         type: string
-        default: latest/devel/2.10
+        default: head/2.12
       k3s_version:
         description: k3s version of local cluster
         required: true

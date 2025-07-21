@@ -72,7 +72,7 @@ env:
   QASE_REPORT: 1
   QASE_RUN_COMPLETE: 1
   RANCHER_LOG_COLLECTOR: ${{ github.workspace }}/.github/scripts/collect-rancher-logs.sh
-  GCP_RUNNER_ZONE: asia-south2-c
+  GCP_RUNNER_ZONE: us-west1-c
   DOWNSTREAM_CLUSTER_CLEANUP: ${{ inputs.downstream_cluster_cleanup }}
   QASE_HELPER: ${{ github.workspace }}/hosted/helpers/qase/helper_qase.go
   SECONDARY_GCP_CREDENTIALS: ${{ secrets.SECONDARY_GOOGLE_APPLICATION_CREDENTIALS }}

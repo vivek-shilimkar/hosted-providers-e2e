@@ -8,15 +8,15 @@ on:
         description: Rancher version channel/version. This must be a released stable rancher version.
         required: true
         type: string
-        default: latest/2.9.3
+        default: latest/2.11.3
       rancher_upgrade_version:
         description: Rancher upgrade version
         required: true
         type: string
-        default: latest/devel/2.10
+        default: head/2.12
       k8s_upgrade_minor_version:
         description: K8s minor version to test
-        default: "1.31"
+        default: "1.33"
         required: true
         type: string
       k3s_version:
