@@ -502,9 +502,11 @@ func ListEKSAllVersions(client *rancher.Client) (allVersions []string, err error
 		return
 	}
 
-	allVersions = []string{"1.32", "1.31", "1.30"}
+	allVersions = []string{"1.33", "1.32", "1.31"}
 
-	if strings.Contains(serverVersion, "2.10") {
+	if strings.Contains(serverVersion, "2.11") {
+		allVersions = []string{"1.32", "1.31", "1.30"}
+	} else if strings.Contains(serverVersion, "2.10") {
 		allVersions = []string{"1.31", "1.30", "1.29", "1.28"}
 	} else if strings.Contains(serverVersion, "2.9") {
 		allVersions = []string{"1.30", "1.29", "1.28", "1.27"}
