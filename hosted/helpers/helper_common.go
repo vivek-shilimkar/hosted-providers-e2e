@@ -16,6 +16,7 @@ import (
 	management "github.com/rancher/shepherd/clients/rancher/generated/management/v3"
 	v1 "github.com/rancher/shepherd/clients/rancher/v1"
 	"github.com/rancher/shepherd/extensions/cloudcredentials"
+	"github.com/rancher/shepherd/extensions/cloudcredentials/alibaba"
 	"github.com/rancher/shepherd/extensions/cloudcredentials/aws"
 	"github.com/rancher/shepherd/extensions/cloudcredentials/azure"
 	"github.com/rancher/shepherd/extensions/cloudcredentials/google"
@@ -70,6 +71,13 @@ func CommonSynchronizedBeforeSuite() {
 		credentialConfig := new(cloudcredentials.GoogleCredentialConfig)
 		config.LoadAndUpdateConfig("googleCredentials", credentialConfig, func() {
 			credentialConfig.AuthEncodedJSON = os.Getenv("GCP_CREDENTIALS")
+		})
+
+	case "alibaba":
+		credentialConfig := new(cloudcredentials.AlibabaCredentialConfig)
+		config.LoadAndUpdateConfig("alibabacredential", credentialConfig, func() {
+			credentialConfig.AccessKeyId = os.Getenv("ALIBABA_ACCESS_KEY_ID")
+			credentialConfig.SecretAccessKey = os.Getenv("ALIBABA_ACCESS_KEY_SECRET")
 		})
 	}
 
@@ -380,6 +388,10 @@ func CreateCloudCredentials(client *rancher.Client) (string, error) {
 	case "gke":
 		cloudCredentialConfig = cloudcredentials.LoadCloudCredential("google")
 		cloudCredential, err = google.CreateGoogleCloudCredentials(client, cloudCredentialConfig)
+		Expect(err).To(BeNil())
+	case "alibaba":
+		cloudCredentialConfig = cloudcredentials.LoadCloudCredential("alibaba")
+		cloudCredential, err = alibaba.CreateAlibabaCloudCredentials(client, cloudCredentialConfig)
 		Expect(err).To(BeNil())
 	}
 	return fmt.Sprintf("%s:%s", cloudCredential.Namespace, cloudCredential.Name), nil
