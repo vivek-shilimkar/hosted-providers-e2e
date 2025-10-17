@@ -58,3 +58,25 @@ jobs:
             echo "Deleting GKE cluster: $cl"
             gcloud container clusters delete --location asia-south2-c $cl --async --quiet
           done
+
+  alibaba-janitor:
+    name: alibaba-janitor
+    runs-on: ubuntu-latest
+    env:
+      ALIBABA_ACCESS_KEY_ID: ${{ secrets.ALIBABA_ACCESS_KEY_ID }}
+      ALIBABA_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_ACCESS_KEY_SECRET }}
+      ALIBABA_REGION_ID: eu-central-1 # Or your default test region
+    steps:
+      - name: Install Alibaba Cloud CLI
+        run: |
+          curl -L "https://aliyuncli.alicdn.com/aliyun-cli-linux-latest-amd64.tgz" -o "aliyun-cli-linux-latest-amd64.tgz"
+          tar -zxvf aliyun-cli-linux-latest-amd64.tgz
+          sudo mv aliyun /usr/local/bin
+      - name: Cleanup
+        continue-on-error: true
+        run: |
+          aliyun configure set --profile akProfile --mode AK --region $ALIBABA_REGION_ID --access-key-id $ALIBABA_ACCESS_KEY_ID --access-key-secret $ALIBABA_ACCESS_KEY_SECRET
+          for id in $(aliyun cs DescribeClustersV1 --name-fuzzy "auto-alibaba-hp-ci" --query 'clusters[*].cluster_id' --output json | jq -r '.[]'); do
+            echo "Deleting Alibaba ACK cluster: $id"
+            aliyun cs DeleteCluster --ClusterId $id --confirm-delete=true
+          done

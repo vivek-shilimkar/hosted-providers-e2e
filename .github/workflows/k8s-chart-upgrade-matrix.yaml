@@ -48,7 +48,7 @@ on:
         description: Providers to the run the test on
         required: true
         type: string
-        default: '["eks", "gke", "aks"]'
+        default: '["eks", "gke", "aks", "alibaba"]'
 
 jobs:
   e2e-tests:
